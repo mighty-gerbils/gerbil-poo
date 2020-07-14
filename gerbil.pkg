@@ -1,0 +1,3 @@
+;; Prototype Object Orientation for Gerbil
+(package: poo
+ depend: ("github.com/fare/gerbil-utils"))
