@@ -6,7 +6,7 @@
 (import
   :gerbil/gambit/ports
   :std/format :std/sort :std/srfi/13 :std/test
-  :utils/assert :utils/base
+  :clan/assert :clan/base
   ../poo ../brace)
 
 

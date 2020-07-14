@@ -8,8 +8,8 @@
 (import
   :gerbil/gambit/bits :gerbil/gambit/bytes :gerbil/gambit/exact :gerbil/gambit/ports :scheme/base
   :std/iter :std/misc/bytes :std/srfi/1 :std/sugar
-  :utils/base :utils/io :utils/number
-  :utils/pure/dict/intdict
+  :clan/base :clan/io :clan/number
+  :clan/pure/dict/intdict
   ./poo ./mop ./brace ./io)
 
 ;; TODO: basic interface for arithmetics, with proper type signatures.

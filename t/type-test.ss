@@ -4,7 +4,7 @@
 (import
   :gerbil/gambit/ports
   :std/format :std/sort :std/srfi/13 :std/sugar :std/test
-  :utils/assert :utils/base
+  :clan/assert :clan/base
   ../poo ../mop ../number ../type)
 
 

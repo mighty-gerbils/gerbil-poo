@@ -7,7 +7,7 @@
   :gerbil/gambit/bits :gerbil/gambit/bytes :gerbil/gambit/ports
   :std/format :std/iter :std/lazy :std/misc/hash :std/misc/list
   :std/srfi/1 :std/srfi/43 :std/sugar :std/text/hex
-  :utils/assert :utils/base :utils/hash :utils/io :utils/json :utils/maybe :utils/number
+  :clan/assert :clan/base :clan/hash :clan/io :clan/json :clan/maybe :clan/number
   ./poo ./mop ./brace ./io ./number)
 
 (.def (Tuple. @ [methods.bytes<-marshal Type.] types)

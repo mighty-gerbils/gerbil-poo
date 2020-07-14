@@ -3,7 +3,7 @@
 (import
   :gerbil/gambit/bytes :gerbil/gambit/hash :gerbil/gambit/ports
   :std/generic :std/iter :std/misc/repr :std/sugar :std/text/json
-  :utils/base :utils/hash :utils/io :utils/json
+  :clan/base :clan/hash :clan/io :clan/json
   ./poo ./mop ./brace)
 
 ;;; Byte I/O

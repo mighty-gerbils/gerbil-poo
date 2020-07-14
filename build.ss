@@ -8,7 +8,7 @@
 
 (import
   :std/build-script :std/srfi/1
-  :utils/filesystem :utils/path :utils/versioning)
+  :clan/filesystem :clan/path :clan/versioning)
 
 (def here (path-parent (this-source-file)))
 (current-directory here)
@@ -19,7 +19,7 @@
 
 (def (main . args)
   (when (match args ([] #t) (["compile" . _] #t) (_ #f))
-    (update-version-from-git name: "Gerbil-poo"))
+    (update-version-from-git name: "Gerbil-poo" deps: '("clan")))
   (defbuild-script ;; defines an inner "main"
     (build-spec)
     ;;verbose: 9
