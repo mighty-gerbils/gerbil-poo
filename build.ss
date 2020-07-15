@@ -6,22 +6,8 @@
 ;; Note that may you need to first:
 ;;   gxpkg install github.com/fare/gerbil-utils
 
-(import
-  :std/build-script :std/srfi/1
-  :clan/filesystem :clan/path :clan/versioning)
+(import :clan/building)
 
-(def here (path-parent (this-source-file)))
-(current-directory here)
-
-(def (build-spec)
-  ((cut lset-difference equal? <> '("build.ss" "unit-tests.ss"))
-   (filter (cut path-extension-is? <> ".ss") (directory-files "."))))
-
-(def (main . args)
-  (when (match args ([] #t) (["compile" . _] #t) (_ #f))
-    (update-version-from-git name: "Gerbil-poo" deps: '("clan")))
-  (defbuild-script ;; defines an inner "main"
-    (build-spec)
-    ;;verbose: 9
-    )
-  (apply main args))
+(init-build-environment!
+ name: "Gerbil-poo"
+ deps: '("clan"))
