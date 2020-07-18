@@ -337,3 +337,5 @@
 
 ;; For now, types are just runtime descriptors...
 (defrule (define-type a desc) (def a (.mix {sexp: 'a} desc)))
+
+;; TODO: a special slot .parameters, and a function that specialized a poo on its positional parameters?

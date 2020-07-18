@@ -169,7 +169,7 @@
   .marshal: => (lambda (super) (if (zero? .length-in-bytes) void super))
   .unmarshal: => (lambda (super) (cond
                              ((< 0 .length-in-bytes) super)
-                             ((null? vals) (lambda _ (error "no value to unmarshal of type" sexp)))
+                             ((void? vals) (lambda _ (error "no value to unmarshal of type" sexp)))
                              (else (let (val (car vals)) (lambda _ val)) super))))
 (defrule (Enum values ...) {(:: @ Enum.) vals: '(values ...)})
 
@@ -187,13 +187,13 @@
 
 (.def (Maybe. @ [methods.bytes<-marshal Type.] type)
   sexp: `(Maybe ,(.@ type sexp))
-  .element?: (lambda (x) (or (eq? x null) (element? type x)))
-  .sexp<-: (lambda (v) (if (eq? v null) 'null (sexp<- type v)))
-  .json<-: (lambda (v) (if (eq? v null) v ((.@ type .json<-) v)))
-  .<-json: (lambda (j) (if (eq? j null) j ((.@ type .<-json) j)))
-  .marshal: (λ (x port) (cond ((eq? x null) (write-byte 0 port))
+  .element?: (lambda (x) (or (void? x) (element? type x)))
+  .sexp<-: (lambda (v) (if (void? v) '(void) (sexp<- type v)))
+  .json<-: (lambda (v) (if (void? v) v ((.@ type .json<-) v)))
+  .<-json: (lambda (j) (if (void? j) j ((.@ type .<-json) j)))
+  .marshal: (λ (x port) (cond ((void? x) (write-byte 0 port))
                               (else (write-byte 1 port) (marshal type x port))))
-  .unmarshal: (λ (port) (if (zero? (read-byte port)) null (unmarshal type port))))
+  .unmarshal: (λ (port) (if (zero? (read-byte port)) (void) (unmarshal type port))))
 (def (Maybe type) {(:: @ Maybe.) (type)})
 
 (.def (Map. @ [methods.string&bytes&marshal<-json Type.] Key Value)
