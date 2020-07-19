@@ -471,6 +471,9 @@ hold values of slots modified by side-effects.
 
 ### Internals TODO
 
+  * Implement a proper inheritence DAG with a list of super-prototypes from which a
+    prototype-precedence list is deduced, rather than require the user to supply the precedence list.
+
   * Represent prototypes as pure persistent maps, instead of hash-tables and/or lists thereof?
     Merge them in a way that maximizes sharing of state, maybe even with hash-consing.
 
@@ -483,3 +486,5 @@ hold values of slots modified by side-effects.
     hash-consed word-granular (rather than bitwise) patricia tree datastructures are used for shapes.
 
   * Better debugging for circular definitions with a variant of hash-ensure-ref that detects them.
+
+  * Make sure this works well with constant-folding in the underlying compiler.

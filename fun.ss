@@ -13,18 +13,21 @@
        .ap ;; : (forall a (Fun (@ a) <- a))
        .map)) ;; : (forall a b (Fun (Fun (@ a) <- (@ b)) (Fun a <- b)))
 
-(.def (Identity @ Functor.)
+(.def (Identity @ Functor.) ;; also a monad
   .tap: identity
   .ap: identity
   .map: identity
   .unap: identity
-  .Log: Unit)
+  .Log: Unit
+  .bind: (lambda (x f) (f x)))
 
 (.def (Wrap. @ Type.
        T ;; : Type.
        Wrapper) ;; : Functor.
-  .wrap: (.@ Wrapper .ap)
-  .unwrap: (.@ Wrapper .unap))
+  .wrap: (.@ Wrapper .ap) ;; : (Wrap t) <- t
+  .unwrap: (.@ Wrapper .unap) ;; : t <- (Wrap t)
+  .bind/wrap: (.@ Wrapper .bind) ;; : u <- (Wrap t) (u <- t) = (lambda (x f) (f (.unwrap x)))
+  .map/wrap: (.@ Wrapper .map)) ;; : (Wrap u) <- (u <- t) (Wrap t) = (lambda (f x) (.wrap (f (.unwrap x))))
 
 (.def (IdWrap @ Wrap.)
   Wrapper: Identity)

@@ -7,7 +7,7 @@
 
 (import
   :gerbil/gambit/bits :gerbil/gambit/bytes :gerbil/gambit/exact :gerbil/gambit/ports :scheme/base
-  :std/iter :std/misc/bytes :std/srfi/1 :std/sugar
+  :std/iter :std/misc/bytes :std/misc/hash :std/srfi/1 :std/sugar
   :clan/base :clan/io :clan/number
   :clan/pure/dict/intdict
   ./poo ./mop ./brace ./io)
@@ -15,21 +15,38 @@
 ;; TODO: basic interface for arithmetics, with proper type signatures.
 (.def (Number @ Type.)
   sexp: 'Number
-  .element?: number?)
-
-(.def (Integer @ [methods.bytes<-marshal Number])
-  sexp: 'Integer
-  .element?: exact-integer?
+  .element?: number?
   .sexp<-: identity
-  .json<-: (lambda (x) (if (<= (integer-length x) 53) x (.string<- x)))
-  .<-json: (lambda (x) (if (exact-integer? x) x (.<-string x)))
   .add: +
   .sub: -
   .mul: *
-  .div: floor-quotient
-  .mod: modulo
+  .div: /
   .zero: 0
   .one: 1
+  .<-string: (lambda (x) (validate @ (string->number x)))
+  .string<-: number->string
+  .=?: (cut = <> <>)
+
+  ;; Should the things below be in Real?
+  ;; function taking two entries a, b.
+  ;; -- If a = b then returns 0;
+  ;; -- If a > b then returns 1
+  ;; -- If a < b then returns -1
+  ;; (-- If the numbers are not comparable, returns #f)
+  .comparer: number-comparer
+  .non-negative?: (cut <= 0 <>)
+  .sign: (cut number-comparer <> 0)
+  .max: max
+  .min: min)
+
+(.def (Integer @ [methods.bytes<-marshal Number]
+                 .string<- .<-string)
+  sexp: 'Integer
+  .element?: exact-integer?
+  .json<-: (lambda (x) (if (<= (integer-length x) 53) x (.string<- x)))
+  .<-json: (lambda (x) (if (exact-integer? x) x (.<-string x)))
+  .div: floor-quotient
+  .mod: modulo
   .logand: bitwise-and
   .logor: bitwise-ior
   .logxor: bitwise-xor
@@ -38,26 +55,12 @@
   .shift-right: (λ (x n) (arithmetic-shift x (- n)))
   .marshal: write-varint
   .unmarshal: read-varint
-  .<-string: (lambda (x) (validate @ (string->number x)))
-  .string<-: number->string
-  .succ: 1+
-  .pred: 1-
-  ;; function taking two entries a, b.
-  ;; -- If a = b then returns 0;
-  ;; -- If a > b then returns 1
-  ;; -- If a < b then returns -1
-  ;; (-- If the numbers are not comparable, returns #f)
-  .comparer: number-comparer
-  .non-negative?: (cut <= 0 <>)
-  .=?: (cut = <> <>)
-  .sign: (cut number-comparer <> 0)
   ;; extract-bit-field test-bit-field? integer-length integer-length<? ...
-  .max: max
-  .min: min)
+  .succ: 1+
+  .pred: 1-)
 
 (.def (Nat @ Integer)
   sexp: 'Nat
-  .sexp<-: identity
   .marshal: write-varnat
   .unmarshal: read-varnat
   .sub: (lambda (x y) (if (>= x y) (- x y) (error "Overflow" - x y)))
@@ -139,7 +142,9 @@
   .bytes<-: (cut bytes<-nat <> .length-in-bytes)
   .<-bytes: nat<-bytes
   .normalize: (λ (x) (bitwise-and x .maxint)))
-(def (UInt .length-in-bits) {(:: @ UInt.) (.length-in-bits)})
+(def UInt<-length-in-bits (make-hash-table))
+(def (UInt .length-in-bits)
+  (hash-ensure-ref UInt<-length-in-bits .length-in-bits (lambda () {(:: @ UInt.) (.length-in-bits)})))
 
 (.def (JsInt @ [methods.marshal<-fixed-length-bytes Integer] .validate)
   sexp: 'JsInt
