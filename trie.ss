@@ -26,14 +26,15 @@
 ;; *before* next step is taken. It is -1 if a leaf, the length of the key *minus one* for another node,
 ;; thus 0 for a branch whose bit of decision is 1, h for a branch whose bit of decision is 1<<h.
 ;; Note that steps may be applied to an empty trie, whose height is undefined outside of such a context,
-;; but the height of a Costep itself is never #f (or -inf.0, or whatever it is for .empty).
-;; The key in a Costep is the bits *above* the height, to be multiplied by 2**(height+1) in the
+;; and that the height of a Costep may itself be #f (or -inf.0, or whatever it is for .empty),
+;; when the Costep is itself the result of trying to find a path from the empty trie.
+;; The key in a Costep is the bits *above* the height, to be multiplied by 2**(height+1)
 ;; to get the actual key of the start of the current trie.
 (defstruct $Costep (height key) transparent: #t) ; height: Integer key: Key
 (defstruct $Path (costep steps) transparent: #t) ; costep: Costep steps: (List (Step t))
 (defstruct $Unstep (left right skip) transparent: #t) ;; left: (Fun trunk <- Key Height trunk branch) right: (Fun trunk <- Key Height branch trunk) skip: (Fun trunk <- Key Height Height Key trunk)
 
-;; That's basically a fold of the open recursion functor of which the (unwrapped) Trie is the fixed-point.
+;; This is basically a fold of the open recursion functor of which the (unwrapped) Trie is the fixed-point.
 (.def (TrieSynth. @ [] ;; mixin for Type.
    ;; Key ;; : Type -- implicit
    Value ;; : Type
@@ -295,13 +296,13 @@
   ;; : (Fun @ <- Height @ @)
   .branch:
   (lambda (height left right)
-    (unless (and (element? Height height) (equal? (1- height) (.trie-height left)) (equal? (1- height) (.trie-height right))) (error "Internal error" '.branch height left right))
+    ;;(unless (and (element? Height height) (equal? (1- height) (.trie-height left)) (equal? (1- height) (.trie-height right))) (error "Internal error" '.branch height left right))
     (.wrap (Branch height left right)))
 
   ;; : (Fun @ <- Key Height Height @)
   .skip:
   (lambda (height bits-height bits child)
-    (unless (and (element? Height height) (element? Height bits-height) (element? Key bits) (equal? (- height bits-height 1) (.trie-height child))) (error "Internal error" '.skip height bits-height bits child))
+    ;;(unless (and (element? Height height) (element? Height bits-height) (element? Key bits) (equal? (- height bits-height 1) (.trie-height child))) (error "Internal error" '.skip height bits-height bits child))
     (.wrap (Skip height bits-height bits child)))
 
   ;; Higher-level trie constructors, normalizing the skip cases

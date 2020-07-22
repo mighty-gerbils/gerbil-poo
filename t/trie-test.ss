@@ -8,9 +8,11 @@
   :clan/t/test-support
   ../poo ../mop ../io ../number ../type ../fun ../trie)
 
-;; TODO: add test for removing from a non-matching skip node.
-
+;; TODO: systematically write function properties and make more property-based tests?
 ;; TODO: move all/most of these macros and tests to a table-testing.ss support file?
+;; TODO: support multimethods / externally defined methods / monkey patching / whatever
+;;  so that tests can be defined as generic functions?
+
 (defsyntax (def-table-test-accessors stx)
   (syntax-case stx ()
     ((ctx T) #'(ctx T ctx))
