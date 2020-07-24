@@ -10,6 +10,17 @@
   :clan/assert :clan/base :clan/hash :clan/io :clan/json :clan/maybe :clan/number
   ./poo ./mop ./brace ./io ./number)
 
+;; vector-map-in-order : [Index A B ... -> C] [Vectorof A] [Vectorof B] ... -> [Vectorof C]
+;; The applictions of `f` are in order, unlike `vector-map`, but like `vector-for-each`
+(def (vector-map-in-order f v . rst)
+  (def n (vector-length v))
+  (for ((v2 rst))
+    (assert! (= n (vector-length v2)) "vector-map-in-order: lengths should be the equal"))
+  (vector-unfold
+   (lambda (i)
+     (apply f i (vector-ref v i) (map (cut vector-ref <> i) rst)))
+   n))
+
 (.def (Tuple. @ [methods.bytes<-marshal Type.] types)
   sexp: `(Tuple ,@(map (cut .@ <> sexp) type-list))
   type-list: (vector->list types)
@@ -26,9 +37,9 @@
   .marshal: (lambda (v port)
               (vector-for-each (lambda (_ type val) (marshal type val port))
                                types v))
-  .unmarshal: (lambda (port) (vector-map (lambda (_ type) (unmarshal type port)) types)))
-(def (Tuple . types) ;; type of tuples, heterogeneous arrays of given length and type
-  (def types (list->vector (map (cut validate Type <>) types)))
+  .unmarshal: (lambda (port) (vector-map-in-order (lambda (_ type) (unmarshal type port)) types)))
+(def (Tuple . type-list) ;; type of tuples, heterogeneous arrays of given length and type
+  (def types (list->vector (map (cut validate Type <>) type-list)))
   {(:: @ Tuple.) (types)})
 
 (.def (List. @ [methods.bytes<-marshal methods.string<-json Type.] type)

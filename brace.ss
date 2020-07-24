@@ -9,7 +9,11 @@
 
 ;; {args ...} -> (@method args ...) -> (.o args ...)
 ;; except that for macro-scope it's -> (.o/ctx #,stx args ...)
-(defsyntax (@method stx)
-  (syntax-case stx ()
-    ((_ args ...)
-     (with-syntax ((ctx stx)) #'(.o/ctx ctx args ...)))))
+(defsyntax-for-match @method
+  (lambda (stx)
+    (syntax-case stx () ; match pattern
+      ((_ args ...) #'(.o args ...))))
+  (lambda (stx)
+    (syntax-case stx () ; expr
+      ((_ args ...)
+       (with-syntax ((ctx stx)) #'(.o/ctx ctx args ...))))))
