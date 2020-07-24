@@ -6,37 +6,13 @@
 (export #t)
 
 (import
-  (for-syntax :std/srfi/1)
+  (for-syntax :std/srfi/1 :clan/syntax)
+  :clan/syntax
   :gerbil/gambit/exact :gerbil/gambit/ports
-  :std/format :std/generic :std/iter :std/lazy
+  :std/error :std/format :std/generic :std/iter :std/lazy
   :std/misc/list :std/misc/repr :std/srfi/1 :std/sugar
-  :clan/base :clan/hash :clan/io
+  :clan/base :clan/error :clan/hash :clan/io :clan/list
   ./poo ./brace)
-
-;;TODO: Parse Gerbil Scheme formals, extract call arguments
-(begin-syntax
-  (def (stx-keyword? x) (keyword? (syntax-e x)))
-  (def (formal->variable f)
-    (syntax-case f ()
-      (_ (identifier? f) f)
-      ((v _) (identifier? #'v) #'v)
-      (_ (error "Invalid formal parameter" f))))
-  (def (formals->variables formals)
-    (let loop ((rvars [])
-               (formals formals))
-      (syntax-case formals ()
-        (() (reverse rvars))
-        ((k v . rest) (stx-keyword? #'k) (loop (cons (formal->variable #'v) rvars) #'rest))
-        ((v . rest) (loop (cons (formal->variable #'v) rvars) #'rest))
-        (_ (error "Invalid formals" formals)))))
-  (def (formals->call formals)
-    (let loop ((rcall [])
-               (formals formals))
-      (syntax-case formals ()
-        (() (reverse rcall))
-        ((k v . rest) (stx-keyword? #'k) (loop [(formal->variable #'v) #'k . rcall] #'rest))
-        ((v . rest) (loop [(formal->variable #'v) . rcall] #'rest))
-        (_ (error "Invalid formals" formals))))))
 
 ;; * Options
 ;; default: default value when no method is defined, also bottom value for fixed-point
@@ -49,53 +25,44 @@
 ;; TODO: make this information somehow available at compile-time when possible,
 ;;   to enable inlining and partial evaluation.
 (defsyntax (.defgeneric stx) ;; define a generic function that invokes the prototype's slot
-  (def (parse-formals formals)
-    (syntax-case formals ()
-      ((fun self args ...) (values #'fun #'self #'(args ...)))
-      (fun (identifier? #'fun) (values #'fun #'self #f))
-      (_ (error "bad formals for .defgeneric" stx))))
   (def (parse-options options)
     (def slot-name #f)
     (def default #f)
-    (def from 'instance)
+    (def from #f)
     (let loop ((options options))
       (match options
-        ([] (values slot-name default from))
+        ([] (values slot-name default (or from 'instance)))
         ([kw val . rest]
          (match (syntax-e kw)
-           (slot: (set! slot-name val))
-           (from: (case (syntax-e val)
+           (slot: (when slot-name (error "slot-name set twice" stx))
+                  (set! slot-name val))
+           (from: (when from (error "from set twice" stx))
+                  (case (syntax-e val)
                     ((type) (set! from 'type))
                     ((instance) (set! from 'instance))
-                    (else (error "invalid option" val))))
-           (default: (set! default val))
-           (x (error "invalid option" x options)))
+                    (else (error "invalid option" stx val))))
+           (default: (when default (error "default set twice" stx))
+                     (set! default val))
+           (x (error "invalid option" x stx)))
          (loop rest))
         (_ (error "invalid options" options (syntax->datum options))))))
   (syntax-case stx ()
-    ((.defgeneric formals options ...)
+    ((.defgeneric (gf self . formals) options ...)
      (begin
-       (define-values (fun self funargs) (parse-formals #'formals))
        (define-values (slot-name default from) (parse-options (syntax->list #'(options ...))))
-       (with-syntax* ((gf fun)
-                      (self self)
-                      ((args ...) (or funargs #'()))
-                      ((vars ...) (formals->variables #'(args ...)))
-                      (slot-name (or slot-name fun))
+       (with-syntax* ((slot-name (or slot-name (symbolify "." #'gf)))
                       (default* default)
                       (base (if default #'(λ () default*) #'(no-such-slot self 'slot-name)))
                       (methods (case from
                                  ((instance) #'self)
                                  ((type) #'(.get self .type))
                                  (else (error "invalid from" (syntax->datum stx)))))
-                      (getter #'(.ref methods 'slot-name base))
-                      ((evars ...) (case from
-                                     ((type) #'(self vars ...))
-                                     ((instance) #'(vars ...))
-                                     (else (error "invalid from" (syntax->datum stx))))))
-         (if (or funargs (case from ((type) #t) ((instance) #f)))
-           #'(def (gf self args ...) (getter evars ...))
-           #'(def (gf self) getter)))))))
+                      (method #'(.ref methods 'slot-name base))
+                      ((selfvar ...) (case from ((type) #'(self)) ((instance) #'())))
+                      (body (if (and (stx-null? #'formals) (eq? from 'instance))
+                              #'method
+                              (call<-formals #'(method selfvar ...) #'formals))))
+           #'(def (gf self . formals) body))))))
 
 ;;(def (and-combination new-value old-value) (and (new-value dont-call-next-method) (old-value)))
 
@@ -108,35 +75,83 @@
    ;;combination: and-combination
    slot: .element?)
 
+;;; SEXP from values
+
+;; gf to extract a source sexp from a value of given type
+(.defgeneric (sexp<- type x) slot: .sexp<-)
+
+(defgeneric :sexp
+  (lambda (x)
+    (cond
+     ((or (number? x) (boolean? x) (string? x) (char? x) (void? x) (keyword? x) (eof-object? x))
+      x)
+     (else `',x)))) ;; TODO: do better than that.
+
+(defmethod (@@method :sexp poo)
+  (λ (self)
+    (cond
+     ((.has? self .type .sexp<-) (.call (.@ self .type) .sexp<- self))
+     ((.has? self sexp) (object->string (.@ self sexp))))))
+
 (.def (Type. @)
   sexp: (error "missing type sexp" @) ;; Any
-  .element?: (error "missing element?" @) ;; Bool <- Any
-  .validate: (lambda (x (ctx '())) (typecheck @ x ctx) x)) ;; @ <- Any ;; error if input isn't a @
+  ;; NB: either `validate` or `element?` can be primary, with the other method deduced from it.
+  ;; But if you fail to override either, it's bottomless mutual recursion calling them.
+  .element?: ;; : Bool <- Any ;; is this an element of this type?
+  (lambda (x) (try (.validate x '()) #t (catch (_) #f)))
+  .validate: ;; : @ <- Any ?(List Any) ;; identity for an @, throws a type-error if input isn't a @
+  (lambda (x (context '())) (if (.element? x) x (type-error context Type @ [value: x])))
+  .sexp<-: (lambda (x) (.@ x sexp)))
 
-(def (typecheck type x (context '()))
-  (or (element? type x) (type-error context (.@ type sexp) (repr x))))
-(def (type-error . args)
-  (apply error "type-error" (flatten-heads args)))
-(def (flatten-heads x)
-  (match x
-    ([] [])
-    ([hd . tl] (append (flatten-heads hd) tl))
-    (x [x])))
+(def (display-poo l (port (current-output-port)))
+  (let d ((space? #f))
+    (unless (null? l)
+      (when space? (display " " port))
+      (let (x (pop! l))
+        (cond
+         ((string? x)
+          (display x port) (d #f))
+         ((or (symbol? x) (keyword? x))
+          (display x port) (d #t))
+         ((element? Type x)
+          (write (sexp<- Type (pop! l)) port) (d #t))
+         (else (pr x port) (d #t)))))))
+
+(def (display-context c (port (current-output-port)))
+  (for-each (lambda (l) (display-poo l port) (newline port))
+            (reverse (append c (current-error-context)))))
+
+(defstruct (<Error> exception) (tag args context) transparent: #t)
+(def (Error tag (context '()) . args) (raise (<Error> tag args context)))
+(def (type-error (context '()) . args) (apply Error type-error: context args))
+(defmethod (@@method display-exception <Error>)
+  (lambda (self port)
+    (display-context (<Error>-context self) port)
+    (display-poo (cons (<Error>-tag self) (<Error>-args self)) port)
+    (newline port))
+  rebind: #t)
+
+(defstruct tv (type value) transparent: #t)
+(.def (TV @)
+  sexp: 'TV ;; Type and Value
+  .validate: (lambda (x (ctx '()))
+               (def c [[validating: x] . ctx])
+               (match x ((tv t v) (validate t v c)) (_ (type-error c "no tv"))))
+  .sexp<-: (lambda (x) `(tv ,(.@ @ sexp) (sexp<- (tv-type x) (tv-value x)))))
 
 ;; TODO: teach .defgeneric about optional arguments.
 ;; TODO: use macro that leaves source info by default, returns a function when passed as argument.
-(def (validate type x (ctx '())) (.call type .validate x ctx))
+(def (validate type x (context '())) (.call type .validate x context))
 
-(def (poo-values x) (map (cut .ref x <>) (.all-slots x)))
-(def (symbolify x) (!> x object->string string->symbol))
-
-(.def (Any @ Type.) sexp: 'Any .element?: true)
-(.def (Poo @ Type.) sexp: 'Poo .element?: poo?)
+(.def (Any @ Type.) sexp: 'Any .element?: true .sexp<-: (cut list 'quote <>))
+(.def (Poo @ Type.) sexp: 'Poo .element?: poo?
+      .sexp<-: identity) ;; TODO: improve on that
 
 (.def (Bool @ Type.)
   sexp: 'Bool
   .length-in-bytes: 1
   .element?: boolean?
+  .sexp<-: identity
   .json<-: identity
   .<-json: (cut validate @ <>)
   .bytes<-: (lambda (x) (if x #u8(1) #u8(0)))
@@ -144,6 +159,7 @@
   .marshal: (marshal<-bytes<- .bytes<-)
   .unmarshal: (unmarshal<-<-bytes .<-bytes .length-in-bytes))
 
+(def (poo-values x) (map (cut .ref x <>) (.all-slots x)))
 (def (monomorphic-poo? type x)
   (and (poo? x) (every (cut element? type <>) (poo-values x))))
 
@@ -169,24 +185,24 @@
   sexp: `(Function (@list ,@(map (cut .@ <> sexp) outputs)) (@list ,@(map (cut .@ <> sexp) inputs)))
   .element?: procedure? ;; we can't dynamically test that a function has the correct signature :-(
   .validate: (lambda (f (ctx '()))
-               (unless (procedure? f) (type-error ctx @ f))
+               (unless (procedure? f) (type-error ctx Type @ Any f))
                (def (validate-row context kind types elems k)
                  (unless (= (length elems) (length types))
                    (type-error context invalid-number-of: kind))
                  (k (map (lambda (type elem i)
-                           (validate type elem [ctx position: i]))
+                           (validate type elem [[position: i] . ctx]))
                          types elems (iota (length types)))))
                (nest
-                (lambda ins) (let (ctx2 [ctx fun: f type: sexp inputs: ins]))
+                (lambda ins) (let (ctx2 [[calling: f type: (tv Type @) inputs: ins] . ctx]))
                 (validate-row ctx2 inputs: inputs ins) (lambda (vins))
                 (call/values (lambda () (apply f vins))) (lambda outs)
-                (validate-row [ctx2 outputs: outs] outputs: outputs outs list->values)))
+                (validate-row [[outputs: outs] . ctx2] outputs: outputs outs list->values)))
   arity: (length inputs))
 
 (def (Function outputs inputs)
-  (for-each (cut typecheck Type <>) outputs)
-  (for-each (cut typecheck Type <>) inputs)
-  { (:: @ Function.) (outputs) (inputs) })
+  (for-each (cut validate Type <>) outputs)
+  (for-each (cut validate Type <>) inputs)
+  {(:: @ Function.) (outputs) (inputs)})
 
 ;; The expander complains "Syntax Error: Ambiguous pattern".
 ;; TODO: Use syntax-case, detect when there are opposite arrows, curry when there are multiple ones?

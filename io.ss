@@ -49,25 +49,6 @@
       (write-byte (bytes-ref bs (+ i offset)) out))))
 
 
-;;; SEXP from values
-
-;; gf to extract a source sexp from a value of given type
-(.defgeneric (sexp<- type x) slot: .sexp<-)
-
-(defgeneric :sexp
-  (lambda (x)
-    (cond
-     ((or (number? x) (boolean? x) (string? x) (char? x) (void? x) (keyword? x) (eof-object? x))
-      x)
-     (else `',x)))) ;; TODO: do better than that.
-
-(defmethod (@@method :sexp poo)
-  (λ (self)
-    (cond
-     ((.has? self .type .sexp<-) (.call (.@ self .type) .sexp<- self))
-     ((.has? self sexp) (object->string (.@ self sexp))))))
-
-
 ;;; Printing objects as per std/misc/repr
 
 (defmethod (@@method :pr poo)

@@ -43,7 +43,7 @@
                 (lambda (port) (def l (read-uint16 port))
                    (for/collect (_ (in-range l)) (m port)))))
 (def (List type)
-  (typecheck Type type)
+  (validate Type type)
   {(:: @ List.) (type)})
 
 (.def methods.bytes

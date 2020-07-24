@@ -21,8 +21,8 @@
        .acons ;; : @ <- Key Value @
        .ref ;; : Value <- @ Key ?(Value <-)
        .remove ;; : @ <- @ Key
-       .foldl ;; : (Fun o <- (Fun o <- Key Value o) o @ ?Key)
-       .foldr ;; : (Fun o <- (Fun o <- Key Value o) o @ ?Key)
+       .foldl ;; : (Fun o <- (Fun o <- Key Value o) o @)
+       .foldr ;; : (Fun o <- (Fun o <- Key Value o) o @)
        .merge ;; : @ <- (Fun (Option Value) <- Key (Option Value) (Option Value)) @ @
        .find-first/opt ;; : (Option (Pair Key Value)) <- (Fun Bool <- Key Value) @
        .find-last/opt) ;; : (Option (Pair Key Value)) <- (Fun Bool <- Key Value) @
@@ -89,7 +89,10 @@
           ((some v) (.acons k v t)))))
 
   ;; : @ <- Key (Fun Value <- Value) @ ?(Fun Value <-)
-  .update: (lambda (k f t (default false)) (.acons k (f (.ref t k default)) t))
+  .update: (lambda (k f t (default false))
+             (.update/opt k (lambda (vo) (some (f (option-get/default vo default)))) t))
+  ;; NB: For a handful of flat datastructures that don't have deep traversals, this could be better:
+  ;;.update: (lambda (k f t (default false)) (.acons k (f (.ref t k default)) t))
 
   ;; : @ <- (Fun (Option Value) <- Key Value Value) @ @
   .union:

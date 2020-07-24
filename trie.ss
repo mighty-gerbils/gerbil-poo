@@ -4,7 +4,8 @@
 
 (export #t)
 
-(import :clan/debug)
+;; TODO: import large amounts of data in O(N) rather than O(N log N).
+
 (import
   :gerbil/gambit/bits
   :std/error :std/iter
@@ -28,11 +29,12 @@
 ;; Note that steps may be applied to an empty trie, whose height is undefined outside of such a context,
 ;; and that the height of a Costep may itself be #f (or -inf.0, or whatever it is for .empty),
 ;; when the Costep is itself the result of trying to find a path from the empty trie.
-;; The key in a Costep is the bits *above* the height, to be multiplied by 2**(height+1)
-;; to get the actual key of the start of the current trie.
-(defstruct $Costep (height key) transparent: #t) ; height: Integer key: Key
+;; The key in a Costep is the bits *above* the height, to be multiplied by 2**(height+1),
+;; to get the actual key of the start of the current trie,
+;; i.e. prepend those Costep bits as high bits to the bits provided by the subtrie-in-focus as low bits.
+(defstruct $Costep (height key) transparent: #t) ; height: (Or Height '(-1 #f)) key: Key
+(defstruct $Unstep (left right skip) transparent: #t) ;; left: (Fun trunk <- Key Height trunk branch) right: (Fun trunk <- Key Height branch trunk) skip: (Fun trunk <- Key Height Height Key trunk) ;; the first argument, key, only contains the high bits and must be shift by 1+ the second argument Height, to get the full key for the first element of the trie node resulting from unstepping.
 (defstruct $Path (costep steps) transparent: #t) ; costep: Costep steps: (List (Step t))
-(defstruct $Unstep (left right skip) transparent: #t) ;; left: (Fun trunk <- Key Height trunk branch) right: (Fun trunk <- Key Height branch trunk) skip: (Fun trunk <- Key Height Height Key trunk)
 
 ;; This is basically a fold of the open recursion functor of which the (unwrapped) Trie is the fixed-point.
 (.def (TrieSynth. @ [] ;; mixin for Type.
@@ -102,86 +104,89 @@
       (Branch height: Height left: T right: T)
       (Skip height: Height bits-height: Height bits: Key child: T))
 
-;;  Step: (lambda (t)
-;;          #;(Sum (BranchStep branch: t) (SkipStep bits-height: Height))
-;;          {(:: @ Type.) sexp: '$Step .element?: $Step?})
-;;  Costep: (Struct height: Height key: Key)
-;;  Path: (lambda (t) (Struct costep: Costep steps: (List (Step t))))
-;;  Unstep: (lambda (trunk branch) ;; : Type <- Type Type
-;;            (Struct left: (Fun trunk <- Key Height trunk branch)
-;;                    right: (Fun trunk <- Key Height branch trunk)
-;;                    skip: (Fun trunk <- Key Height Height Key trunk)))
+  ;; An (Unstep @ @) provides methods to undo zipping steps, operating on smaller @ tries
+  ;; to yield larger tries. With parameters trunk and branch other than @, an Unstep can be used
+  ;; to compute on abstractions of tries, e.g. on their merkleized digests.
+  Unstep: {(:: @ Type.)  ;; : Type <- Type Type ;; actually, a two-parameter type
+           ;; (lambda (trunk branch) (Struct left: (Fun trunk <- Key Height trunk branch)
+           ;;                    right: (Fun trunk <- Key Height branch trunk)
+           ;;                    skip: (Fun trunk <- Key Height Height Key trunk)))
+           sexp: '(.@ Trie. Unstep) .element?: $Unstep?
+           ;; : (Unstep a a) <- branch:(Fun a <- Key Height a a) skip:(Fun a <- Key Height Height Key a)
+           .symmetric: (lambda (branch: branch skip: skip) ($Unstep branch branch skip))
+           .up: (.symmetric branch: (lambda (_ h l r) (.make-branch h l r))
+                            skip: (lambda (_ h l b c) (.make-skip h l b c)))}
 
-  ;; (Unstep a a) <- (Fun a <- Key Height a a) (Fun a <- Key Height Height Key a)
-  .symmetric-unstep:
-  (lambda (branch: branch ;; : a <- Key Height a a
-      skip: skip) ;; : a <- Key Height Height Key a
-    ($Unstep branch branch skip))
 
-  ;; (Pair trunk Costep) <- (Unstep trunk branch) (Pair trunk Costep) (Step branch)
-  .apply/step:
-  (lambda (unstep step acc)
-    (let-match ((cons trie ($Costep height key)) acc)
-      (unless height
-        (error "step-apply: height must be non-empty for a non-empty path"))
-      (match step
-        ((BranchStep branch)
-         (let* ((h (1+ height)) ;; new height after un-branching
-                (upkey (arithmetic-shift key -1))
-                (fullkey (arithmetic-shift key h)))
-           (cons
-            (if (bit-set? 0 key)
-              (($Unstep-right unstep) fullkey h branch trie)
-              (($Unstep-left unstep) fullkey h trie branch))
-            ($Costep h upkey))))
-        ((SkipStep bits-height)
-         (let* ((length (1+ bits-height))
-                (h (+ height length)) ;; new height after un-skipping
-                (bits (extract-bit-field length 0 key))
-                (upkey (arithmetic-shift key (- length)))
-                (fullkey (arithmetic-shift key (1+ height))))
-           (cons (($Unstep-skip unstep) fullkey h bits-height bits trie) ($Costep h upkey)))))))
+  ;; a zipping (Step @) describes how a smaller trie was extracted from a slightly larger trie,
+  ;; an can be undone to recover a larger trie from the same smaller trie or a modified variant thereof.
+  ;; More generally, a (Step branch) lets you work on an abstraction of a trie, e.g. its merkleization.
+  Step: {(:: @S Type.) ;;(lambda (t) (Sum (BranchStep branch: t) (SkipStep bits-height: Height)))
+    sexp: '(.@ Trie. Step)
+    .element?: $Step?
+    ;; Given a record of (Unstep trunk branch) methods, a (Step branch) operates on a (Pair trunk Costep)
+    ;; : (forall (trunk branch)
+    ;;      (Pair trunk Costep) <- (Unstep trunk branch) (Step branch) (Pair trunk Costep))
+    .op: (lambda (unstep step acc)
+           (let-match ((cons trie ($Costep height key)) acc)
+             (unless height (error "Trie.Step.op: height must be non-empty for a non-empty path"))
+             (match step
+               ((BranchStep branch)
+                (let* ((h (1+ height)) ;; new height after un-branching
+                       (upkey (arithmetic-shift key -1)))
+                  (cons (if (bit-set? 0 key)
+                          (($Unstep-right unstep) upkey h branch trie)
+                          (($Unstep-left unstep) upkey h trie branch))
+                        ($Costep h upkey))))
+               ((SkipStep bits-height)
+                (let* ((length (1+ bits-height))
+                       (h (+ height length)) ;; new height after un-skipping
+                       (bits (extract-bit-field length 0 key))
+                       (upkey (arithmetic-shift key (- length))))
+                  (cons (($Unstep-skip unstep) upkey h bits-height bits trie) ($Costep h upkey)))))))
 
-  ;; TODO: make this the .op method for a monad operating on a category?
-  ;; : (Pair trunk Costep) <- (Unstep trunk branch) trunk (Path branch)
-  .apply/path:
-  (lambda (unstep t path)
-    (let-match (($Path costep steps) path)
-      (let-match (($Costep height _) costep)
-        (def h (.trie-height t))
-        (when (and h height (> h height)) (invalid '.apply/path unstep t path))
-        (foldl (cut .apply/step unstep <> <>) (cons (.ensure-height height t) costep) steps))))
+    ;;; : Height <- (Step a)
+    ;;.length: (match <> ((BranchStep _) 1) ((SkipStep bits-height) (1+ bits-height)))
 
-  ;; TODO: make these the .map method of a Path functor.
-  ;; (Path a) <- (a <- b) (Path b)
-  .map/path:
-  (lambda (f path) ($Costep ($Path-costep path) (map (cut .map/step f <>) ($Path-steps path))))
+    ;; Can be used to trivially merkleize a step.
+    ;; : (Step a) <- (Fun a <- b) (Step b)
+    .map: (lambda (f s) (match s ((BranchStep branch) (BranchStep (f branch))) ((SkipStep _) s)))}
 
-  ;; : Height <- (Step a)
-  .step-length:
-  (match <>
-    ((BranchStep _) 1)
-    ((SkipStep bits-height) (1+ bits-height)))
+  ;;Costep: {(:: @C Type.) ;;(Struct height: Height key: Key)
+  ;;  sexp: '(.@ Trie. Costep)
+  ;;  .element?: $Costep?}
 
-  ;; TODO: make it the .element? or (with better error messages) a .validate method of the Path functor.
-  ;; : Bool <- (Path a)
-  .element?/path:
-  (lambda (path)
-    (let-match (($Path ($Costep height key) steps) path)
-      (and (or (member height '(-1 #f)) (element? Height height))
-           (element? Key key)
-           (let c ((height height) (steps steps))
-             (match steps
-               ([] #t)
-               ([step . steps]
-                (match step
-                  ;; TODO: validate the branch parameter to be of a proper parameter type.
-                  ((BranchStep _) (c (1+ height) steps))
-                  ((SkipStep bits-height)
-                   (and (element? Height bits-height)
-                        (let (new-height (+ height bits-height 1))
-                          (and (element? Height new-height)
-                               (c new-height steps))))))))))))
+  Path: {(:: @P Type.) ;;(lambda (t) (Struct costep: Costep steps: (List (Step t))))
+    sexp: '(.@ Trie. Path)
+    ;; TODO: have validate function and protocol with better error messages?
+    ;; validate wrt the parameter type?
+    ;; : Bool <- Any
+    .element?:
+    (lambda (path)
+      (let-match (($Path ($Costep height key) steps) path)
+        (and (or (member height '(-1 #f)) (element? Height height))
+             (element? Key key)
+             (let c ((height height) (steps steps))
+               (match steps
+                 ([] #t)
+                 ([step . steps]
+                  (match step
+                    ;; TODO: validate the branch parameter to be of a proper parameter type.
+                    ((BranchStep _) (c (1+ height) steps))
+                    ((SkipStep bits-height)
+                     (and (element? Height bits-height)
+                          (let (new-height (+ height bits-height 1))
+                            (and (element? Height new-height)
+                                 (c new-height steps))))))))))))
+    .op: (let (apply-step (.@ Step .op))
+           (lambda (unstep t path) ;; : (Pair trunk Costep) <- (Unstep trunk branch) trunk (Path branch)
+             (let-match (($Path costep steps) path) (let-match (($Costep height _) costep)
+               (def h (.trie-height t))
+               (when (and h height (> h height)) (invalid '(Trie. Path .op) unstep t path))
+               (foldl (cut apply-step unstep <> <>) (cons (.ensure-height height t) costep) steps)))))
+    .map: ;; : (Path a) <- (a <- b) (Path b)
+    (lambda (f path) (def f/step (cut (.@ Step .map) f <> ))
+       ($Costep ($Path-costep path) (map f/step ($Path-steps path))))}
 
   ;; Given a Branch at given height and key for its lowest binding,
   ;; return the key for the lowest binding of its right branch
@@ -607,23 +612,13 @@
              (def (f child) (.make-skip height bits-height bits child))
              (values (f l) x (f r))))))))
 
-  ;; : (Step a) <- (Fun a <- b) (Step b)
-  .map/step:
-  (lambda (f step)
-    (match step
-      ((BranchStep branch) (BranchStep (f branch)))
-      ((SkipStep bits-height) step)))
-
   ;; Zipper: (Pair @ (Path @))
 
   ;; : Zipper <- @
   .zip: (lambda (t) (cons t ($Path ($Costep (.trie-height t) 0) [])))
 
   ;; : @ <- (Pair @ (Path @))
-  .unzip:
-  (let (unstep (.symmetric-unstep branch: (lambda (_ h l r) (.make-branch h l r))
-                                  skip: (lambda (_ h l b c) (.make-skip h l b c))))
-    (match <> ([t . path] (.make-head (car (.apply/path unstep t path))))))
+  .unzip: (match <> ([t . path] (.make-head (car (.call Path .op (.@ Unstep .up) t path)))))
 
   ;; Given a focus on a subtrie, return focuses on the next level of subtries.
   ;; If we were focusing on a node with N children, the list will be of length N.
@@ -650,6 +645,11 @@
                                 [(SkipStep bits-height) . steps]))]))))))
 
   ;; Find the narrowest path to the key in the trie without splitting a Skip node.
+  ;; Note that the subtree returned by find-path may be
+  ;; 1. Empty, if t was empty or if height(k) > height(t)
+  ;; 2. a Leaf, if k is found in t
+  ;; 3. a Skip, if height(k) <= height(t) but the k is not found in t
+  ;; But it can never be a Branch, in which case we'd follow the side that matches k.
   ;; : (Zipper @) <- Key @
   .find-path:
   (lambda (key trie)
@@ -695,7 +695,7 @@
                  (newsub (match u
                            (#f (.remove sub kk))
                            ((some v) (.acons kk v sub)))))
-          (.unzip (cons newsub up))))))
+            (.unzip (cons newsub up))))))
 
   ;; Given (the data of) a skip node, and a height at which to cut it (at least 0,
   ;; and no more than the skip node's bits-height), return the two notionally
@@ -705,9 +705,7 @@
   (lambda (height bits-height bits child cut-height)
     (let* ((h (- height (- bits-height cut-height) 1))
            (t (.make-skip h (1- cut-height) bits child)))
-      (if (bit-set? cut-height bits)
-        (values .empty t)
-        (values t .empty))))
+      (if (bit-set? cut-height bits) (values .empty t) (values t .empty))))
 
   ;; Describes a recursive computation over a pair of tries in great generality.
   ;; Note that this assumes the two tries have the same height. Use ensure-same-height if needed.

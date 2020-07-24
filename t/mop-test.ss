@@ -32,7 +32,7 @@
       (check-equal? (.get stolen location) 'MtGox)
       (check-equal? (.get stolen quantity) 744408)
       (check-equal? (.get stolen unit) 'BTC)
-      (map (λ-match ([type element] (typecheck type element)))
+      (map (λ-match ([type element] (validate type element)))
            [[Poo stolen]
             [Amount stolen]
             [LocatedAmount stolen]
