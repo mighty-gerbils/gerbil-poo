@@ -17,7 +17,7 @@
 (import
   ;;(for-syntax :std/misc/repr) :std/misc/repr ;; XXX debug
   :std/lazy :std/misc/hash :std/misc/list :std/sort :std/srfi/1 :std/srfi/13 :std/sugar
-  (for-syntax :clan/base)
+  (for-syntax :clan/base :std/iter)
   :clan/base)
 
 (defstruct poo (prototypes instance) constructor: :init!)
@@ -94,11 +94,11 @@
 (def (.sorted-alist poo)
   (map (λ (slot) (cons slot (.ref poo slot))) (.all-slots-sorted poo)))
 
-;; TODO: use defsyntax-for-match, and in the pattern use (? test :: proc => pattern) to do the job
-(defsyntax (.o stx)
-  (syntax-case stx ()
-    ((_ args ...)
-     (with-syntax ((ctx stx)) #'(.o/ctx ctx args ...)))))
+;; For (? test :: proc => pattern),
+;;   test = (o?/keys ks)
+;;   proc = (.refs/keys ks)
+(def ((o?/keys ks) o) (and (poo? o) (andmap (cut .key? o <>) ks)))
+(def ((.refs/keys ks) o) (map (cut .ref o <>) ks))
 
 ;; the ctx argument exists for macro-scope purposes
 ;; TODO: use a syntax-parameter for self instead of the ctx argument?
@@ -121,6 +121,14 @@
         keyword->string
         string->symbol
         (cut datum->syntax (stx-car ctx) <>)))
+
+  ;; A NormalizedSlotSpec is one of:
+  ;;  - (slot-name value-expr)                           ; ignore parent, override
+  ;;  - (slot-name => function-expr extra-arg-expr ...)  ; invoke parent, pass into function
+  ;;  - (slot-name (inherited-computation) value-expr)   ; lazy reference to parent
+  ;;  - (slot-name)                                      ; same-named var from surrounding scope
+  ;;  - (slot-name =>.+ poo-expr)                        ; combine parent with a mixin
+  ;; Interpretation according to `doc/poo.md` section `POO Definition Syntax`
 
   (def (normalize-named-slot-specs ctx name specs)
     (syntax-case specs (=> =>.+)
@@ -148,7 +156,16 @@
           ((keyword? e)
            (normalize-named-slot-specs ctx (unkeywordify-syntax ctx #'arg) #'more))
           (else
-           (error "bad slot spec" #'arg))))))))
+           (error "bad slot spec" #'arg)))))))
+
+  (def (normalize-slot-specs-for-match ctx specs)
+    (for/collect ((s (normalize-slot-specs ctx specs)))
+      (syntax-case s (=> =>.+)
+        ((slot form) #'(slot form))
+        ((slot) #'(slot slot))
+        ((slot => . _) (raise-syntax-error #f "=> not allowed in patterns" ctx))
+        ((slot =>.+ . _) (raise-syntax-error #f "=>.+ not allowed in patterns" ctx))
+        ((slot (next-method) form) (raise-syntax-error #f "(inherited-computation) not allowed in patterns" ctx))))))
 
 ;; the ctx argument exists for macro-scope purposes
 (defsyntax (poo/slots stx)
@@ -192,6 +209,18 @@
   ((_ (self) body ...) (begin body ...))
   ((_ (self slot slots ...) body ...)
    (let-id-rule (slot (.@ self slot)) (with-slots (self slots ...) body ...))))
+
+;; TODO: use defsyntax-for-match, and in the pattern use (? test :: proc => pattern) to do the job
+(defsyntax-for-match .o
+  (lambda (stx)
+    (syntax-case stx ()
+      ((_ args ...)
+       (with-syntax ((((k v) ...) (normalize-slot-specs-for-match stx #'(args ...))))
+        #'(? (o?/keys '(k ...)) :: (.refs/keys '(k ...)) => [v ...])))))
+  (lambda (stx)
+    (syntax-case stx ()
+      ((_ args ...)
+       (with-syntax ((ctx stx)) #'(.o/ctx ctx args ...))))))
 
 (defsyntax (.def stx)
   (syntax-case stx ()

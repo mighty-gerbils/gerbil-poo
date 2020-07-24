@@ -110,4 +110,13 @@
       (def m (.o a: 1 b: 2 c: 3))
       (def n (.cc m b: 20 'c 30 d: 40))
       (assert-equal! (.sorted-alist n) '((a . 1) (b . 20) (c . 30) (d . 40))))
+    (test-case "testing match"
+      (def m {a: 1 b: 2 c: 3})
+      (assert-equal! [1 2 3]
+                     (match m ({(a) (b) (c)} [a b c])))
+      (def n {(m) d: 4})
+      (assert-equal! [4 1 3]
+                     (match n ({d: a m: {a: c c: d}} [a c d])))
+      (assert-equal! 'nomatch
+                     (match n ({d: {a: _} m: _} 'false-match) (_ 'nomatch))))
     ))
