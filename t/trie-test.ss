@@ -5,6 +5,7 @@
   :std/format :std/iter :std/misc/list :std/misc/queue
   :std/sort :std/srfi/1 :std/srfi/13 :std/sugar :std/test
   :clan/assert :clan/base :clan/debug :clan/hash :clan/list :clan/number :clan/option :clan/roman
+  :clan/with-id
   :clan/t/test-support
   ../poo ../mop ../io ../number ../type ../fun ../trie)
 
@@ -15,18 +16,14 @@
 
 (defsyntax (def-table-test-accessors stx)
   (syntax-case stx ()
-    ((ctx T) #'(ctx T ctx))
-    ((_ T ctx)
-     (with-syntax ((E (datum->syntax #'ctx 'E))
-                   (F (datum->syntax #'ctx 'F))
-                   (alist<- (datum->syntax #'ctx 'alist<-))
-                   (<-alist (datum->syntax #'ctx '<-alist)))
-       #'(begin
-           (defrule (E e) (.@ T e))
-           (defrule (F f args (... ...)) (.call T f args (... ...)))
-           ;; TODO: for tries, check that the alists are already sorted!
-           (def (alist<- t) (sort (F .list<- (validate T t)) (comparing-key test: < key: car)))
-           (def (<-alist t) (validate T (F .<-list (shuffle-list t)))))))))
+    ((ctx T) #'(ctx ctx T))
+    ((_ ctx T)
+     #'(with-id ctx (E F alist<- <-alist)
+         (defrule (E e) (.@ T e))
+         (defrule (F f args (... ...)) (.call T f args (... ...)))
+         ;; TODO: for tries, check that the alists are already sorted!
+         (def (alist<- t) (sort (F .list<- (validate T t)) (comparing-key test: < key: car)))
+         (def (<-alist t) (validate T (F .<-list (shuffle-list t))))))))
 
 (defrule (table-test-case T name body ...)
   (test-case (format "~a for ~s" name (.@ T sexp))
@@ -237,43 +234,31 @@
                     (Branch 1 (Skip 0 0 1 (Leaf "b"))
                               (Skip 0 0 1 (Leaf "d")))))
     (test-case "zipping"
-      (def k 100)
-      (def v "one hundred")
-      (let-match ([focus . context] (F .find-path k (F .singleton k v)))
-        (check-equal? focus (Leaf v))
-        (check-equal? (F .unzip (cons focus (validate (E Path) context))) (F .singleton k v))))
-    (test-case "zipping 2"
-      (def k 101)
-      (def v "needle")
-      (def t (F .<-list '((100 . "hey")
-                          (101 . "needle")
-                          (102 . "hay")
-                          (103 . "haAAy"))))
-      (let-match ([focus . context] (F .find-path k t))
-        (check-equal? focus (Leaf v))
-        (check-equal? (F .unzip (cons focus (validate (E Path) context))) t))
-      (let-match ([focus . context] (F .find-path 0 (E .empty)))
-        (check-equal? focus (Empty))
-        (check-equal? (F .unzip (cons focus (validate (E Path) context))) (E .empty)))
-      (let-match ([focus . context] (F .find-path 1 (E .empty)))
-        (check-equal? focus (Empty))
-        (check-equal? (F .unzip (cons focus (validate (E Path) context))) (E .empty))))
-    (test-case "zipping 3"
-      (def t (F .<-list '((1 . "a") (3 . "c"))))
-      (let-match ([focus . context] (F .find-path 3 t))
-        (check-equal? focus (Leaf "c"))
-        (check-equal? (F .unzip (cons focus (validate (E Path) context))) t))
+      (defrule (check-leaf-focus k v t)
+        (begin
+          (F .validate t)
+          (let-match ((cons focus path) (F .refocus ($Costep -1 k) (F .zipper<- t)))
+            (check-equal? focus (F .leaf<-opt (F .ref/opt t k)))
+            (check-equal? (F .ref t k false) v)
+            (validate (E Path) path)
+            (check-equal? ($Path-costep path) ($Costep -1 k))
+            (check-equal? (F .<-zipper (cons focus path)) t))))
+      (check-leaf-focus 100 "one hundred" (F .singleton 100 "one hundred"))
+      (check-leaf-focus 101 "needle" (F .<-list '((100 . "hey") (101 . "needle")
+                                                  (102 . "hay") (103 . "haAAy"))))
+      (check-leaf-focus 0 #f (E .empty))
+      (check-leaf-focus 1 #f (E .empty))
+      (check-leaf-focus 3 "c" (F .<-list '((1 . "a") (3 . "c"))))
       (def t0 (F .<-list '((0 . "a") (1 . "b"))))
       (def t1 (F .singleton 0 "veni, vidi"))
       (def t2 (F .acons 2 "veni, vidi" t0))
-      (let-match ([sub . up] (F .find-path 2 t0))
-        (check-equal? (F .unzip (cons sub up)) t0)
-        (check-equal? (F .unzip (cons t1 up)) t2)
-        (check-equal? (F .update 2 (lambda _ "veni, vidi") t0) t2)))
+      (check-leaf-focus 2 #f t0)
+      (check-equal? (F .acons 2 "veni, vidi" t0) t2)
+      (check-equal? (F .update 2 (lambda _ "veni, vidi") t0) t2))
     (test-case "update exclaim"
       (def t (F .<-list '((13 . "a") (21 . "bee") (34 . "c"))))
       (def (exclaim s) (string-append s "!"))
-      (check-equal? (F .update 21 (cut exclaim <>) t)
+      (check-equal? (F .validate (F .update 21 (traced-function 'exclaim exclaim) t))
                     (F .<-list '((13 . "a") (21 . "bee!") (34 . "c")))))
     (test-case "update/opt toggle"
       (def t1 (F .<-list '((13 . "a") (21 . "bee") (34 . "c"))))

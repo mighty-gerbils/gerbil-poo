@@ -5,6 +5,7 @@
 (export #t)
 
 ;; TODO: import large amounts of data in O(N) rather than O(N log N).
+(import :clan/debug)
 
 (import
   :gerbil/gambit/bits
@@ -33,7 +34,7 @@
 ;; to get the actual key of the start of the current trie,
 ;; i.e. prepend those Costep bits as high bits to the bits provided by the subtrie-in-focus as low bits.
 (defstruct $Costep (height key) transparent: #t) ; height: (Or Height '(-1 #f)) key: Key
-(defstruct $Unstep (left right skip) transparent: #t) ;; left: (Fun trunk <- Key Height trunk branch) right: (Fun trunk <- Key Height branch trunk) skip: (Fun trunk <- Key Height Height Key trunk) ;; the first argument, key, only contains the high bits and must be shift by 1+ the second argument Height, to get the full key for the first element of the trie node resulting from unstepping.
+(defstruct $Unstep (left right skip) transparent: #t) ;; left: (Fun trunk <- Key Height trunk branch) right: (Fun trunk <- Key Height branch trunk) skip: (Fun trunk <- Key Height Height Key trunk) ;; the first argument, key, only contains the high bits and must be shifted by 1+ the second argument Height, to get the full key for the first element of the trie node resulting from unstepping.
 (defstruct $Path (costep steps) transparent: #t) ; costep: Costep steps: (List (Step t))
 
 ;; This is basically a fold of the open recursion functor of which the (unwrapped) Trie is the fixed-point.
@@ -138,15 +139,14 @@
                           (($Unstep-right unstep) upkey h branch trie)
                           (($Unstep-left unstep) upkey h trie branch))
                         ($Costep h upkey))))
-               ((SkipStep bits-height)
-                (let* ((length (1+ bits-height))
-                       (h (+ height length)) ;; new height after un-skipping
-                       (bits (extract-bit-field length 0 key))
-                       (upkey (arithmetic-shift key (- length))))
-                  (cons (($Unstep-skip unstep) upkey h bits-height bits trie) ($Costep h upkey)))))))
+               ((SkipStep bh)
+                (let* ((l (1+ bh))
+                       (h (+ height l)) ;; new height after un-skipping
+                       (bits (extract-bit-field l 0 key))
+                       (upkey (arithmetic-shift key (- l))))
+                  (cons (($Unstep-skip unstep) upkey h bh bits trie) ($Costep h upkey)))))))
 
-    ;;; : Height <- (Step a)
-    ;;.length: (match <> ((BranchStep _) 1) ((SkipStep bits-height) (1+ bits-height)))
+    .up: (let (up (.@ Unstep .up)) (lambda (step acc) (.op up step acc)))
 
     ;; Can be used to trivially merkleize a step.
     ;; : (Step a) <- (Fun a <- b) (Step b)
@@ -182,8 +182,13 @@
            (lambda (unstep t path) ;; : (Pair trunk Costep) <- (Unstep trunk branch) trunk (Path branch)
              (let-match (($Path costep steps) path) (let-match (($Costep height _) costep)
                (def h (.trie-height t))
+               (DBG op: t path h)
                (when (and h height (> h height)) (invalid '(Trie. Path .op) unstep t path))
-               (foldl (cut apply-step unstep <> <>) (cons (.ensure-height height t) costep) steps)))))
+               (foldl (traced-function 'stap (cut apply-step unstep <> <>))
+                      (cons (.ensure-height height t) costep) steps)))))
+
+    .up: (let (up (.@ Unstep .up)) (lambda (t path) (.op up t path)))
+
     .map: ;; : (Path a) <- (a <- b) (Path b)
     (lambda (f path) (def f/step (cut (.@ Step .map) f <> ))
        ($Costep ($Path-costep path) (map f/step ($Path-steps path))))}
@@ -333,7 +338,7 @@
             ((Empty) .empty) ;; NB: return the constant wrapped variant.
             ((Skip _ bits-height1 bits1 child1)
              (let* ((length1 (1+ bits-height1))
-                    (bits-height2 (+ length bits-height1))
+                    (bits-height2 (+ length1 bits-height1))
                     (bits2 (replace-bit-field length length1 bits bits1)))
                (.skip height bits-height2 bits2 child1)))
             (_ (.skip height bits-height bits child))))))
@@ -356,51 +361,11 @@
   ;; : @ <- Key Value @
   .acons:
   (lambda (key value trie)
-    (let/cc return
-      (def h (.trie-height trie))
-      (unless h (return (.singleton key value))) ;; trie was empty
-      (def key-height (1- (integer-length key)))
-      (if (> key-height h)
-        (.branch
-         key-height
-         (.make-skip (1- key-height) (- key-height h 2) 0 trie)
-         (.make-leaf (1- key-height) key value))
-        (let insert ((h h) (t trie))
-          (match (.unwrap t)
-            ((Leaf old) (if (equal? value old) (return trie) (.leaf value)))
-            ((Branch _ left right)
-             (let (h1 (1- h))
-               (if (bit-set? h key)
-                 (.branch h left (insert h1 right))
-                 (.branch h (insert h1 left) right))))
-            ((Skip _ bits-height bits child)
-             (let* ((length (1+ bits-height))
-                    (child-height (- h length))
-                    (key-bits (extract-bit-field length (1+ child-height) key)))
-               (if (= bits key-bits)
-                 (.skip h bits-height bits (insert child-height child))
-                 ;; new structure:
-                 ;; skip for the length that is the same (if not 0),
-                 ;; then a branch-node with on one side a new-branch with a new leaf,
-                 ;; and on the other, the old-branch with the child of the original skip
-                 (let* ((diff-length (integer-length (bitwise-xor bits key-bits)))
-                        (same-length (- length diff-length))
-                        (branch-node-height (- h same-length)) ;; height of the branch node
-                        (branch-height (1- branch-node-height)) ;; height of the two new branches
-                        (old-branch-length (- branch-height child-height))
-                        (old-branch (if (zero? old-branch-length) child
-                                        (.skip branch-height
-                                               (1- old-branch-length)
-                                               (extract-bit-field old-branch-length 0 bits)
-                                               child)))
-                        (new-branch (.make-leaf branch-height key value))
-                        ;; Let's look whether the old branch goes right or left
-                        (branch-node (if (bit-set? old-branch-length key-bits)
-                                       (.make-branch branch-node-height old-branch new-branch)
-                                       (.make-branch branch-node-height new-branch old-branch))))
-                   (.make-skip h (1- same-length)
-                               (arithmetic-shift bits (- diff-length))
-                               branch-node))))))))))
+    (match (.refocus ($Costep -1 key) (.zipper<- trie))
+      ((cons t path)
+       (match (.unwrap t)
+         ((Leaf (? (cut eqv? value <>))) trie) ;; value unchanged
+         (_ (.<-zipper (cons (.leaf value) path)))))))
 
   ;; : @ <- @ Key
   .remove:
@@ -450,7 +415,7 @@
     (let m ((k k) (t t))
       (match (.unwrap t)
         ((Empty) .empty)
-        ((Leaf v) (match (f k v) (#f .empty) ((some val) (.leaf val))))
+        ((Leaf v) (.leaf<-opt (f k v)))
         ((Branch height left right)
          (left-to-right .make-branch height (m k left) (m (.right-key height k) right)))
         ((Skip height bits-height bits child)
@@ -612,13 +577,13 @@
              (def (f child) (.make-skip height bits-height bits child))
              (values (f l) x (f r))))))))
 
-  ;; Zipper: (Pair @ (Path @))
+  ;; (Zipper @) = (Pair @ (Path @))
 
   ;; : Zipper <- @
-  .zip: (lambda (t) (cons t ($Path ($Costep (.trie-height t) 0) [])))
+  .zipper<-: (lambda (t) (cons t ($Path ($Costep (.trie-height t) 0) [])))
 
   ;; : @ <- (Pair @ (Path @))
-  .unzip: (match <> ([t . path] (.make-head (car (.call Path .op (.@ Unstep .up) t path)))))
+  .<-zipper: (match <> ([t . path] (.make-head (car (.call Path .up t path)))))
 
   ;; Given a focus on a subtrie, return focuses on the next level of subtries.
   ;; If we were focusing on a node with N children, the list will be of length N.
@@ -634,68 +599,114 @@
        ((Leaf _) [])
        ((Branch _ left right)
         (let-match (($Path ($Costep h k) steps) path)
-          (let* ((h1 (1- h))
-                 (k2 (arithmetic-shift k 1)))
-            [(cons left ($Path ($Costep h1 k2) [(BranchStep right) . steps]))
-             (cons right ($Path ($Costep h1 (1+ k2)) [(BranchStep left) . steps]))])))
+          (def h1 (1- h))
+          (def k2 (arithmetic-shift k 1))
+          [(cons left ($Path ($Costep h1 k2) (.make-branch-step right steps)))
+           (cons right ($Path ($Costep h1 (1+ k2)) (.make-branch-step left steps)))]))
        ((Skip _ bits-height bits child)
         (let-match (($Path ($Costep h k) steps) path)
-          (let (length (1+ bits-height))
-            [(cons child ($Path ($Costep (- h length) (+ (arithmetic-shift k length) bits))
-                                [(SkipStep bits-height) . steps]))]))))))
+          (def length (1+ bits-height))
+          [(cons child ($Path ($Costep (- h length) (+ (arithmetic-shift k length) bits))
+                              [(SkipStep bits-height) . steps]))])))))
 
-  ;; Find the narrowest path to the key in the trie without splitting a Skip node.
-  ;; Note that the subtree returned by find-path may be
-  ;; 1. Empty, if t was empty or if height(k) > height(t)
-  ;; 2. a Leaf, if k is found in t
-  ;; 3. a Skip, if height(k) <= height(t) but the k is not found in t
-  ;; But it can never be a Branch, in which case we'd follow the side that matches k.
-  ;; : (Zipper @) <- Key @
-  .find-path:
-  (lambda (key trie)
-    (unless (element? Key key) (error "find-path bad key" key trie))
-    (def h (.trie-height trie))
-    (def (p t height steps)
-      (cons t ($Path ($Costep height (arithmetic-shift key (- -1 height))) steps)))
-    (if (not h) (.zip trie)
-        (let (kh (1- (integer-length key)))
-          (if (> kh h)
-            (let* ((kh1 (1- kh))
-                   (left (.make-skip kh1 (- kh1 h 1) 0 trie)))
-              (cons .empty
-                    ($Path ($Costep kh1 1) [(BranchStep left)])))
-            (let f ((h h) (t trie) (steps []))
-              (match (.unwrap t)
-                ((Empty) (p t h steps))
-                ((Leaf _) (p t h steps))
-                ((Branch h left right)
-                 (let (h1 (1- h))
-                   (if (bit-set? h key)
-                     (f h1 right (cons (BranchStep left) steps))
-                     (f h1 left (cons (BranchStep right) steps)))))
-                ((Skip h bits-height bits child)
-                 (let* ((length (1+ bits-height))
-                        (hc (- h length)))
-                   (if (= bits (extract-bit-field length (1+ hc) key))
-                       (f hc child (cons (SkipStep bits-height) steps))
-                       (p t h steps))))))))))
+  .make-branch-step:
+  (lambda (branch steps)
+    (if (.empty? branch) (.make-skip-step 0 steps) [(BranchStep branch) . steps]))
+
+  .make-skip-step:
+  (lambda (bits-height steps)
+    (if (> 0 bits-height) steps
+        (match steps
+          ([(SkipStep bh) . more] [(SkipStep (+ 1 bh bits-height)) . more])
+          (_ [(SkipStep bits-height) . steps]))))
+
+  ;; Refocus a Zipper until we reach a new Costep.
+  ;; Algorithm:
+  ;; 1. Ascend as much as needed and possible so h >= h2 and k is a prefix of k2.
+  ;; 2. If fail to satisfy those conditions, create a new branch for the new key.
+  ;; 3. Now h >= h2 and k is a prefix. Descend as much as possible along k2 while staying above h2.
+  ;; TODO: accept any Unstep that is more general than trie, with a trie <- trunk function.
+  ;; : (Zipper @) <- Costep (Zipper @)
+  .refocus:
+  (nest
+   (let (up (.@ @ Step .up)))
+   (lambda (costep zipper))
+   (match costep) (($Costep h2 k2))
+   (match zipper) ((cons trie ($Path ($Costep h k) steps)))
+   (let (hcommon ;; height up to which to ascend
+         (max h2
+              (1- (integer-length
+                   ;; Note that for very long keys, this bitwise-xor is already a log N operation,
+                   ;; in which case maintaining an O(1) amortized cost would require us to
+                   ;; take as parameter an incremental change on a zipper for the Costep,
+                   ;; and return an accordingly modified zipper for the Trie.
+                   ;; In practice we use 256-bit keys for Ethereum, which is borderline.
+                   (bitwise-xor (arithmetic-shift k (1+ (or h -1)))
+                                (arithmetic-shift k2 (1+ h2)))))))
+     (DBG refocus: h2 k2 trie h k steps hcommon)
+     ;; here, h >= common >= h2, so we must descend toward the sought focus
+     (nest
+      (def (descend t h s))
+      (begin (DBG descend: t h s))
+      (if (.empty? t) (cons .empty ($Path costep (.make-skip-step (- h h2 1) s)))) ;; easiest case: done
+      (let d ((t t) (h h) (s s)))
+      (if (= h h2) (cons t ($Path costep s))) ;; reached the goal with a non-empty sub-trie!
+      (match (.unwrap t) ;; cannot be Leaf, or else we would have had (= h h2), nor Empty, handled above
+        ((Branch _ left right) ;; easy case: descending a Branch
+         (let-values (((trunk branch)
+                       (if (bit-set? (- h h2 1) k2) (values right left) (values left right))))
+           (d trunk (1- h) (.make-branch-step branch s)))))
+      ((Skip _ bits-height bits child)) ;; hard case: descending common then uncommon parts of a Skip
+      (let* ((length (1+ bits-height))
+             (child-height (- h length))
+             (floor-height (max h2 child-height))
+             (comparable-length (- h floor-height))
+             (key-bits (extract-bit-field comparable-length (- floor-height h2) k2))
+             (node-bits (extract-bit-field comparable-length (- floor-height child-height) bits))
+             (diff-length (integer-length (bitwise-xor key-bits node-bits)))))
+      (if (zero? diff-length) ;; Not so hard: if it was the same key all the way that matters.
+        (d (.make-skip (- h comparable-length)
+                       (extract-bit-field (- floor-height child-height) 0 bits)
+                       child)
+           floor-height
+           (.make-skip-step (1- comparable-length) s)))
+      (let* ((same-length (- comparable-length diff-length))
+             (branch-node-height (- h same-length)) ;; height of the branch node if different
+             (branch-height (1- branch-node-height)) ;; height of the two new branches
+             (old-branch-length (- branch-height child-height))
+             (old-branch (if (plus? old-branch-length)
+                           (.skip branch-height (1- old-branch-length)
+                                  (extract-bit-field old-branch-length 0 bits) child)
+                           child))
+             (steps (.make-skip-step (- branch-height h2 1)
+                                     (.make-branch-step old-branch
+                                                        (.make-skip-step (1- same-length) s))))))
+      (cons .empty ($Path costep steps))))
+   (let ascend ((t trie) (h (or h -1)) (k k) (s steps)))
+   (begin (DBG ascend: t h k s))
+   (if (>= h hcommon) (descend t h (.make-skip-step (1- (integer-length k)) s)))
+   (match s
+     ([step . steps]
+      (match (up step (cons t ($Costep h k)))
+        ((cons upt ($Costep upheight upkey)) (ascend upt upheight upkey steps)))))
+   ([]) ;; At this point we're still below the desired level,
+   ;; but there are no more trie steps to zip up, so k is 0 and hcommon is h2+ilength(k2),
+   ;; which means we have to create additional trie nodes up to accommodate space
+   ;; for the new key k2 and/or the desired h2.
+   (if (zero? k2)
+     (descend (.make-skip hcommon (- hcommon h 1) (arithmetic-shift k2 (- h2 h)) t) hcommon []))
+   (let* ((kh1 (- hcommon h2 1))
+          (left (.make-skip (1- hcommon) (- kh1 h 1) 0 t))))
+   (descend .empty hcommon (.make-skip-step (- kh1 h2 1) (.make-branch-step left []))))
+
+  .leaf<-opt: (match <> ((some v) (.leaf v)) (_ .empty))
+  .opt<-leaf: (lambda (t) (match (.unwrap t) ((Leaf v) (some v)) (_ #f)))
 
   ;; : @ <- Key (Fun (Option Value) <- (Option Value)) @
   .update/opt:
-  (lambda (k f t)
-    (let-match ([sub . up] (.find-path k t))
-      (def o (match (.unwrap sub) ((Leaf value) (some value)) (_ #f)))
-      (def u (f o))
-      (if (equal? o u) t
-          ;; kk is the part of the key k that's valid for the submap sub
-          (let* ((kk (match ($Costep-height ($Path-costep up))
-                       (#f k)
-                       (-1 0)
-                       (h (extract-bit-field (1+ h) 0 k))))
-                 (newsub (match u
-                           (#f (.remove sub kk))
-                           ((some v) (.acons kk v sub)))))
-            (.unzip (cons newsub up))))))
+  (lambda (key f trie)
+    (match (.refocus ($Costep -1 key) (.zipper<- trie))
+      ((cons t path) (.<-zipper (cons (.leaf<-opt (f (.opt<-leaf t))) path)))))
 
   ;; Given (the data of) a skip node, and a height at which to cut it (at least 0,
   ;; and no more than the skip node's bits-height), return the two notionally
@@ -876,7 +887,7 @@
     (when (plus? from) (let-values (((_ _ r) (.split (1- from) t))) (set! t r)))
     (make-iterator [[0 . t]] next)))
 
-(.def (TrieSet. @ Type.)
+(.def (TrieSet. @ Set<-Table.)
   Table: {(:: @ Trie.) Value: Unit}
   .subset?: ;; is a a subset of b
   (lambda (a b)
