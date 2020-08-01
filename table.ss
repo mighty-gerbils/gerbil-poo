@@ -3,15 +3,17 @@
 (export #t)
 
 (import
-  :std/iter
+  :std/iter :std/misc/alist
   :clan/base :clan/list :clan/option
   :clan/poo/brace :clan/poo/io :clan/poo/mop :clan/poo/poo :clan/poo/type)
 
-;; TODO: have interfaces more like LIL, less like OCaml?
+;; TODO: have APIs look more like LIL, less like OCaml?
 ;; Especially since we may (1) use similar metaprogramming for OO style (?), and
 ;; (2) distinguish between for-each / foldl / foldr (iterating over pairs)
 ;; vs for-each* / foldl* / afoldr (iterating with two separate arguments for k v)
 ;; (3) implement additional APIs like drop, decons, map/2, convert, etc.
+;; We could also reorder the arguments between object vs typeclass styles,
+;; so the object is moved first in OO style, but at whatever "usual" place in the other style.
 
 ;; NB: General methods for maps, that are not trie-specific
 (.def (CommonTableMethod. @ []
