@@ -367,6 +367,12 @@
   ;; : (Fun @ <- Key Value)
   .singleton: (lambda (key value) (.make-leaf (1- (integer-length key)) key value))
 
+  ;; : (Zipper @) <- Key Value (Zipper @)
+  .zipper-acons:
+  (lambda (key value zipper)
+    (match (.refocus ($Costep -1 key) zipper)
+      ((cons t path) (cons (.leaf value) path))))
+
   ;; : @ <- Key Value @
   .acons:
   (lambda (key value trie)
