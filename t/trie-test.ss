@@ -141,9 +141,14 @@
                   [(F .singleton 23 "23") (F .singleton 69 "69")])
     (check-equal? (values->list (F .divide (<-alist '((41 . "41") (42 . "42")))))
                   [(F .singleton 41 "41") (F .singleton 42 "42")])
-    (defvalues (d1 d2) (F .divide (<-alist al-100-latin)))
-    (check-equal? (+ (F .count d1) (F .count d2)) 100)
-    (check-equal? (alist<- (F .join d1 d2)) al-100-latin)
+    (let ()
+      (defvalues (d1 d2) (F .divide (<-alist al-10-latin)))
+      (check-equal? (+ (F .count d1) (F .count d2)) 10)
+      (check-equal? (alist<- (F .join d1 d2)) al-10-latin))
+    (let ()
+      (defvalues (d1 d2) (F .divide (<-alist al-100-latin)))
+      (check-equal? (+ (F .count d1) (F .count d2)) 100)
+      (check-equal? (alist<- (F .join d1 d2)) al-100-latin))
 
     ;; Repeatedly divide a map into pairs of smaller sub-maps.
     (let (q (make-queue))

@@ -114,7 +114,7 @@
          ((or (symbol? x) (keyword? x))
           (display x port) (d #t))
          ((element? Type x)
-          (write (sexp<- Type (pop! l)) port) (d #t))
+          (write (sexp<- x (pop! l)) port) (d #t))
          (else (pr x port) (d #t)))))))
 
 (def (display-context c (port (current-output-port)))
@@ -241,6 +241,7 @@
   effective-slots:
    (let (slot-base (.@ .type slot-descriptor-class proto))
      (map-poo-values (cut .mix <> slot-base) slots))
+  .sexp<-: (lambda (x) (.@ x sexp))
   .element?:
    (λ (x)
      (and (poo? x)
@@ -325,7 +326,6 @@
    slots: =>.+
     {slots: {type: PooPoo} ;; would be (MonomorphicPoo Slot) if we didn't automatically append Slot
      sealed: {type: Bool default: #f}}
-   .sexp<-: (lambda (x) (.@ x sexp))
    proto: Class.)
 
 (def (proto class) (.@ class proto))

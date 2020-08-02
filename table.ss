@@ -27,7 +27,8 @@
        .foldr ;; : (Fun o <- (Fun o <- Key Value o) o @)
        .merge ;; : @ <- (Fun (Option Value) <- Key (Option Value) (Option Value)) @ @
        .find-first/opt ;; : (Option (Pair Key Value)) <- (Fun Bool <- Key Value) @
-       .find-last/opt) ;; : (Option (Pair Key Value)) <- (Fun Bool <- Key Value) @
+       .find-last/opt ;; : (Option (Pair Key Value)) <- (Fun Bool <- Key Value) @
+       .divide) ;; : (OrFalse @) (OrFalse @) <- @
 
   ;; : (Fun Bool <- @ Key)
   .key?: (lambda (trie key) (let/cc ret (.ref trie key (lambda () (ret #f))) #t))
@@ -108,6 +109,17 @@
 
   ;; : @ <- (List @)
   .join/list: (lambda (l) (foldl .join .empty l))
+
+  ;; Split a table in two or more strictly smaller trees, if possible, a somewhat balanced way, if possible.
+  ;; Fallback to an empty list if the table was empty, or a singleton list of itself if a singleton table.
+  ;; This default methods assumes that we have good way to divide table in two.
+  ;; : (List @) <- @
+  .divide/list:
+  (lambda (t)
+    (match (.divide t)
+      ((values #f #f) [])
+      ((values x #f) [x])
+      ((values x y) [x y])))
 
   ;; : @ <- (Iterator (Pair Key Value)) ?@
   .<-iter: (lambda (s (t .empty)) (for/fold (t t) (kv s) (.acons (car kv) (cdr kv) t)))

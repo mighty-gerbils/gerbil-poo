@@ -5,11 +5,10 @@
 (export #t)
 
 ;; TODO: import large amounts of data in O(N) rather than O(N log N).
-(import :clan/debug)
 
 (import
   :gerbil/gambit/bits
-  :std/error :std/iter
+  :std/error :std/format :std/iter
   :clan/base :clan/option :clan/number
   :clan/poo/poo :clan/poo/mop :clan/poo/brace :clan/poo/number :clan/poo/type
   :clan/poo/fun :clan/poo/io :clan/poo/table)
@@ -70,6 +69,7 @@
                          (.branch height synth .empty)))))))
 
 (.def (Trie. @ [Wrap. CommonTableMethod.] ;; @ <: (Wrap T)
+       .validate ;; : @ <- Any
        .wrap ;; : (Wrap t) <- t
        .unwrap ;; : t <- (Wrap t)
        .bind/wrap ;; : u <- (Wrap t) (u <- t) = (lambda (x f) (f (.unwrap x)))
@@ -118,6 +118,12 @@
            .up: (.symmetric branch: (lambda (_ h l r) (.make-branch h l r))
                             skip: (lambda (_ h l b c) (.make-skip h l b c)))}
 
+  .sexp<-:
+  (lambda (t) (match (.unwrap t)
+           ((Empty) '(E .empty))
+           ((Leaf v) `(F .leaf ,(sexp<- Value v)))
+           ((Branch h l r) `(F .branch ,h ,(.sexp<- l) ,(.sexp<- r)))
+           ((Skip h bh b c) `(F .branch ,h ,bh ,b ,(.sexp<- c)))))
 
   ;; a zipping (Step @) describes how a smaller trie was extracted from a slightly larger trie,
   ;; an can be undone to recover a larger trie from the same smaller trie or a modified variant thereof.
@@ -182,9 +188,8 @@
            (lambda (unstep t path) ;; : (Pair trunk Costep) <- (Unstep trunk branch) trunk (Path branch)
              (let-match (($Path costep steps) path) (let-match (($Costep height _) costep)
                (def h (.trie-height t))
-               (DBG op: t path h)
                (when (and h height (> h height)) (invalid '(Trie. Path .op) unstep t path))
-               (foldl (traced-function 'stap (cut apply-step unstep <> <>))
+               (foldl (cut apply-step unstep <> <>)
                       (cons (.ensure-height height t) costep) steps)))))
 
     .up: (let (up (.@ Unstep .up)) (lambda (t path) (.op up t path)))
@@ -260,26 +265,30 @@
                      (.ensure-height (.trie-height ta) tb)))
 
   ;; : Bool <- Any
-  .element?:
-  (lambda (trie)
-    (match (.unwrap trie)
-      ((Empty) #t) ;; NB: In a normalized trie, Empty only happens at the toplevel:
+  .validate:
+  (lambda (t (ctx '()))
+    (match (.unwrap t)
+      ((Empty) t) ;; NB: In a normalized trie, Empty only happens at the toplevel:
       ;; Otherwise, a Branch with an Empty child is normalized to a Skip
-      ((Leaf value) #t)
+      ((Leaf value) t)
       ((Branch height left right)
-       (and (element? Height height)
-            (.element? left)
-            (= (1- height) (.trie-height left))
-            (.element? right)
-            (= (1- height) (.trie-height right))))
+       (let (c [[validate: @ t] . ctx])
+         (validate Height height c)
+         (.validate left c)
+         (or (= (1- height) (.trie-height left)) (type-error c wrong-left-height:))
+         (.validate right c)
+         (or (= (1- height) (.trie-height right)) (type-error c wrong-right-height:)))
+       t)
       ((Skip height bits-height bits child)
-       (and (element? Height height)
-            (element? Height bits-height)
-            (<= bits-height height)
-            (<= 0 bits)
-            (<= (integer-length bits) (1+ bits-height))
-            (.element? child)
-            (= (- height bits-height 1) (.trie-height child))))))
+       (let (c [[validate: @ t] . ctx])
+         (validate Height height c)
+         (validate Height bits-height c)
+         (or (<= bits-height height) (type-error c bad-bits-height:))
+         (or (<= 0 bits) (type-error c negative-bits:))
+         (or (<= (integer-length bits) (1+ bits-height)) (type-error c bits-too-big:))
+         (.validate child c)
+         (or (= (- height bits-height 1) (.trie-height child)) (type-error c child-height-mismatch:)))
+       t)))
 
   ;; : (Fun Value <- @ Key (Fun Value <-))
   .ref:
@@ -338,7 +347,7 @@
             ((Empty) .empty) ;; NB: return the constant wrapped variant.
             ((Skip _ bits-height1 bits1 child1)
              (let* ((length1 (1+ bits-height1))
-                    (bits-height2 (+ length1 bits-height1))
+                    (bits-height2 (+ bits-height length1))
                     (bits2 (replace-bit-field length length1 bits bits1)))
                (.skip height bits-height2 bits2 child1)))
             (_ (.skip height bits-height bits child))))))
@@ -368,24 +377,26 @@
          (_ (.<-zipper (cons (.leaf value) path)))))))
 
   ;; : @ <- @ Key
-  .remove:
+  .remove: (lambda (trie key) (.make-head (.remove-from-subtrie trie key)))
+
+  ;; : @ <- @ Key
+  .remove-from-subtrie:
   (lambda (trie key)
     (let/cc return
       (def h (.trie-height trie))
       (unless h (return trie)) ;; key is absent from empty trie; return unchanged empty trie
-      (.make-head
-       (let r ((h h) (t trie))
-         (match (.unwrap t)
-           ((Leaf) .empty) ;; found an entry for the key, substitute the empty trie
-           ((Branch _ left right)
-            (let (child-height (1- h))
-              (if (bit-set? h key)
-                (.make-branch h left (r child-height right))
-                (.make-branch h (r child-height left) right))))
-           ((Skip _ bits-height bits child)
-            (if (= bits (extract-bit-field (1+ bits-height) (- h bits-height) key))
-              (.make-skip h bits-height bits (r (- h bits-height 1) child))
-              (return trie)))))))) ;; key is in skipped branch, return unchanged trie
+      (let r ((h h) (t trie))
+        (match (.unwrap t)
+          ((Leaf) .empty) ;; found an entry for the key, substitute the empty trie
+          ((Branch _ left right)
+           (let (child-height (1- h))
+             (if (bit-set? h key)
+               (.make-branch h left (r child-height right))
+               (.make-branch h (r child-height left) right))))
+          ((Skip _ bits-height bits child)
+           (if (= bits (extract-bit-field (1+ bits-height) (- h bits-height) key))
+             (.make-skip h bits-height bits (r (- h bits-height 1) child))
+             (return trie))))))) ;; key is in skipped branch, return unchanged trie
 
   ;; : @[Val2/Value] <- (Fun Val2 <- Value) @
   .map: (lambda (f trie)
@@ -567,9 +578,9 @@
              (let-values (((l x r) (srec (.right-key height k) right)))
                (values (.make-branch height left l)
                        x
-                       (.make-skip height 1 1 r)))
+                       (.make-skip height 0 1 r)))
              (let-values (((_ x r) (srec k left)))
-               (values (.make-skip height 1 0 left)
+               (values (.make-skip height 0 0 left)
                        x
                        (.make-branch height r right)))))
           ((Skip height bits-height bits child)
@@ -600,9 +611,9 @@
        ((Branch _ left right)
         (let-match (($Path ($Costep h k) steps) path)
           (def h1 (1- h))
-          (def k2 (arithmetic-shift k 1))
-          [(cons left ($Path ($Costep h1 k2) (.make-branch-step right steps)))
-           (cons right ($Path ($Costep h1 (1+ k2)) (.make-branch-step left steps)))]))
+          (def k1 (arithmetic-shift k 1))
+          [(cons left ($Path ($Costep h1 k1) (.make-branch-step right steps)))
+           (cons right ($Path ($Costep h1 (1+ k1)) (.make-branch-step left steps)))]))
        ((Skip _ bits-height bits child)
         (let-match (($Path ($Costep h k) steps) path)
           (def length (1+ bits-height))
@@ -633,21 +644,22 @@
    (lambda (costep zipper))
    (match costep) (($Costep h2 k2))
    (match zipper) ((cons trie ($Path ($Costep h k) steps)))
-   (let (hcommon ;; height up to which to ascend
+   (let (hcommon ;; height up to which to ascend: no less than the desired height
+                 ;; but also no less than necessary for there being a branch to our desired key
+                 ;; and no less than necessary for there being a branch to the current key
+                 ;; and yet no more than necessary.
          (max h2
               (1- (integer-length
-                   ;; Note that for very long keys, this bitwise-xor is already a log N operation,
-                   ;; in which case maintaining an O(1) amortized cost would require us to
-                   ;; take as parameter an incremental change on a zipper for the Costep,
-                   ;; and return an accordingly modified zipper for the Trie.
-                   ;; In practice we use 256-bit keys for Ethereum, which is borderline.
-                   (bitwise-xor (arithmetic-shift k (1+ (or h -1)))
-                                (arithmetic-shift k2 (1+ h2)))))))
-     (DBG refocus: h2 k2 trie h k steps hcommon)
+                  ;; Note that for very long keys, this bitwise-xor is already a log N operation,
+                  ;; in which case maintaining an O(1) amortized cost would require us to
+                  ;; take as parameter an incremental change on a zipper for the Costep,
+                  ;; and return an accordingly modified zipper for the Trie.
+                  ;; In practice we use 256-bit keys for Ethereum, which is borderline.
+                  (bitwise-xor (arithmetic-shift k (1+ (or h -1)))
+                               (arithmetic-shift k2 (1+ h2)))))))
      ;; here, h >= common >= h2, so we must descend toward the sought focus
      (nest
       (def (descend t h s))
-      (begin (DBG descend: t h s))
       (if (.empty? t) (cons .empty ($Path costep (.make-skip-step (- h h2 1) s)))) ;; easiest case: done
       (let d ((t t) (h h) (s s)))
       (if (= h h2) (cons t ($Path costep s))) ;; reached the goal with a non-empty sub-trie!
@@ -665,9 +677,8 @@
              (node-bits (extract-bit-field comparable-length (- floor-height child-height) bits))
              (diff-length (integer-length (bitwise-xor key-bits node-bits)))))
       (if (zero? diff-length) ;; Not so hard: if it was the same key all the way that matters.
-        (d (.make-skip (- h comparable-length)
-                       (extract-bit-field (- floor-height child-height) 0 bits)
-                       child)
+        (d (.make-skip h (- bits-height comparable-length)
+                       (extract-bit-field (- length comparable-length) 0 bits) child)
            floor-height
            (.make-skip-step (1- comparable-length) s)))
       (let* ((same-length (- comparable-length diff-length))
@@ -683,7 +694,6 @@
                                                         (.make-skip-step (1- same-length) s))))))
       (cons .empty ($Path costep steps))))
    (let ascend ((t trie) (h (or h -1)) (k k) (s steps)))
-   (begin (DBG ascend: t h k s))
    (if (>= h hcommon) (descend t h (.make-skip-step (1- (integer-length k)) s)))
    (match s
      ([step . steps]
@@ -694,10 +704,10 @@
    ;; which means we have to create additional trie nodes up to accommodate space
    ;; for the new key k2 and/or the desired h2.
    (if (zero? k2)
-     (descend (.make-skip hcommon (- hcommon h 1) (arithmetic-shift k2 (- h2 h)) t) hcommon []))
-   (let* ((kh1 (- hcommon h2 1))
-          (left (.make-skip (1- hcommon) (- kh1 h 1) 0 t))))
-   (descend .empty hcommon (.make-skip-step (- kh1 h2 1) (.make-branch-step left []))))
+     (descend (.make-skip hcommon (- hcommon h 1) 0 t) hcommon []))
+   (let* ((kh1 (- hcommon h2 2))
+          (left (.make-skip (1- hcommon) (- hcommon h 2) (extract-bit-field (- hcommon h 1) 0 k) t))))
+   (descend .empty h2 (.make-skip-step kh1 (.make-branch-step left []))))
 
   .leaf<-opt: (match <> ((some v) (.leaf v)) (_ .empty))
   .opt<-leaf: (lambda (t) (match (.unwrap t) ((Leaf v) (some v)) (_ #f)))
@@ -836,6 +846,7 @@
              onlyb: (lambda (_ _) (return #f)))))))
 
   ;; Split a tree in two strictly smaller trees, if possible, in a somewhat balanced way, if possible.
+  ;; NB: We assume that #f, if a valid wrapped trie, is the empty trie.
   ;; : (OrFalse @) (OrFalse @) <- @
   .divide:
   (lambda (t)
@@ -849,23 +860,6 @@
           (let (f (cut .make-skip h bh b <>))
             (values (f (.make-skip hh 0 0 l)) (f (.make-skip hh 0 1 r)))))
          ((Leaf _) (values t #f))
-         (_ (invalid '.divide t))))))
-
-  ;; Split a trie in two or more strictly smaller trees, if possible, a somewhat balanced way, if possible.
-  ;; Fallback to an empty list if the trie was empty, or a singleton list of a singleton trie if a singleton.
-  ;; : (List @) <- @
-  .divide/list:
-  (lambda (t)
-    (match (.unwrap t)
-      ((Empty) [])
-      ((Leaf _) [t])
-      ((Branch h l r) [(.make-head l) (.make-skip h 0 1 r)])
-      ((Skip h bh b c)
-       (match (.unwrap c)
-         ((Branch hh l r)
-          (let (f (cut .make-skip h bh b <>))
-            [(f (.make-skip hh 0 0 l)) (f (.make-skip hh 0 1 r))]))
-         ((Leaf _) [t])
          (_ (invalid '.divide t))))))
 
   ;; : (Iterator (Pair Key Value)) <- @ ?Key
