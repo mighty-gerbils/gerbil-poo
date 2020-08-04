@@ -2,16 +2,18 @@
 
 Or, why and how to partially zip up and down a trie for fun and profit.
 We use Huet's familiar [zipper](https://en.wikipedia.org/wiki/Zipper_(data_structure)) idea
-to incrementally manipulate tries in `O(N)` amortized time for batch operations
-instead of `O(N log N)` as would be the case with a naive use of the usual elementary accessors.
+to incrementally manipulate [tries](https://en.wikipedia.org/wiki/Trie)
+in `O(1)` amortized time per batch operation (`O(N)` total),
+instead of `O(log N)` time per batch operation (`O(N log N)` total)
+as would be the case with a naive use of the regular elementary accessors.
 
-None of the general ideas described below is particularly novel, though there may be
-some marginal originality in the precise way they are arranged.
-I am particularly ignorant of what terminology may or may not be common
+None of the general ideas described below is particularly novel,
+though there may be some marginal originality in the precise way they are arranged.
+I am largely ignorant of what terminology may or may not be common
 in existing Haskell libraries and/or literature on these or related data structures,
 and would *much* appreciate being enlightened in this regard:
 are there more or less "standard" names for the functions and data structures I'm defining?
-I would rather replace the names I made up by more common ones, if they exist.
+On the other hand, sometimes the existing names are not so good either.
 
 Finally, I'm doing things in Gerbil Scheme, with my own prototype object system POO
 to represent runtime descriptors for dynamically-enforced dependent typeclasses.
@@ -149,17 +151,19 @@ To both count the number of leaves and read and modify the table, if would be `(
 To merkleize a trie, the type parameter would be the type `Digest`
 as returned by the cryptographic hash function. And so on.
 
-Note that the relationship between `a` and the intended  `Trie` is not arbitrary
-For instance, when counting le
-can be used to compute *synthesized* attributes of the tree,
-i.e. information that propagates *up* from the leaf to the root
-(NB: the previous sentence involved contravariant metaphors for "up" vs "leaf and root").
-To be able to navigate down (left and right) as well as up,
-`a` has to contain sufficient information for that effect,
-which usually requires `a` to include information about the full pre-analyzed trie.
-
-
-
+Note that the relationship between `a` and the intended `Trie` is not arbitrary.
+When counting the leaves in a Trie,
+or computing any [*synthesized* attributes](https://en.wikipedia.org/wiki/Attribute_grammar) of the tree,
+i.e. information that propagates *up* from the leaf to the root,
+you need a function of type `a <- Trie` to compute your information from the subtrie so far.
+(NB: note how the previous sentence involved two mutually contravariant metaphors
+for "up and down" vs "leaf and root".)
+On the other hand, to be able to navigate down (left and right) as well as up,
+which is needed when computing any [*inherited* attributes](https://en.wikipedia.org/wiki/Attribute_grammar)
+of the tree, attribute of the tree, you need a function of type `Trie <- a`
+to reconstitute the subtrie from the information so far.
+And when computing both synthesized and inherited attributes at the same time,
+you essentially need `a` to be `Trie`, or isomorphic to `Trie`.
 
 If you are familiar with functional optics, parameterized Zippers are to unparameterized zippers
 what `s t a b` Van Laarhoven lenses are to simple `s a` lenses:
@@ -293,7 +297,7 @@ they are sequential, or otherwise have a large degree of locality.
 Thus, if you use zippers to only minimally navigate the structure of your trie,
 you can substantially cut on the average cost of operations,
 and keep them in `O(N)` overall, or an `O(1)` amortized average.
-In the pun of Ken & Oleg, you can zip along your data structure rather than walk along it.
+In the pun of [Shan](http://conway.rutgers.edu/~ccshan/wiki/blog/posts/WalkZip1/) [&](http://conway.rutgers.edu/~ccshan/wiki/blog/posts/WalkZip2/) [Kiselyov](http://conway.rutgers.edu/~ccshan/wiki/blog/posts/WalkZip3/), you can zip along your data structure rather than walk along it.
 
 What batch operations can we thus support?
 Anything that involves many consecutive accesses to nodes that are close to each other.
@@ -305,6 +309,13 @@ This includes but is not limited to:
 
   * Bulk modification of entries in a trie.
 
-  * Scanning a trie for data.
+  * Scanning for data in a trie.
 
 ... Basically, most actual uses of a trie for which performance actually matters.
+
+A simple benchmark with our code shows a 5x speedup for batches of 1000 to 100000 operations
+on an initially singleton trie of depth 27 vs not using zippers on an otherwise identical code base.
+
+This technique can be extremely useful to blockchains, in which tries are an essential data structure.
+We at Mutual Knowledge Systems will gladly consult with your blockchain
+to implement this technique correctly.
