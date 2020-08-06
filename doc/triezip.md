@@ -6,16 +6,18 @@ to incrementally manipulate [tries](https://en.wikipedia.org/wiki/Trie)
 in `O(1)` amortized time per batch operation (`O(N)` total),
 instead of `O(log N)` time per batch operation (`O(N log N)` total)
 as would be the case with a naive use of the regular elementary accessors.
+In practice, this leads to a 10x speed-up on tries with millions of elements.
 
-None of the general ideas described below is particularly novel,
-though there may be some marginal originality in the precise way they are arranged.
-I am largely ignorant of what terminology may or may not be common
+Note that the ideas described below are not particularly novel,
+though there might be a modicum of originality in the precise way they are arranged.
+I am not very familiar with what terminology may or may not be common
 in existing Haskell libraries and/or literature on these or related data structures,
 and would *much* appreciate being enlightened in this regard:
 are there more or less "standard" names for the functions and data structures I'm defining?
 On the other hand, sometimes the existing names are not so good either.
 
-Finally, I'm doing things in Gerbil Scheme, with my own prototype object system POO
+Finally, I'm doing things in [Gerbil Scheme](https://cons.io),
+with my own prototype object system [POO](https://github.com/fare/gerbil-poo)
 to represent runtime descriptors for dynamically-enforced dependent typeclasses.
 My examples will be given in this context, but can be readily adapted to whichever language you're using.
 
@@ -25,7 +27,7 @@ My examples will be given in this context, but can be readily adapted to whichev
 
 Big-Endian Patricia Trees, or Tries,
 represent a finite table mapping integer keys to arbitrary values,
-as a full binary tree of sufficient height,
+as a full binary tree of a given height,
 where some nodes are marked as omitted (or `Empty`), signifying no mapping for the omitted keys.
 A good article about them is
 [Fast Mergable Integer Maps](http://www.eecs.usma.edu/webs/people/okasaki/ml98maps.ps)
@@ -75,7 +77,7 @@ For `Key==UInt(2**N)` we have `Height=UInt(N)`; in particular for `Key==UInt256`
 Logarithms can be generalized to types or parameterized types
 as the inverse of exponentials or of exponential functors, and we can thus write:
 
-   (deftype Height (Log2 Key))
+    (deftype Height (Log2 Key))
 
 Making height one less than the `integer-length` leads to minor space and time saving compared to directly using that height: for instance, we can store all heights for a `Key==UInt256` with numbers from 0 to 255 or type `UInt8`, instead of numbers from 1 to 256 as would happen with using `integer-length`.
 
@@ -313,9 +315,23 @@ This includes but is not limited to:
 
 ... Basically, most actual uses of a trie for which performance actually matters.
 
-A simple benchmark with our code shows a 5x speedup for batches of 1000 to 100000 operations
+### Actual Speed-up
+
+A simple benchmark with our code shows a 5x to 10x speedup for batches of 1000 to 1000000 operations
 on an initially singleton trie of depth 27 vs not using zippers on an otherwise identical code base.
 
-This technique can be extremely useful to blockchains, in which tries are an essential data structure.
-We at Mutual Knowledge Systems will gladly consult with your blockchain
-to implement this technique correctly.
+Actually, with our optimized representation using Skip nodes, the actual number of nodes
+matters more than the total depth, and with an average of `4` amortized node traversals per zipper operation
+versus `2 log2 N` node traversals without zipper, with `log2 1000≅10` and `log2 1000000≅20`,
+we could have predicted the speedup as a factor `½ log2 N`, or 5x to 10x indeed.
+On an actual depth 27 trie, we thus predict the speedup would be more like 13x.
+
+### Conclusion
+
+This technique can be extremely useful to blockchains, in which tries are an essential data structure,
+but really to any setting where trees are used, whether balanced or not, pure or not, persistent or not,
+merkleized or not, Btrees, Patricia trees, etc.
+
+We at Mutual Knowledge Systems will gladly consult with your company, where in the blockchain space or not,
+to implement this technique correctly, or other techniques involving better data structures
+and better programming practices for your business.
