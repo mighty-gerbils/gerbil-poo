@@ -82,10 +82,9 @@
 
 (defgeneric :sexp
   (lambda (x)
-    (cond
-     ((or (number? x) (boolean? x) (string? x) (char? x) (void? x) (keyword? x) (eof-object? x))
-      x)
-     (else `',x)))) ;; TODO: do better than that.
+    (if (or (number? x) (boolean? x) (string? x) (char? x) (void? x) (keyword? x) (eof-object? x))
+      x
+      `',x))) ;; TODO: do better than that.
 
 (defmethod (@@method :sexp poo)
   (λ (self)

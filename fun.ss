@@ -17,7 +17,7 @@
   .tap: identity
   .ap: identity
   .map: identity
-  .unap: identity
+  .unap: identity ;; this functor also has an inverse, itself
   .Log: Unit
   .bind: (lambda (x f) (f x)))
 
