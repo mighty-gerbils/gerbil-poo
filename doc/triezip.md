@@ -6,20 +6,27 @@ to incrementally manipulate [tries](https://en.wikipedia.org/wiki/Trie)
 in `O(1)` amortized time per batch operation (`O(N)` total),
 instead of `O(log N)` time per batch operation (`O(N log N)` total)
 as would be the case with a naive use of the regular elementary accessors.
-In practice, this leads to a 10x speed-up on tries with millions of elements.
+*In practice, this leads to a 10x speed-up for batch operations on tries with millions of elements.*
 
-Note that the ideas described below are not particularly novel,
-though there might be a modicum of originality in the precise way they are arranged.
-I am not very familiar with what terminology may or may not be common
-in existing Haskell libraries and/or literature on these or related data structures,
-and would *much* appreciate being enlightened in this regard:
-are there more or less "standard" names for the functions and data structures I'm defining?
-On the other hand, sometimes the existing names are not so good either.
-
-Finally, I'm doing things in [Gerbil Scheme](https://cons.io),
+In the presentation below and the accompanying code,
+I am using [Gerbil Scheme](https://cons.io)
 with my own prototype object system [POO](https://github.com/fare/gerbil-poo)
 to represent runtime descriptors for dynamically-enforced dependent typeclasses.
-My examples will be given in this context, but can be readily adapted to whichever language you're using.
+But the same design can be readily adapted (with more or less pain, depending)
+to whichever language your blockchain (or non-blockchain) codebase is using.
+Indeed, we at *Mutual Knowledge Systems can help you and your development team adopt this technology*
+through our consulting, development and training services.
+
+Finally, note that we only claim originality in the particular way we combine
+the design elements below create solutions to specific practical problems.
+The general ideas of tries, of pure data structures, of zippers, of incremental computations,
+types, parametric types, covariance and contravariance, dependent types, type descriptors, etc.,
+are each well established, decades old technologies, though not often seen all together;
+Still, the presentation below may sometimes use slightly different terminology from others
+who have published articles or codes about zippers; sometimes because there is no widely accepted
+terminology, other times because what terms may be widely used can be ambiguous or confusing,
+such as the word "context" itself which in context can be either very clear or very vague
+(and so for instance we call `Path` was Huet calls `Context`).
 
 ## Tries
 
@@ -41,8 +48,8 @@ Tries have many advantages:
 
   2. Unlike most other balanced trees, tries provide a *canonical* representation for any mapping:
      two equal mappings with always be represented by structurally equal tries.
-     By contrast, red-black trees, AVL trees, B-trees, etc., may be faster for various use cases,
-     but which tree you obtain will depend on the history of creation and modifications.
+     By contrast, red-black trees, AVL trees, B-trees, etc., may be faster for many use cases,
+     but which tree you obtain will depend on the history of insertions and modifications.
 
   3. This canonical representation in turn makes it possible to easily compare mapping tables,
      deterministically agree on their structure despite concurrent evaluation,
@@ -51,7 +58,7 @@ Tries have many advantages:
 The latter property of tries makes them particularly well-suited for use in blockchains
 and other distributed ledgers, where participants can agree on a bitwise-identical representation
 of the state of some common data structure, independently from the specific order of operations
-that they each of them used to reach that state.
+that each of them used to reach that state.
 
 ### Keys and Height
 
@@ -328,10 +335,14 @@ On an actual depth 27 trie, we thus predict the speedup would be more like 13x.
 
 ### Conclusion
 
-This technique can be extremely useful to blockchains, in which tries are an essential data structure,
-but really to any setting where trees are used, whether balanced or not, pure or not, persistent or not,
-merkleized or not, Btrees, Patricia trees, etc.
+The technique above can be extremely useful to blockchains,
+in which tries are an essential data structure,
+but really to any setting where trees are used,
+whether balanced or not, pure or not, persistent or not,
+merkleized or not, Btrees, Patricia trees, Splice trees, etc.
 
-We at Mutual Knowledge Systems will gladly consult with your company, where in the blockchain space or not,
-to implement this technique correctly, or other techniques involving better data structures
-and better programming practices for your business.
+We at Mutual Knowledge Systems will gladly consult with your company,
+whether in the blockchain space or not, to implement this technique correctly,
+train your team to use it, or more generally help you adopt
+better data structures, better algorithms, better software architecture
+and better programming practices in your business.
