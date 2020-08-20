@@ -26,7 +26,7 @@
         repr: 'LocatedAmount
         slots: =>.+
         {location: {type: Symbol}
-         unit =>.+ {default: 'BTC}}
+         unit: =>.+ {default: 'BTC}}
         sealed: #t)
       (def stolen (new LocatedAmount (location 'MtGox) (quantity 744408)))
       (check-equal? (.get stolen location) 'MtGox)
