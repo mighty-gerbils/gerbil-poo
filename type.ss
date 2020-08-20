@@ -146,9 +146,18 @@
                 (unmarshal (vector-ref types@ disc) port)))
 (def (Or . types) {(:: @ Or.) (types)})
 
+(.def (Bottom @ Type.)
+  sexp: 'Bottom
+  .element?: false
+  .bytes<-: invalid .<-bytes: invalid
+  .json<-: invalid .<-json: invalid
+  .marshal: invalid .unmarshal: invalid)
+(defalias ⊥ Bottom)
+
 (.def (Exactly. @ Type. value)
   sexp: `(Exactly ,(:sexp value)) ;; TODO: have a better generic sexp function?
   .element?: (λ (x) (equal? x value))
+  .Log: Bottom
   kvalue: (lambda _ value)
   jsvalue: (json-normalize value)
   .json<-: (lambda (x) (assert-equal! x value) jsvalue)
