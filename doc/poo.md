@@ -488,3 +488,20 @@ hold values of slots modified by side-effects.
   * Better debugging for circular definitions with a variant of hash-ensure-ref that detects them.
 
   * Make sure this works well with constant-folding in the underlying compiler.
+
+  * Look at Squeak Traits and/or its descendant Perl 6 object
+    for how they linearize inheritance hierarchies.
+    Each prototype or class can choose how it linearizes its super-objects.
+
+  * In Slate a mixin is an object with behavior and no state.
+    In Squeak, a Trait has a protocol that has modular requirements and provisions.
+    Records, delegation. Object/Meta delegation flag attached to the slot.
+    e.g. for "new", you want a new object, not a new class.
+    Primitives: method lookup, method lookup after (from some point in the hierarchy).
+    method-not-found catch-all.
+    Multimethod dispatch: the earlier arguments would take priority over later one for method-not-found;
+    in DSLs, the method-not-found would do autodiscovery from e.g. the filesystem.
+    Subjective dispatch vs objective dispatch.
+    Performance: Method inline caching.
+
+  * Look what we can save from [TinyCLOS](https://github.com/ultraschemer/gambit-tiny-clos/blob/master/tiny-clos/core.scm) ?
