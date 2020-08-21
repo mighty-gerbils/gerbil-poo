@@ -10,4 +10,5 @@
 
 (init-build-environment!
  name: "Gerbil-poo"
- deps: '("clan"))
+ deps: '("clan")
+ spec: (lambda () `(,@(all-gerbil-modules) "t/table-testing")))

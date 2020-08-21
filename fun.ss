@@ -6,7 +6,7 @@
   :std/error :std/iter
   (only-in :clan/list acons)
   :clan/option
-  :clan/poo/poo :clan/poo/mop :clan/poo/brace :clan/poo/number :clan/poo/type)
+  ./poo ./mop ./brace ./number ./type ./io)
 
 (.def (Functor. @ Type.
        .tap ;; : Type <- Type
@@ -21,7 +21,15 @@
   .Log: Unit
   .bind: (lambda (x f) (f x)))
 
-(.def (Wrap. @ Type.
+(.def (methods.io<-wrap @ [] T .wrap .unwrap)
+  .marshal: (lambda (v port) (marshal T (.unwrap v) port))
+  .unmarshal: (lambda (port) (.wrap (unmarshal T port)))
+  .bytes<-: (lambda (v) (bytes<- T (.unwrap v)))
+  .<-bytes: (lambda (b) (.wrap (<-bytes T b)))
+  .json<-: (lambda (v) (json<- T (.unwrap v)))
+  .<-json: (lambda (b) (.wrap (<-json T b))))
+
+(.def (Wrap. @ [methods.io<-wrap]
        T ;; : Type.
        Wrapper) ;; : Functor.
   .wrap: (.@ Wrapper .ap) ;; : (Wrap t) <- t
@@ -31,3 +39,16 @@
 
 (.def (IdWrap @ Wrap.)
   Wrapper: Identity)
+
+
+;; Dependent variant of Functor, taking explicit type parameters at runtime
+(.def (Functor^. @ []
+  .tap ;; : Type <- Type
+  .ap^ ;; :  (Fun (@ a) <- (forall a <: Type) a)
+  .map^)) ;; : (Fun (@ a) <- (forall a <: Type) (forall b <: Type) (Fun a <- b) (@ b))
+
+(.def (Wrap^. @ [methods.io<-wrap]
+       T ;; : Type.
+       Wrapper^) ;; : Functor^.
+  .wrap: (cut .call Wrapper^ .ap^ T <>) ;; : @ <- T
+  .unwrap: (cut .call Wrapper^ .unap^ T <>)) ;; : T <- @

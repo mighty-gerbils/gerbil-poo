@@ -5,7 +5,7 @@
 (import
   :std/iter :std/misc/alist
   :clan/base :clan/list :clan/option
-  :clan/poo/brace :clan/poo/io :clan/poo/mop :clan/poo/poo :clan/poo/type)
+  ./brace ./io ./mop ./number ./poo ./type)
 
 ;; TODO: have APIs look more like LIL, less like OCaml?
 ;; Especially since we may (1) use similar metaprogramming for OO style (?), and
@@ -16,7 +16,7 @@
 ;; so the object is moved first in OO style, but at whatever "usual" place in the other style.
 
 ;; NB: General methods for maps, that are not trie-specific
-(.def (CommonTableMethod. @ []
+(.def (methods.table @ []
        Key ;; : Type
        Value ;; : Type
        .empty ;; : @
@@ -24,23 +24,36 @@
        .ref ;; : Value <- @ Key ?(Value <-)
        .remove ;; : @ <- @ Key
        .foldl ;; : (Fun o <- (Fun o <- Key Value o) o @)
-       .foldr ;; : (Fun o <- (Fun o <- Key Value o) o @)
-       .merge ;; : @ <- (Fun (Option Value) <- Key (Option Value) (Option Value)) @ @
-       .find-first/opt ;; : (Option (Pair Key Value)) <- (Fun Bool <- Key Value) @
-       .find-last/opt ;; : (Option (Pair Key Value)) <- (Fun Bool <- Key Value) @
-       .divide) ;; : (OrFalse @) (OrFalse @) <- @
+       .foldr) ;; : (Fun o <- (Fun o <- Key Value o) o @)
+
+  ;; : (Fun Bool <- @)
+  .empty?: (lambda (t) (eqv? t .empty))
 
   ;; : (Fun Bool <- @ Key)
-  .key?: (lambda (trie key) (let/cc ret (.ref trie key (lambda () (ret #f))) #t))
+  .key?: (lambda (t key) (let/cc ret (.ref t key (lambda () (ret #f))) #t))
 
   ;; : (Fun (Option Value) <- @ Key)
-  .ref/opt: (lambda (trie key) (let/cc ret (some (.ref trie key (lambda () (ret #f))))))
+  .ref/opt: (lambda (t key) (let/cc ret (some (.ref t key (lambda () (ret #f))))))
 
   ;; : Unit <- (Fun Unit <- Key Value) @
-  .for-each: (lambda (f t) (.foldl (lambda (k v a) (void (f k v))) (void) t 0))
+  .for-each: (lambda (f t) (.foldl (lambda (k v a) (void (f k v))) (void) t))
 
   ;; : Unit <- (Fun Unit <- Key Value) @
-  .for-each/reverse: (lambda (f t) (.foldr (lambda (k v a) (void (f k v))) (void) t 0))
+  .for-each/reverse: (lambda (f t) (.foldr (lambda (k v a) (void (f k v))) (void) t))
+
+  ;; : @ <- Key (Option Value) @
+  .acons/opt: (lambda (k ov t) (match ov (#f t) ((some v) (.acons k v t))))
+
+  ;; : @ <- Key Value
+  .singleton: (lambda (k v) (.acons k v .empty))
+
+  ;; Merging the hard way, by iterating on one table to add its entries,
+  ;; then on the other table to add its one-sided entries.
+  ;; : @ <- (Fun (Option Value) <- Key (Option Value) (Option Value)) @ @
+  .merge:
+  (lambda (f ta tb)
+    (!> (.foldl (lambda (k va m) (.acons/opt k (f k (some va) (.ref/opt tb k)) m)) .empty ta)
+        (cut .foldl (lambda (k vb m) (if (.key? ta k) m (.acons/opt k (f k #f (some vb)) m))) <> tb)))
 
   ;; : Nat <- @
   .count: (lambda (t) (.foldl (lambda (_ _ a) (1+ a)) 0 t))
@@ -75,6 +88,20 @@
   ;; : (Pair Key Value) <- @
   .choose: .min-binding
 
+  ;; Linear scan for the first matching entry
+  ;; BEWARE: this assumes for-each is in increasing key order.
+  ;; : (Option (Pair Key Value)) <- (Fun Bool <- Key Value) @
+  .find-first/opt:
+  (lambda (p t) (let/cc return
+             (.for-each (lambda (k v) (when (p k v) (return (some (cons k v))))) t) #f))
+
+  ;; Linear scan for the last matching entry
+  ;; BEWARE: this assumes for-each/reverse is in decreasing key order.
+  ;; : (Option (Pair Key Value)) <- (Fun Bool <- Key Value) @
+  .find-last/opt:
+  (lambda (p t) (let/cc return
+             (.for-each/reverse (lambda (k v) (when (p k v) (return (some (cons k v))))) t) #f))
+
   ;; : (Pair Key Value) <- (Fun Bool <- Key Value) @
   .find-first: (lambda (p t) (option-ref (.find-first/opt p t)))
 
@@ -88,7 +115,7 @@
     (def u (f o))
     (if (equal? o u) t
         (match u
-          (#t (.remove t k))
+          (#f (.remove t k))
           ((some v) (.acons k v t)))))
 
   ;; : @ <- Key (Fun Value <- Value) @ ?(Fun Value <-)
@@ -110,9 +137,21 @@
   ;; : @ <- (List @)
   .join/list: (lambda (l) (foldl .join .empty l))
 
+  ;; Split a table in two smaller trees, if possible, a somewhat balanced way, if possible.
+  ;; Return two values, the first being true if the table was not empty, and the second being true
+  ;; if the table had at least two elements.
+  ;; ASSUMES that #f, if a valid table, is the empty table.
+  ;; This default method does the stupid thing of taking the first element off.
+  ;; : (OrFalse @) (OrFalse @) <- @
+  .divide:
+  (lambda (t)
+    (match (.min-binding/opt t)
+      ((some (cons k v)) (values (.singleton k v) (let (r (.remove t k)) (and (not (.empty? r)) r))))
+      (#f (values #f #f))))
+
   ;; Split a table in two or more strictly smaller trees, if possible, a somewhat balanced way, if possible.
   ;; Fallback to an empty list if the table was empty, or a singleton list of itself if a singleton table.
-  ;; This default methods assumes that we have good way to divide table in two.
+  ;; This default method assumes that we have good way to divide table in two.
   ;; : (List @) <- @
   .divide/list:
   (lambda (t)
@@ -123,6 +162,9 @@
 
   ;; : @ <- (Iterator (Pair Key Value)) ?@
   .<-iter: (lambda (s (t .empty)) (for/fold (t t) (kv s) (.acons (car kv) (cdr kv) t)))
+
+  ;; : (Iterator (Pair Key Value)) <- @
+  .iter<-: (lambda (x) (:iter (.list<- x)))
 
   ;; : (Lens Value <- @) <- Key
   .lens: (lambda (k) {get: (lambda (t) (.ref t k)) set: (lambda (t v) (.acons k v t))})
@@ -169,11 +211,10 @@
   .<-iter: (lambda (s (t .empty)) (for/fold (t t) (elt s) (.cons elt t))) ;; : @ <- (Iterator Elt) ?@
 
   ;; TODO: for union, inter, diff, compare, equal, subset,
-  ;; optimize for full subtries, by caching count in wrapper?
+  ;; optimize for full subtables, by caching count in wrapper?
   .union: (lambda (a b) (.call Table .merge (lambda (_ _ _) (some (void))) a b)) ;; : @ <- @ @
   .inter: (lambda (a b) (.call Table .merge (lambda (_ a b) (and a b (some (void)))) a b)) ;; : @ <- @ @
   .diff: (lambda (a b) (.call Table .merge (lambda (_ a b) (and (not b) a)))) ;; : @ <- @ @
   .compare: (lambda (a b) (.call Table .compare (lambda (_ _) 0) a b)) ;; : : Integer <- @ @
   .equal?: (lambda (a b) (.call Table .equal? a b)) ;; : Bool <- @ @
   .lens: (lambda (e) {get: (lambda (t) (.elt? t e)) set: (lambda (t v) (if v (.cons e t) (.remove t e)))})) ;; : (Lens Bool <- @) <- Elt
-

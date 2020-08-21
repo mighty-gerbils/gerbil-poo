@@ -146,6 +146,7 @@
                 (unmarshal (vector-ref types@ disc) port)))
 (def (Or . types) {(:: @ Or.) (types)})
 
+;; Bottom tells you everything about nothing
 (.def (Bottom @ Type.)
   sexp: 'Bottom
   .element?: false
@@ -153,6 +154,15 @@
   .json<-: invalid .<-json: invalid
   .marshal: invalid .unmarshal: invalid)
 (defalias ⊥ Bottom)
+
+;; Top tells you nothing about everything
+(.def (Top @ [Type.])
+  sexp: 'Top
+  .element?: true
+  .string<-: invalid .<-string: invalid
+  .bytes<-: invalid .<-bytes: invalid
+  .json<-: invalid .<-json: invalid)
+(defalias ⊤ Top)
 
 (.def (Exactly. @ Type. value)
   sexp: `(Exactly ,(:sexp value)) ;; TODO: have a better generic sexp function?
@@ -220,10 +230,10 @@
   sexp: `(Map ,(.@ Value sexp) <- ,(.@ Key sexp))
   .element?: (lambda (x) (and (hash-table? x)
                          (let/cc return
-                           (hash-for-each (lambda (k v) (unless (and (element? Key k)
-                                                                (element? Value v))
-                                                     (return #f)))
-                                          x) #t)))
+                           (hash-for-each
+                            (lambda (k v) (unless (and (element? Key k) (element? Value v))
+                                       (return #f)))
+                            x) #t)))
   .empty: (make-hash-table)
   .json<-: (lambda (m) (hash-key-value-map m (cut string<- Key <>) (cut json<- Value <>)))
   .<-json: (lambda (j) (hash-key-value-map j (cut <-string Key <>) (cut <-json Value <>))))

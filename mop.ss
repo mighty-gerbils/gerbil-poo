@@ -142,7 +142,19 @@
 ;; TODO: use macro that leaves source info by default, returns a function when passed as argument.
 (def (validate type x (context '())) (.call type .validate x context))
 
-(.def (Any @ Type.) sexp: 'Any .element?: true .sexp<-: (cut list 'quote <>))
+;; Any accepts any Scheme object, but only does best effort at printing, invalid reading
+(.def (Any @ [Type.])
+  sexp: 'Any
+  .element?: true
+  .sexp<-: (cut list 'quote <>)
+  .string<-: repr .<-string: invalid
+  .bytes<-: (compose string->bytes .string<-)
+  .<-bytes: (compose .<-string bytes->string)
+  .json<-: .string<- .<-json: .<-string
+  .marshal: (lambda (x port) (write-sized16-bytes (.bytes<- x) port))
+  .unmarshal: (lambda (port) (.<-bytes (read-sized16-bytes port)))
+  .=?: equal?)
+
 (.def (Poo @ Type.) sexp: 'Poo .element?: poo?
       .sexp<-: identity) ;; TODO: improve on that
 

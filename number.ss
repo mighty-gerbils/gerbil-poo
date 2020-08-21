@@ -25,9 +25,11 @@
   .one: 1
   .<-string: (lambda (x) (validate @ (string->number x)))
   .string<-: number->string
-  .=?: (cut = <> <>)
+  .=?: (cut = <> <>))
 
-  ;; Should the things below be in Real?
+(.def (Real @ Number)
+  sexp: 'Real
+  .element?: real?
   ;; function taking two entries a, b.
   ;; -- If a = b then returns 0;
   ;; -- If a > b then returns 1
@@ -39,7 +41,11 @@
   .max: max
   .min: min)
 
-(.def (Integer @ [methods.bytes<-marshal Number]
+(.def (Rational @ Real)
+  sexp: 'Rational
+  .element?: rational?)
+
+(.def (Integer @ [methods.bytes<-marshal Rational]
                  .string<- .<-string)
   sexp: 'Integer
   .element?: exact-integer?
@@ -167,9 +173,9 @@
 (def (double<-bytes bytes)
   (u8vector-double-ref bytes 0 big))
 
-(.def (Real @ [methods.marshal<-bytes Number] .validate)
-  sexp: 'Real
-  .element?: real?
+(.def (Float @ [methods.marshal<-bytes Real] .validate)
+  sexp: 'Float
+  .element?: flonum?
   .length-in-bytes: 8
   .json<-: identity
   .<-json: .validate

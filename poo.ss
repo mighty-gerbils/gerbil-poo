@@ -152,7 +152,7 @@
           ((pair? e)
            (cons #'arg (normalize-slot-specs ctx #'more)))
           ((symbol? e)
-           (cons #'arg (normalize-slot-specs [ctx] #'more)))
+           (cons #'(arg) (normalize-slot-specs ctx #'more)))
           ((keyword? e)
            (normalize-named-slot-specs ctx (unkeywordify-syntax ctx #'arg) #'more))
           (else

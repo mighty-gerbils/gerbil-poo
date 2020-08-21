@@ -7,11 +7,10 @@
 ;; TODO: import large amounts of data in O(N) rather than O(N log N).
 
 (import
-  :gerbil/gambit/bits
+  :gerbil/gambit/bits :gerbil/gambit/bytes
   :std/error :std/format :std/iter
   :clan/base :clan/option :clan/number
-  :clan/poo/poo :clan/poo/mop :clan/poo/brace :clan/poo/number :clan/poo/type
-  :clan/poo/fun :clan/poo/io :clan/poo/table)
+  ./poo ./mop ./brace ./number ./type ./fun ./io ./table)
 
 (defstruct $Trie () transparent: #t)
 (defstruct (Empty $Trie) () transparent: #t)
@@ -33,7 +32,7 @@
 ;; to get the actual key of the start of the current trie,
 ;; i.e. prepend those Costep bits as high bits to the bits provided by the subtrie-in-focus as low bits.
 (defstruct $Costep (height key) transparent: #t) ; height: (Or Height '(-1 #f)) key: Key
-(defstruct $Unstep (left right skip) transparent: #t) ;; left: (Fun trunk <- Key Height trunk branch) right: (Fun trunk <- Key Height branch trunk) skip: (Fun trunk <- Key Height Height Key trunk) ;; the first argument, key, only contains the high bits and must be shifted by 1+ the second argument Height, to get the full key for the first element of the trie node resulting from unstepping.
+(defstruct $Unstep (left right skip) transparent: #t) ;; left: (Fun trunk <- Key Height trunk branch) right: (Fun trunk <- Key Height branch trunk) skip: (Fun trunk <- Key Height Height Key trunk) ;; the first argument, key, only contains the high bits and must be shifted by 1+ the second argument Height, to get the full key for the first element of the trie node resulting from unstepping. ;; trunk is conceptually branch plus optional path-dependent information
 (defstruct $Path (costep steps) transparent: #t) ; costep: Costep steps: (List (Step t))
 
 ;; This is basically a fold of the open recursion functor of which the (unwrapped) Trie is the fixed-point.
@@ -68,12 +67,10 @@
                          (.branch height .empty synth)
                          (.branch height synth .empty)))))))
 
-(.def (Trie. @ [Wrap. CommonTableMethod.] ;; @ <: (Wrap T)
+(.def (Trie. @ [Wrap. methods.table] ;; @ <: (Wrap T)
        .validate ;; : @ <- Any
        .wrap ;; : (Wrap t) <- t
-       .unwrap ;; : t <- (Wrap t)
-       .bind/wrap ;; : u <- (Wrap t) (u <- t) = (lambda (x f) (f (.unwrap x)))
-       .map/wrap) ;; : (Wrap u) <- (u <- t) (Wrap t) = (lambda (f x) (.wrap (f (.unwrap x))))
+       .unwrap) ;; : t <- (Wrap t)
 
   sexp: 'Trie.
 
@@ -98,12 +95,39 @@
 
   ;; The underlying, unwrapped, Trie type.
   ;; A wrapper layer can add cached digests, lazy-loading, maybe cached count, etc.
-  T: {(:: @ Type.) sexp: '$Trie .element?: $Trie?}
-      #;(Sum ;; the wrapped type
+  #;T: #;(Sum ;; the wrapped type
       (Empty)
       (Leaf value: Value)
       (Branch height: Height left: T right: T)
       (Skip height: Height bits-height: Height bits: Key child: T))
+
+  T: {(:: @T [methods.bytes<-marshal])
+      sexp: '$Trie
+      .element?: $Trie?
+      ;; TODO: autogenerate that
+      .marshal:
+      (lambda (v port)
+        (match v
+          ((Empty)
+           (write-byte 0 port))
+          ((Leaf v)
+           (write-byte 1 port) (marshal Value v port))
+          ((Branch h l r)
+           (write-byte 2 port) (marshal Height h port)
+           (marshal @ l port) (marshal @ r port))
+          ((Skip h bh b c)
+           (write-byte 3 port) (marshal Height h port) (marshal Height bh port)
+           (marshal Key b port) (marshal @ c port))))
+      ;; TODO: autogenerate that for sum types
+      .unmarshal:
+      (lambda (port)
+        (match (read-byte port)
+          (0 (Empty))
+          (1 (Leaf (unmarshal Value port)))
+          (2 (left-to-right Branch (unmarshal Height port)
+                            (unmarshal @ port) (unmarshal @ port)))
+          (3 (left-to-right Skip (unmarshal Height port) (unmarshal Height port)
+                            (unmarshal Key port) (unmarshal @ port)))))}
 
   ;; An (Unstep @ @) provides methods to undo zipping steps, operating on smaller @ tries
   ;; to yield larger tries. With parameters trunk and branch other than @, an Unstep can be used
@@ -158,37 +182,49 @@
     ;; : (Step a) <- (Fun a <- b) (Step b)
     .map: (lambda (f s) (match s ((BranchStep branch) (BranchStep (f branch))) ((SkipStep _) s)))}
 
-  ;;Costep: {(:: @C Type.) ;;(Struct height: Height key: Key)
-  ;;  sexp: '(.@ Trie. Costep)
-  ;;  .element?: $Costep?}
+  Costep: {(:: @C Type.) ;;(Struct height: Height key: Key)
+    sexp: '(.@ Trie. Costep)
+    .validate:
+    (lambda (x ctx)
+      (def c [[validate: x] . ctx])
+      (match x
+        (($Costep height key)
+         (unless (member height '(-1 #f))
+           (validate Height height c))
+         (validate Key key)))
+      x)}
 
   Path: {(:: @P Type.) ;;(lambda (t) (Struct costep: Costep steps: (List (Step t))))
-    sexp: '(.@ Trie. Path)
+    sexp: `(.call ,(.@ @ sexp) Path ,(.@ A sexp))
+    A: @ ;; type parameter for the content of the path attribute
     ;; TODO: have validate function and protocol with better error messages?
     ;; validate wrt the parameter type?
     ;; : Bool <- Any
-    .element?:
-    (lambda (path)
-      (let-match (($Path ($Costep height key) steps) path)
-        (and (or (member height '(-1 #f)) (element? Height height))
-             (element? Key key)
-             (let c ((height height) (steps steps))
-               (match steps
-                 ([] #t)
-                 ([step . steps]
-                  (match step
-                    ;; TODO: validate the branch parameter to be of a proper parameter type.
-                    ((BranchStep _) (c (1+ height) steps))
-                    ((SkipStep bits-height)
-                     (and (element? Height bits-height)
-                          (let (new-height (+ height bits-height 1))
-                            (and (element? Height new-height)
-                                 (c new-height steps))))))))))))
+    .validate:
+    (lambda (path ctx)
+      (let-match (($Path (and costep ($Costep height key)) steps) path)
+        (def ctx2 [[validate: path] . ctx])
+        (validate Costep costep ctx2)
+        (let c ((height height) (steps steps))
+          (match steps
+            ([] #t)
+            ([step . steps]
+             (match step
+               ((BranchStep a)
+                (validate A a ctx2)
+                (c (1+ height) steps))
+               ((SkipStep bits-height)
+                (validate Height bits-height ctx2)
+                (let (new-height (+ height bits-height 1))
+                  (validate Height new-height ctx2)
+                  (c new-height steps))))))))
+      path)
+
     .op: (let (apply-step (.@ Step .op))
            (lambda (unstep t path) ;; : (Pair trunk Costep) <- (Unstep trunk branch) trunk (Path branch)
              (let-match (($Path costep steps) path) (let-match (($Costep height _) costep)
                (def h (.trie-height t))
-               (when (and h height (> h height)) (invalid '(Trie. Path .op) unstep t path))
+               (when (and h height (> h height)) (invalid sexp '.op unstep t path))
                (foldl (cut apply-step unstep <> <>)
                       (cons (.ensure-height height t) costep) steps)))))
 
@@ -367,6 +403,7 @@
   ;; : (Fun @ <- Key Value)
   .singleton: (lambda (key value) (.make-leaf (1- (integer-length key)) key value))
 
+  ;; (Zipper Trunk Branch) = (Pair Trunk Branch)
   ;; : (Zipper @) <- Key Value (Zipper @)
   .zipper-acons:
   (lambda (key value zipper)
@@ -594,9 +631,22 @@
              (def (f child) (.make-skip height bits-height bits child))
              (values (f l) x (f r))))))))
 
-  ;; (Zipper @) = (Pair @ (Path @))
+  .Zipper: {(:: @Z [])
+    A: @
+    Z: (Pair A {(:: @P Path) A})
+    .element?: (.@ Z .element?)
+    .validate: (.@ Z .validate)
+    .bytes<-: (.@ Z .bytes<-)
+    .<-bytes: (.@ Z .<-bytes)
+    .json<-: (.@ Z .json<-)
+    .<-json: (.@ Z .<-json)
+    .marshal: (.@ Z .marshal)
+    .unmarshal: (.@ Z .unmarshal)
+    .map: (lambda (f z) (cons (f (car z)) (.call Path .map f (cdr z))))
+  }
+  Zipper: (lambda (A) (.@ {(:: @Z [.Zipper]) A} Z))
 
-  ;; : Zipper <- @
+  ;; : (Zipper @) <- @
   .zipper<-: (lambda (t) (cons t ($Path ($Costep (.trie-height t) 0) [])))
 
   ;; : @ <- (Pair @ (Path @))
