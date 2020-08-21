@@ -9,7 +9,7 @@
   ./brace ./io ./mop ./number ./poo ./type ./table)
 
 (.def (RationalDict. @ [methods.table] Value)
-   sexp: (RationalDict)
+   sexp: '(RationalDict)
    Key: Rational
    Value: Any
    .validate:
@@ -31,7 +31,7 @@
    .foldr: (lambda (f seed d) (foldr (lambda (kv acc) (f (car kv) (cdr kv) acc)) seed (rationaldict->list d)))
    .<-list: list->rationaldict
    .list<-: rationaldict->list
-   .equal?: (lambda (d1 d2) (rationaldict=? d1 d2 (.@ Value .equal?))))
+   .=?: (lambda (d1 d2) (rationaldict=? d1 d2 (.@ Value .=?))))
 (def (RationalDict (Value Any))
   (if (eq? Value Any) RationalDict.
       {(:: @ RationalDict.) Value sexp: `(RationalDict ,(.@ Value sexp))}))

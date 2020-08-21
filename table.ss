@@ -137,6 +137,13 @@
   ;; : @ <- (List @)
   .join/list: (lambda (l) (foldl .join .empty l))
 
+  ;; : Bool <- @ @
+  .=?: (lambda (a b) (let/cc return
+                  (.merge (lambda (_ a b)
+                            (unless (and a b (.call Value .=? (some-value a) (some-value b)))
+                              (return #f)) #f)
+                          a b) #t))
+
   ;; Split a table in two smaller trees, if possible, a somewhat balanced way, if possible.
   ;; Return two values, the first being true if the table was not empty, and the second being true
   ;; if the table had at least two elements.
@@ -185,7 +192,7 @@
   .singleton: (lambda (elt) (.call Table .singleton elt (void))) ;; : @ <- Elt
   .remove: (.@ Table .remove) ;; : @ <- @ Elt
   .for-each: (lambda (f t) (.call Table .for-each (lambda (e _) (f e)) t)) ;; : Unit <- (Unit <- Elt) @
-  .for-each/reverse: (lambda (f t) (.call Table .for-each/reverse (lambda (e _) (f e)) t))
+  .for-each/reverse: (lambda (f t) (.call Table .for-each/reverse (lambda (e _) (f e)) t)) ;; : Unit <- (Unit <- Elt) @
   .foldl: (lambda (f a t) (.call Table .foldl (lambda (e _ a) (f e a)) a t)) ;; : a <- (a <- Elt a)
   .foldr: (lambda (f a t) (.call Table .foldr (lambda (e _ a) (f e a)) a t)) ;; : a <- (a <- Elt a)
   .every: (lambda (f t) (.call Table .every (lambda (e _) (f e)) t)) ;; : Bool <- (Bool <- Elt) @
@@ -216,5 +223,5 @@
   .inter: (lambda (a b) (.call Table .merge (lambda (_ a b) (and a b (some (void)))) a b)) ;; : @ <- @ @
   .diff: (lambda (a b) (.call Table .merge (lambda (_ a b) (and (not b) a)))) ;; : @ <- @ @
   .compare: (lambda (a b) (.call Table .compare (lambda (_ _) 0) a b)) ;; : : Integer <- @ @
-  .equal?: (lambda (a b) (.call Table .equal? a b)) ;; : Bool <- @ @
+  .=?: (lambda (a b) (.call Table .=? a b)) ;; : Bool <- @ @
   .lens: (lambda (e) {get: (lambda (t) (.elt? t e)) set: (lambda (t v) (if v (.cons e t) (.remove t e)))})) ;; : (Lens Bool <- @) <- Elt

@@ -306,7 +306,7 @@
     (match (.unwrap t)
       ((Empty) t) ;; NB: In a normalized trie, Empty only happens at the toplevel:
       ;; Otherwise, a Branch with an Empty child is normalized to a Skip
-      ((Leaf value) t)
+      ((Leaf value) (validate Value value) t)
       ((Branch height left right)
        (let (c [[validate: @ t] . ctx])
          (validate Height height c)
@@ -806,7 +806,7 @@
       ((cons _ (Empty)) (onlya k a))
       ((cons (Leaf va) (Leaf vb)) (leaf k va vb))
       ((cons (Branch h la ra) (Branch _ lb rb))
-       (left-to-right branch k h (recurse k la lb) (recurse k ra rb)))
+       (left-to-right branch k h (recurse k la lb) (recurse (.right-key h k) ra rb)))
       ((cons (Branch h la ra) (Skip _ bits-height bits cb))
        (let* ((bh1 (1- bits-height))
               (rk (.right-key h k))
@@ -886,7 +886,7 @@
 
   ;; Are two trees equal?
   ;; : Bool <- @ @
-  .equal?:
+  .=?:
   (lambda (a b)
     (let/cc return
       (let e? ((k 0) (a a) (b b))
@@ -895,7 +895,7 @@
              k a b
              recurse: e?
              empty: true
-             leaf: (lambda (_ va vb) (or (.call Value .equal? va vb) (return #f)))
+             leaf: (lambda (_ va vb) (or (.call Value .=? va vb) (return #f)))
              branch: true
              skip: true
              onlya: (lambda (_ _) (return #f))

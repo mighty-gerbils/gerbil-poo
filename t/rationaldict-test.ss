@@ -3,10 +3,10 @@
 (import
   :std/test
   :clan/t/test-support
-  ../mop ../rationaldict
+  ../mop ../rationaldict ../type
   ./table-testing)
 
-(def T (RationalDict Any))
+(def T (RationalDict String))
 
 (def rationaldict-test
   (test-suite "test suite for clan/poo/rationaldict"

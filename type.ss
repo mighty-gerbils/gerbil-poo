@@ -88,6 +88,7 @@
   .element?: string?
   .Bytes: Bytes
   .zero: ""
+  .=?: string=?
   .sexp<-: identity
   .<-string: identity
   .string<-: identity

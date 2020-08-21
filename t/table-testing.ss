@@ -2,7 +2,7 @@
 
 (import
   :gerbil/gambit/bits :gerbil/gambit/random :gerbil/gambit/ports
-  :std/format :std/iter :std/misc/list :std/misc/queue
+  :std/format :std/iter :std/misc/list :std/misc/queue :std/misc/shuffle
   :std/sort :std/srfi/1 :std/srfi/13 :std/sugar :std/test
   :clan/assert :clan/base :clan/debug :clan/hash :clan/list :clan/number :clan/option :clan/roman
   :clan/with-id
@@ -17,41 +17,79 @@
   (syntax-case stx ()
     ((ctx T) #'(ctx ctx T))
     ((_ ctx T)
-     #'(with-id ctx (E F alist<- <-alist)
+     #'(with-id ctx (E F alist<- <-alist <-l)
          (defrule (E e) (.@ T e))
          (defrule (F f args (... ...)) (.call T f args (... ...)))
          ;; TODO: for tries, check that the alists are already sorted!
          (def (alist<- t) (sort (F .list<- (validate T t)) (comparing-key test: < key: car)))
-         (def (<-alist t) (validate T (F .<-list (shuffle-list t))))))))
+         (def (<-alist t) (validate T (F .<-list (shuffle t))))
+         (def (<-l l) (<-alist (al<-ks l)))))))
 
 (defrule (table-test-case T name body ...)
   (test-case (format "~a for ~s" name (.@ T sexp))
     (def-table-test-accessors T T)
     body ...))
 
+(def (al<-ks ks (f number->string)) (map (lambda (k) (cons k (f k))) ks))
+(def (make-alist n (f number->string)) (al<-ks (iota n 1) f))
+(def (l . ks) (al<-ks ks))
 (def (sort-alist alist) (sort alist (comparing-key test: < key: car)))
-(def (shuffle-list list) (map cdr (sort-alist (map (cut cons (random-integer ##max-fixnum) <>) list))))
-(def (make-alist n (f number->string)) (map (lambda (i) (cons i (f i))) (iota n 1)))
 (def alist-equal? (comparing-key test: equal? key: sort-alist))
 
 (def al-10-latin (make-alist 10 roman-numeral<-integer))
 (def al-100-decimal (make-alist 100))
 (def al-100-latin (make-alist 100 roman-numeral<-integer))
-(def al-1 (shuffle-list al-100-decimal))
 (def al-2 (filter (compose even? car) al-100-decimal))
 (def al-3 (filter (lambda (x) (> (string-length (cdr x)) 5)) al-100-latin))
 (def al-4 '((42 . "42") (1729 . "1729") (666 . "666")))
 (def al-5 (sort-alist (delete-duplicates (append al-3 al-4) (comparing-key test: = key: car))))
+(def test-alists
+  [al-10-latin al-100-decimal al-100-latin al-2 al-3 al-4 al-5])
 
 (def current-verbosity (make-parameter #t))
 (defrule (X tag rest ...) (DBG (and (current-verbosity) tag) rest ...))
 
 (def (read-only-linear-table-test T)
   (table-test-case T "read-only linear table test"
+    (X "universal properties")
+    (for-each! test-alists
+      (lambda (al)
+        (def m (<-alist al))
+        (def s (sort-alist al))
+        (X "foo")
+        (assert-equal! (alist<- m) s)
+        (assert-equal! (F .count m) (length al))
+        (assert-equal! (F .min-binding m) (first s))
+        (assert-equal! (F .max-binding m) (last s))
+        (assert-equal! (F .key? m 0) #f)
+        (assert-equal! (F .ref/opt m 0) #f)
+        (check-exception (F .ref m 0) true)
+        (def m0 (F .acons 0 "0" m))
+        (assert-equal! (F .count m0) (1+ (length al)))
+        (assert-equal! (F .ref m0 0) "0")
+        (assert-equal! (F .key? m0 0) #t)
+        (assert-equal! (F .ref/opt m0 0) (some "0"))
+        (assert-equal! (F .min-binding m0) '(0 . "0"))
+        (assert-equal! (F .max-binding m0) (F .max-binding m))
+        (assert-equal! '() (alist<- (foldl (lambda (kv m) (F .remove m (car kv))) m al)))
+        (X "bar")
+        (for-each! test-alists
+          (lambda (al2)
+            (write [foo: al al2 (eq? al al2) (0x<-random-source)])(newline)
+            (def m2 (<-alist al2))
+            (write [foo2: (F .sexp<- m) (F .sexp<- m2)])(newline)
+            (write [foo3: (F .=? m m2)])(newline)
+            (assert-equal! (F .=? m m2) (eq? al al2))))
+        (X "baz")
+        (for-each! al
+          (match <> ([k . v]
+                     (assert-equal! (F .key? m k) #t)
+                     (assert-equal! (F .ref/opt m k) (some v))
+                     (assert-equal! (F .ref m k) v))))))
+    (X "manual tests")
     (def m-10-latin (<-alist al-10-latin))
     (def m-100-decimal (<-alist al-100-decimal))
     (def m-100-latin (<-alist al-100-latin))
-    (def m-1 (<-alist al-1))
     (def m-2 (<-alist al-2))
     (def m-3 (<-alist al-3))
     (def m-4 (<-alist al-4))
@@ -59,14 +97,18 @@
     (X 'empty)
     (check-equal? (F .list<- (E .empty)) '())
     (check-equal? (F .empty? (E .empty)) #t)
-    (X 'ref)
-    (check-equal? (F .ref (<-alist '((57 . "57") (10 . "10") (12 . "12"))) 12) "12")
-    (for-each! al-1 (match <> ([k . v] (assert-equal! (F .ref m-1 k) v))))
-    (check-exception (F .ref m-1 101) true)
-    (check-exception (F .ref m-1 "57") true)
+    (X "ref ref/opt key?")
+    (check-equal? (F .key? (<-l '(10 12 57)) 12) #t)
+    (check-equal? (F .ref/opt (<-l '(10 12 57)) 12) (some "12"))
+    (check-equal? (F .ref (<-l '(10 12 57)) 12) "12")
+    (check-equal? (F .key? (<-l '(10 12 57)) 13) #f)
+    (check-equal? (F .ref/opt (<-l '(10 12 57)) 13) #f)
+    (check-exception (F .ref (<-l '(10 12 57)) 13) true)
+    (check-exception (F .ref m-100-decimal 101) true)
+    (check-exception (F .ref m-100-decimal "57") true)
     (X '<-alist<-)
-    (check-equal? (alist<- (<-alist '((1 . 1)))) '((1 . 1)))
-    (check-equal? (alist<- (<-alist '((1 . 1) (3 . 3)))) '((1 . 1) (3 . 3)))
+    (check-equal? (alist<- (<-l '(1))) '((1 . "1")))
+    (check-equal? (alist<- (<-l '(1 3))) '((1 . "1") (3 . "3")))
     (check-equal? (alist<- (<-alist al-10-latin)) al-10-latin)
     (check-equal? (alist<- (<-alist al-100-decimal)) al-100-decimal)
     (check-equal? (alist<- (<-alist al-100-latin)) al-100-latin)
@@ -98,39 +140,38 @@
   (table-test-case T "simple linear table test"
     ;;; TODO: test each and every function in the API
     (X 'acons)
-    (check-equal? (alist<- (F .acons 0 "0" (E .empty))) '((0 . "0")))
-    (check-equal? (alist<- (F .acons 2 "2" (<-alist '((1 . "1") (3 . "3")))))
-                  '((1 . "1") (2 . "2") (3 . "3")))
+    (check-equal? (alist<- (F .acons 0 "0" (E .empty))) (l 0))
+    (check-equal? (alist<- (F .acons 2 "2" (<-l '(1 3)))) (l 1 2 3))
 
     (X 'acons-and-join)
     (check-equal? (alist<- (F .acons 0 "0" (F .join (F .singleton 1 "1") (F .singleton 2 "2"))))
-                  '((0 . "0") (1 . "1") (2 . "2")))
+                  (l 0 1 2))
 
     (X 'acons-and-count)
-    (check-equal? (F .count (F .acons 101 "101" (<-alist al-1))) 101)
+    (check-equal? (F .count (F .acons 101 "101" (<-alist al-100-decimal))) 101)
 
     (X 'remove)
     (check-equal? (alist<- (F .remove (F .singleton 42 "42") 42)) '())
     (check-equal? (alist<- (F .remove (F .singleton 42 "42") 43)) '((42 . "42")))
-    (check-equal? (alist<- (F .remove (<-alist '((13 . "13") (27 . "27"))) 13)) '((27 . "27")))
-    (check-equal? (alist<- (F .remove (<-alist '((13 . "13") (27 . "27"))) 27)) '((13 . "13")))
-    (check-equal? (F .count (F .remove (<-alist al-1) 42)) 99)
-    (check-equal? (F .ref/opt (F .remove (<-alist al-1) 42) 42) #f)
-    (check-equal? (F .ref/opt (F .remove (<-alist al-1) 42) 41) (some "41"))
+    (check-equal? (alist<- (F .remove (<-l '(13 27)) 13)) '((27 . "27")))
+    (check-equal? (alist<- (F .remove (<-l '(13 27)) 27)) '((13 . "13")))
+    (check-equal? (alist<- (F .remove (<-l '(10 12 57)) 12)) (l 10 57))
+    (check-equal? (F .count (F .remove (<-alist al-100-decimal) 42)) 99)
+    (check-equal? (F .ref/opt (F .remove (<-alist al-100-decimal) 42) 42) #f)
+    (check-equal? (F .ref/opt (F .remove (<-alist al-100-decimal) 42) 41) (some "41"))
 
     (X 'foldl)
-    (check-equal? (alist<- (F .foldl (E .acons) (<-alist '((20 . "20") (30 . "30"))) (<-alist (make-alist 2)))) '((1 . "1") (2 . "2") (20 . "20") (30 . "30")))
+    (check-equal? (alist<- (F .foldl (E .acons) (<-l '(20 30)) (<-alist (make-alist 2)))) '((1 . "1") (2 . "2") (20 . "20") (30 . "30")))
     (check-equal? (F .count (F .foldl (E .acons) (<-alist al-100-decimal) (<-alist al-100-latin))) 100)
 
     (X 'foldr)
-    (check-equal? (alist<- (F .foldr (E .acons) (<-alist '((20 . "20") (30 . "30"))) (<-alist (make-alist 2)))) '((1 . "1") (2 . "2") (20 . "20") (30 . "30")))
+    (check-equal? (alist<- (F .foldr (E .acons) (<-l '(20 30)) (<-alist (make-alist 2)))) '((1 . "1") (2 . "2") (20 . "20") (30 . "30")))
     (check-equal? (F .count (F .foldr (E .acons) (<-alist al-100-decimal) (<-alist al-100-latin))) 100)
 
     (X 'join)
     (check-equal? (alist<- (F .join (<-alist al-3) (<-alist al-4))) al-5)
     (check-equal? (F .empty? (F .join (E .empty) (E .empty))) #t)
-    (check-equal? (alist<- (F .join (<-alist '((1 . "1") (2 . "2"))) (<-alist '((5 . "5") (6 . "6")))))
-                  '((1 . "1") (2 . "2") (5 . "5") (6 . "6")))
+    (check-equal? (alist<- (F .join (<-l '(1 2)) (<-l '(5 6)))) (l 1 2 5 6))
     (check-equal? (F .count (F .join (<-alist al-10-latin) (<-alist al-100-latin))) 100)
 
     (X 'divide)
@@ -138,7 +179,7 @@
     (let-values (((x1 x2) (F .divide (F .singleton 23 "23"))))
       (check-equal? (alist<- x1) '((23 . "23")))
       (check-equal? x2 #f))
-    (let-values (((x1 x2) (F .divide (<-alist '((23 . "23") (69 . "69"))))))
+    (let-values (((x1 x2) (F .divide (<-l '(23 69)))))
       (check-equal? (alist<- x1) '((23 . "23")))
       (check-equal? (alist<- x2) '((69 . "69"))))
     (let-values (((x1 x2) (F .divide (<-alist '((41 . "41") (42 . "42"))))))
@@ -214,10 +255,10 @@
 (def (regression-tests T)
   (table-test-case T "regression tests on read-only linear tables"
     (X 'divide) ;; from a bug in LIL's avl-based number-map
-    (defvalues (x y) (F .divide (<-alist '((557088 . 7) (229378 . 79)))))
+    (defvalues (x y) (F .divide (<-alist '((557088 . "7") (229378 . "79")))))
     (check-equal? (length (alist<- x)) 1)
     (check-equal? (length (alist<- y)) 1)
-    (check-equal? (sort-alist (append (alist<- x) (alist<- y))) '((229378 . 79) (557088 . 7)))))
+    (check-equal? (sort-alist (append (alist<- x) (alist<- y))) '((229378 . "79") (557088 . "7")))))
 
 (def (update-tests T)
   (table-test-case T "update tests" ;; initially ported from legilogic_lib
