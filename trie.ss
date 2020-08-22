@@ -770,8 +770,6 @@
       (if (bit-set? cut-height bits) (values .empty t) (values t .empty))))
 
   ;; Describes a recursive computation over a pair of tries in great generality.
-  ;; NB: this function assumes the two tries have the same height.
-  ;; USE ***ensure-same-height** AS NEEDED TO ENFORCE THIS INVARIANT.
   ;; : (Fun o <-
   ;;      Key ;; Common prefix key of the both left and right trie nodes.
   ;;      @[a/Value] @[b/Value] ;; The two input tries, a and b
@@ -795,6 +793,7 @@
         ((cons (Leaf va) (Leaf vb)) (leaf k va vb))
         ((cons (Branch h la ra) (Branch _ lb rb))
          (left-to-right branch k h (recurse r k la lb) (recurse r (.right-key h k) ra rb)))
+        ;; TODO: write some meta-level constraint solver that deduces the 40 lines below from the 10 above.
         ((cons (Branch h la ra) (Skip _ bits-height bits cb))
          (let* ((bh1 (1- bits-height))
                 (rk (.right-key h k))
@@ -875,6 +874,7 @@
   .=?:
   (lambda (a b)
     (let/cc return
+      (when (eq? a b) (return #t))
       (.recurse/trie-pair
        0 a b
        recurse: (lambda (r k a b) (or (eq? a b) (r k a b)))
@@ -926,6 +926,7 @@
   .subset?: ;; is a a subset of b
   (lambda (a b)
     (let/cc return
+      (when (eq? a b) (return #t))
       (.call Table .recurse/trie-pair
              0 a b
              recurse: (lambda (r k a b) (or (eq? a b) (r k a b)))
