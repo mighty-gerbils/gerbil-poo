@@ -1,6 +1,6 @@
 #!/usr/bin/env gxi
 ;; To run tests, use: ./unit-tests.ss
 
-(import :clan/t/test-support)
+(import :gerbil/expander :clan/t/test-support)
 (init-test-environment!)
-(import :clan/poo/version)
+(import-module ':clan/poo/version #t #t) ;; import-module rather than import, to work even uncompiled

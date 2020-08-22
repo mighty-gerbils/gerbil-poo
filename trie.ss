@@ -4,13 +4,22 @@
 
 (export #t)
 
-;; TODO: import large amounts of data in O(N) rather than O(N log N).
-
 (import
   :gerbil/gambit/bits :gerbil/gambit/bytes
-  :std/error :std/format :std/iter
+  :std/error :std/format :std/iter :std/sugar
   :clan/base :clan/option :clan/number
   ./poo ./mop ./brace ./number ./type ./fun ./io ./table)
+
+#;(import :clan/debug :clan/exception :gerbil/gambit/threads :gerbil/gambit/continuations)
+#;(defrule (aver cond msg expr ...)
+  (unless cond
+    (DBG msg expr ...)
+    (with-catch/cont
+     (lambda (_ k)
+       (eprintf "In thread ~a:\n" (thread-name (current-thread)))
+       (display-continuation-backtrace k (current-error-port) #t #t 20 20))
+     (cut error "foo"))
+    (##repl-debug)))
 
 (defstruct $Trie () transparent: #t)
 (defstruct (Empty $Trie) () transparent: #t)
@@ -34,38 +43,6 @@
 (defstruct $Costep (height key) transparent: #t) ; height: (Or Height '(-1 #f)) key: Key
 (defstruct $Unstep (left right skip) transparent: #t) ;; left: (Fun trunk <- Key Height trunk branch) right: (Fun trunk <- Key Height branch trunk) skip: (Fun trunk <- Key Height Height Key trunk) ;; the first argument, key, only contains the high bits and must be shifted by 1+ the second argument Height, to get the full key for the first element of the trie node resulting from unstepping. ;; trunk is conceptually branch plus optional path-dependent information
 (defstruct $Path (costep steps) transparent: #t) ; costep: Costep steps: (List (Step t))
-
-;; This is basically a fold of the open recursion functor of which the (unwrapped) Trie is the fixed-point.
-(.def (TrieSynth. @ [] ;; mixin for Type.
-   ;; Key ;; : Type -- implicit
-   Value ;; : Type
-   .empty ;; : @
-   .leaf ;; : @ <- Value
-   .branch ;; : @ <- Height @ @ ;; height, left, right
-   .skip)) ;; : @ <- Height Height Key @ ;; height, length, key, child
-
-(.def (TrieSynthUnit @ []) ;; mixin for Unit TrieSynth.
-  .empty: (void)
-  .leaf: void
-  .branch: void
-  .skip: void)
-
-(.def (TrieSynthCardinal @ []) ;; mixin for Nat TrieSynth.
-  .empty: 0
-  .leaf: (lambda _ 1)
-  .branch: (lambda (_ x y) (+ x y))
-  .skip: (lambda (_ _ _ child) child))
-
-;; Method to compute the .skip method of a TrieSynth. from the .leaf, .branch and .empty methods,
-;; as if the Trie didn't sport the skip node optimization.
-(.def (TrieSynthComputeSkip @ [] .branch .empty) ;; mixin for TrieSynth.
-  .skip: (lambda (height bits-height bits synth)
-           (let loop ((bh 0) (s synth))
-             (if (> bh bits-height) synth ;; the (1+ bits-height) is the number of bits
-                 (loop (1+ bh)
-                       (if (bit-set? bh bits)
-                         (.branch height .empty synth)
-                         (.branch height synth .empty)))))))
 
 (.def (Trie. @ [Wrap. methods.table] ;; @ <: (Wrap T)
        .validate ;; : @ <- Any
@@ -351,13 +328,21 @@
   ;; : (Fun @ <- Height @ @)
   .branch:
   (lambda (height left right)
-    ;;(unless (and (element? Height height) (equal? (1- height) (.trie-height left)) (equal? (1- height) (.trie-height right))) (error "Internal error" '.branch height left right))
+    #;(aver (and (element? Height height)
+               (equal? (1- height) (.trie-height left))
+               (equal? (1- height) (.trie-height right)))
+          "bad .branch" height left right)
     (.wrap (Branch height left right)))
 
   ;; : (Fun @ <- Key Height Height @)
   .skip:
   (lambda (height bits-height bits child)
-    ;;(unless (and (element? Height height) (element? Height bits-height) (element? Key bits) (equal? (- height bits-height 1) (.trie-height child))) (error "Internal error" '.skip height bits-height bits child))
+    #;(aver (and (element? Height height)
+               (element? Height bits-height)
+               (element? Key bits)
+               (<= (integer-length bits) (1+ bits-height))
+               (equal? (- height bits-height 1) (.trie-height child)))
+          "bad .skip" height bits-height bits child)
     (.wrap (Skip height bits-height bits child)))
 
   ;; Higher-level trie constructors, normalizing the skip cases
@@ -785,7 +770,8 @@
       (if (bit-set? cut-height bits) (values .empty t) (values t .empty))))
 
   ;; Describes a recursive computation over a pair of tries in great generality.
-  ;; Note that this assumes the two tries have the same height. Use ensure-same-height if needed.
+  ;; NB: this function assumes the two tries have the same height.
+  ;; USE ***ensure-same-height** AS NEEDED TO ENFORCE THIS INVARIANT.
   ;; : (Fun o <-
   ;;      Key ;; Common prefix key of the both left and right trie nodes.
   ;;      @[a/Value] @[b/Value] ;; The two input tries, a and b
@@ -846,7 +832,9 @@
                     (recurse (.right-key sameheight ksame) aright bright))))))
          (if (zero? samelength)
            same-result
-           (skip k h (1- samelength) samebits same-result))))))
+           (skip k h (1- samelength) samebits same-result))))
+      (_ (invalid '.recurse/trie-pair: k a b recurse: recurse empty: empty leaf: leaf branch: branch skip: skip onlya: onlya onlyb: onlyb))))
+
 
   ;; : @ <- (Fun (Option Value) <- Key (Option Value) (Option Value)) @ @ ?Key
   .merge:
@@ -889,7 +877,8 @@
   .=?:
   (lambda (a b)
     (let/cc return
-      (let e? ((k 0) (a a) (b b))
+      (defvalues (aa bb) (.ensure-same-height a b))
+      (let e? ((k 0) (a aa) (b bb))
         (or (eq? a b)
             (.recurse/trie-pair
              k a b

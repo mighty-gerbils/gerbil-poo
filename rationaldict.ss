@@ -31,6 +31,7 @@
    .foldr: (lambda (f seed d) (foldr (lambda (kv acc) (f (car kv) (cdr kv) acc)) seed (rationaldict->list d)))
    .<-list: list->rationaldict
    .list<-: rationaldict->list
+   .sexp<-: (lambda (x) `(list->rationaldict `,(rationaldict->list x)))
    .=?: (lambda (d1 d2) (rationaldict=? d1 d2 (.@ Value .=?))))
 (def (RationalDict (Value Any))
   (if (eq? Value Any) RationalDict.
