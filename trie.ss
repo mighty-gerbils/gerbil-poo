@@ -786,109 +786,104 @@
   ;;      onlyb: o <- Key @[b/Value]) ;; Result given that a node is only explicitly present in the b trie.
   .recurse/trie-pair:
   (lambda (k a b recurse: recurse empty: empty leaf: leaf branch: branch skip: skip onlya: onlya onlyb: onlyb)
-    (match (cons (.unwrap a) (.unwrap b))
-      ((cons (Empty) (Empty)) (empty))
-      ((cons (Empty) _) (onlyb k b))
-      ((cons _ (Empty)) (onlya k a))
-      ((cons (Leaf va) (Leaf vb)) (leaf k va vb))
-      ((cons (Branch h la ra) (Branch _ lb rb))
-       (left-to-right branch k h (recurse k la lb) (recurse (.right-key h k) ra rb)))
-      ((cons (Branch h la ra) (Skip _ bits-height bits cb))
-       (let* ((bh1 (1- bits-height))
-              (rk (.right-key h k))
-              (cb1 (.make-skip (1- h) bh1 bits cb)))
-         (if (bit-set? bits-height bits)
-           (left-to-right branch k h (onlya k la) (recurse rk ra cb1))
-           (left-to-right branch k h (recurse k la cb1) (onlya rk ra)))))
-      ((cons (Skip h bits-height bits ca) (Branch _ lb rb))
-       (let* ((bh1 (1- bits-height))
-              (rk (.right-key h k))
-              (ca1 (.make-skip (1- h) bh1 bits ca)))
-         (if (bit-set? bits-height bits)
-           (left-to-right branch k h (onlyb k lb) (recurse rk ca1 rb))
-           (left-to-right branch k h (recurse k lb ca1) (onlyb rk rb)))))
-      ((cons (Skip h abits-height abits achild) (Skip _ bbits-height bbits bchild))
-       (let* ((bits-height (min abits-height bbits-height))
-              (length (1+ bits-height))
-              (ahighbits (extract-bit-field length (- abits-height bits-height) abits))
-              (bhighbits (extract-bit-field length (- bbits-height bits-height) bbits))
-              (difflength (integer-length (bitwise-xor ahighbits bhighbits)))
-              (samelength (- length difflength))
-              (sameheight (- h samelength))
-              (samebits (extract-bit-field samelength (- length samelength) ahighbits))
-              (ksame (bitwise-ior k (arithmetic-shift samebits (1+ sameheight))))
-              (adiffheight (- abits-height samelength))
-              (bdiffheight (- bbits-height samelength))
-              (same-result
-               (if (zero? difflength)
-                 (recurse ksame ;; at least one of the two below is actually not a skip:
-                          (.make-skip sameheight adiffheight abits achild)
-                          (.make-skip sameheight bdiffheight bbits bchild))
-                 (let-values (((aleft aright) (.skip-choice h abits-height abits achild adiffheight))
-                              ((bleft bright) (.skip-choice h bbits-height bbits bchild bdiffheight)))
-                   (left-to-right
-                    branch ksame sameheight
-                    (recurse k aleft bleft)
-                    (recurse (.right-key sameheight ksame) aright bright))))))
-         (if (zero? samelength)
-           same-result
-           (skip k h (1- samelength) samebits same-result))))
-      (_ (invalid '.recurse/trie-pair: k a b recurse: recurse empty: empty leaf: leaf branch: branch skip: skip onlya: onlya onlyb: onlyb))))
+    (defvalues (aa bb) (.ensure-same-height a b))
+    (let r ((k k) (a aa) (b bb))
+      (match (cons (.unwrap a) (.unwrap b))
+        ((cons (Empty) (Empty)) (empty))
+        ((cons (Empty) _) (onlyb k b))
+        ((cons _ (Empty)) (onlya k a))
+        ((cons (Leaf va) (Leaf vb)) (leaf k va vb))
+        ((cons (Branch h la ra) (Branch _ lb rb))
+         (left-to-right branch k h (recurse r k la lb) (recurse r (.right-key h k) ra rb)))
+        ((cons (Branch h la ra) (Skip _ bits-height bits cb))
+         (let* ((bh1 (1- bits-height))
+                (rk (.right-key h k))
+                (cb1 (.make-skip (1- h) bh1 bits cb)))
+           (if (bit-set? bits-height bits)
+             (left-to-right branch k h (onlya k la) (recurse r rk ra cb1))
+             (left-to-right branch k h (recurse r k la cb1) (onlya rk ra)))))
+        ((cons (Skip h bits-height bits ca) (Branch _ lb rb))
+         (let* ((bh1 (1- bits-height))
+                (rk (.right-key h k))
+                (ca1 (.make-skip (1- h) bh1 bits ca)))
+           (if (bit-set? bits-height bits)
+             (left-to-right branch k h (onlyb k lb) (recurse r rk ca1 rb))
+             (left-to-right branch k h (recurse r k lb ca1) (onlyb rk rb)))))
+        ((cons (Skip h abits-height abits achild) (Skip _ bbits-height bbits bchild))
+         (let* ((bits-height (min abits-height bbits-height))
+                (length (1+ bits-height))
+                (ahighbits (extract-bit-field length (- abits-height bits-height) abits))
+                (bhighbits (extract-bit-field length (- bbits-height bits-height) bbits))
+                (difflength (integer-length (bitwise-xor ahighbits bhighbits)))
+                (samelength (- length difflength))
+                (sameheight (- h samelength))
+                (samebits (extract-bit-field samelength (- length samelength) ahighbits))
+                (ksame (bitwise-ior k (arithmetic-shift samebits (1+ sameheight))))
+                (adiffheight (- abits-height samelength))
+                (bdiffheight (- bbits-height samelength))
+                (same-result
+                 (if (zero? difflength)
+                   (recurse r ksame ;; at least one of the two below is actually not a skip:
+                            (.make-skip sameheight adiffheight abits achild)
+                            (.make-skip sameheight bdiffheight bbits bchild))
+                   (let-values (((aleft aright) (.skip-choice h abits-height abits achild adiffheight))
+                                ((bleft bright) (.skip-choice h bbits-height bbits bchild bdiffheight)))
+                     (left-to-right
+                      branch ksame sameheight
+                      (recurse r k aleft bleft)
+                      (recurse r (.right-key sameheight ksame) aright bright))))))
+           (if (zero? samelength)
+             same-result
+             (skip k h (1- samelength) samebits same-result))))
+        (_ (invalid '.recurse/trie-pair: k a b recurse: recurse empty: empty leaf: leaf branch: branch skip: skip onlya: onlya onlyb: onlyb)))))
 
 
   ;; : @ <- (Fun (Option Value) <- Key (Option Value) (Option Value)) @ @ ?Key
   .merge:
   (lambda (f a b (k 0))
-    (defvalues (aa bb) (.ensure-same-height a b))
-    (let m ((k k) (a aa) (b bb))
-      (.recurse/trie-pair
-       k a b
-       recurse: m
-       empty: (lambda () .empty)
-       leaf: (lambda (k va vb)
-               (match (f k (some va) (some vb))
-                 (#f .empty)
-                 ((some v) (.leaf v))))
-       branch: (lambda (_ h l r) (.make-branch h l r))
-       skip: (lambda (_ h l b c) (.make-skip h l b c))
-       onlya: (lambda (k a) (.map/key/opt (lambda (k v) (f k (some v) #f)) a k))
-       onlyb: (lambda (k b) (.map/key/opt (lambda (k v) (f k #f (some v))) b k)))))
+    (.recurse/trie-pair
+     k a b
+     recurse: (cut <> <> <> <>)
+     empty: (lambda () .empty)
+     leaf: (lambda (k va vb)
+             (match (f k (some va) (some vb))
+               (#f .empty)
+               ((some v) (.leaf v))))
+     branch: (lambda (_ h l r) (.make-branch h l r))
+     skip: (lambda (_ h l b c) (.make-skip h l b c))
+     onlya: (lambda (k a) (.map/key/opt (lambda (k v) (f k (some v) #f)) a k))
+     onlyb: (lambda (k b) (.map/key/opt (lambda (k v) (f k #f (some v))) b k))))
 
   ;; Compare two trees lexicographically. TODO: should we always be using the Value's .comparer function?
   ;; : Integer <- (Integer <- a b) @[a/Value] @[b/Value]
   .compare:
   (lambda (cmp a b)
-    (defvalues (aa bb) (.ensure-same-height a b))
     (let/cc return
-      (let m ((k 0) (a aa) (b bb))
-        (.recurse/trie-pair
-         k a b
-         recurse: m
-         empty: void
-         leaf: (lambda (_ va vb) (def r (cmp va vb)) (or (zero? r) (return r)))
-         branch: void
-         skip: void
-         onlya: (lambda (_ _) (return 1))
-         onlyb: (lambda (_ _) (return -1)))
-        0)))
+      (.recurse/trie-pair
+       0 a b
+       recurse: (cut <> <> <> <>)
+       empty: void
+       leaf: (lambda (_ va vb) (def r (cmp va vb)) (or (zero? r) (return r)))
+       branch: void
+       skip: void
+       onlya: (lambda (_ _) (return 1))
+       onlyb: (lambda (_ _) (return -1)))
+      0))
 
   ;; Are two trees equal?
   ;; : Bool <- @ @
   .=?:
   (lambda (a b)
     (let/cc return
-      (defvalues (aa bb) (.ensure-same-height a b))
-      (let e? ((k 0) (a aa) (b bb))
-        (or (eq? a b)
-            (.recurse/trie-pair
-             k a b
-             recurse: e?
-             empty: true
-             leaf: (lambda (_ va vb) (or (.call Value .=? va vb) (return #f)))
-             branch: true
-             skip: true
-             onlya: (lambda (_ _) (return #f))
-             onlyb: (lambda (_ _) (return #f)))))))
+      (.recurse/trie-pair
+       0 a b
+       recurse: (lambda (r k a b) (or (eq? a b) (r k a b)))
+       empty: true
+       leaf: (lambda (_ va vb) (or (.call Value .=? va vb) (return #f)))
+       branch: true
+       skip: true
+       onlya: (lambda (_ _) (return #f))
+       onlyb: (lambda (_ _) (return #f)))))
 
   ;; Split a tree in two strictly smaller trees, if possible, in a somewhat balanced way, if possible.
   ;; NB: We assume that #f, if a valid wrapped trie, is the empty trie.
@@ -930,19 +925,16 @@
   Table: {(:: @ Trie.) Value: Unit}
   .subset?: ;; is a a subset of b
   (lambda (a b)
-    (defvalues (aa bb) (.call Table .ensure-same-height a b))
     (let/cc return
-      (let m ((e 0) (a aa) (b bb))
-        (or (eq? a b)
-            (.call Table .recurse/trie-pair
-                   e a b
-                   recurse: m
-                   empty: true
-                   leaf: true
-                   branch: true
-                   skip: true
-                   onlya: (lambda (_ _) (return #f))
-                   onlyb: true))))))
+      (.call Table .recurse/trie-pair
+             0 a b
+             recurse: (lambda (r k a b) (or (eq? a b) (r k a b)))
+             empty: true
+             leaf: true
+             branch: true
+             skip: true
+             onlya: (lambda (_ _) (return #f))
+             onlyb: true))))
 
 (def (SimpleTrie Key Value)
   {(:: @ [Trie. IdWrap]) (Key) (Value)
