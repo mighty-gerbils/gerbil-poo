@@ -12,13 +12,10 @@
    sexp: '(RationalDict)
    Key: Rational
    Value: Any
-   .validate:
-   (lambda (x (ctx '()))
-     (def c [[validate: x] . ctx])
-     (unless (rationaldict? x) (type-error c "Not an rationaldict"))
-     (unless (eq? Value Any)
-       (for-each (match <> ([_k . v] (validate Value v c))) (rationaldict->list x)))
-     x)
+   .validate: => (λ (super)
+                   (lambda (x (ctx '()))
+                     (unless (rationaldict? x) (type-error [[validate: x] . ctx] "Not an rationaldict"))
+                     (super x ctx)))
    ;; TODO: also use rationaldict-min-key, rationaldict-max-key, rationaldict-update ?
    .empty: empty-rationaldict
    .empty?: rationaldict-empty?
@@ -36,4 +33,11 @@
 (def (RationalDict (Value Any))
   (if (eq? Value Any) RationalDict.
       {(:: @ RationalDict.) Value sexp: `(RationalDict ,(.@ Value sexp))}))
-(.def (RationalSet @ [Set<-Table.] Table: RationalDict.))
+
+(.def (RationalSet @ [Set<-Table.])
+  sexp: 'RationalSet
+  Elt: Rational
+  Table: {(:: @T RationalDict.) Key: Elt Value: Unit}
+  .list<-: rationaldict-keys
+  .min-elt: (compose first-value rationaldict-min-key)
+  .max-elt: (compose first-value rationaldict-max-key))

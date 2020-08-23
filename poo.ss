@@ -180,8 +180,8 @@
               (append-prototypes super)) #f)))
 
 (defrules poo/form-named (lambda λ)
-  ((_ slot (lambda formals body ...)) (fun (slot . formals) body ...))
-  ((_ slot (λ formals body ...)) (fun (slot . formals) body ...))
+  ((_ slot (lambda formals body ...)) (fun (slot . formals) body ...)) ;; L A M B D A
+  ((_ slot (λ formals body ...)) (fun (slot . formals) body ...)) ;; unicode Λ
   ((_ slot form) form))
 
 (defrules poo/slot-init-form (=> =>.+)

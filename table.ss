@@ -26,6 +26,13 @@
        .foldl ;; : (Fun o <- (Fun o <- Key Value o) o @)
        .foldr) ;; : (Fun o <- (Fun o <- Key Value o) o @)
 
+  .validate:
+  (if (eq? Value Any) (lambda (x (ctx '())) x)
+      (lambda (x (ctx '()))
+        (def c [[validate: x] . ctx])
+        (.for-each (lambda (_k v) (validate Value v c)) x) ;; should we test keys, too?
+        x))
+
   ;; : (Fun Bool <- @)
   .empty?: (lambda (t) (eqv? t .empty))
 
@@ -176,19 +183,24 @@
   ;; : (Lens Value <- @) <- Key
   .lens: (lambda (k) {get: (lambda (t) (.ref t k)) set: (lambda (t v) (.acons k v t))})
 
-  ;; : Json <- @
-  .json<-: (lambda (t) (.foldr (lambda (k v l) (cons [(json<- Key k) (json<- Value v)] l)) '() t))
+  .Binding: (Pair Key Value)
+  .Bindings: (List .Binding)
+  .json<-: (compose (.@ .Bindings .json<-) .list<-) ;; : Json <- @
+  .<-json: (compose .<-list (.@ .Bindings .<-json)) ;; : @ <- Json
+  .bytes<-: (compose (.@ .Bindings .bytes<-) .list<-) ;; : Bytes <- @
+  .<-bytes: (compose .<-list (.@ .Bindings .<-bytes)) ;; : @ <- Bytes
+  .marshal: (lambda (x port) (marshal .Bindings (.list<- x) port))
+  .unmarshal: (compose .<-list (.@ .Bindings .unmarshal)))
 
-  ;; : @ <- Json
-  .<-json: (lambda (j) (foldl (lambda (x t) (match x ([k v] (.acons (<-json Key k) (<-json Value v) t)))) .empty j)))
-
-(.def (Set<-Table. @ Type. Table)
+(.def (Set<-Table. @ Type. Table sexp)
   ;; Table must be a table from Elt to Unit, i.e. (.@ Table Key) == Elt, (.@ Table Value) == Unit
   Elt: (.@ Table Key) ;; : Type
+  .validate: (.@ Table .validate) ;; : @ <- Any
+  .element?: (.@ Table .validate) ;; : Bool <- Any
   .empty: (.@ Table .empty)  ;; : @
   .empty?: (.@ Table .empty?) ;; : Bool <- @
   .elt?: (.@ Table .key?) ;; : Bool <- @ Elt
-  .cons: (cut .call Table acons <> (void) <>) ;; : @ <- Elt @
+  .cons: (cut .call Table .acons <> (void) <>) ;; : @ <- Elt @
   .singleton: (lambda (elt) (.call Table .singleton elt (void))) ;; : @ <- Elt
   .remove: (.@ Table .remove) ;; : @ <- @ Elt
   .for-each: (lambda (f t) (.call Table .for-each (lambda (e _) (f e)) t)) ;; : Unit <- (Unit <- Elt) @
@@ -202,6 +214,7 @@
   .count: (.@ Table .count) ;; : Nat <- @
   .list<-: (lambda (t) (map car (.call Table .list<- t))) ;; : (List Elt) <- @
   .<-list: (lambda (l) (foldl .cons .empty l)) ;; : @ <- (List Elt)
+  .sexp<-: (lambda (x) `(.call ,sexp .<-list (@list ,@(map (.@ Elt sexp<-) (.list<- x))))) ;; : Sexp <- @
   .min-elt: (lambda (t) (car (.call Table .min-binding t))) ;; : Elt <- @
   .min-elt/opt: (lambda (t) (map/option car (.call Table .min-binding/opt t))) ;; : (Option Elt) <- @
   .max-elt: (lambda (t) (car (.call Table .max-binding t))) ;; : Elt <- @
@@ -216,7 +229,13 @@
   .iter<-: (lambda (t from: (from 0)) (def i (.call Table .iter<- t from: from)) ;; : (Iterator Elt) <- @ ?Elt
               (set! (iterator-next i) (compose car (iterator-next i))) i)
   .<-iter: (lambda (s (t .empty)) (for/fold (t t) (elt s) (.cons elt t))) ;; : @ <- (Iterator Elt) ?@
-
+  .List: (List Elt)
+  .json<-: (compose (.@ .List .json<-) .list<-) ;; : Json <- @
+  .<-json: (compose .<-list (.@ .List .<-json)) ;; : @ <- Json
+  .bytes<-: (compose (.@ .List .bytes<-) .list<-) ;; : Bytes <- @
+  .<-bytes: (compose .<-list (.@ .List .<-bytes)) ;; : @ <- Bytes
+  .marshal: (lambda (x port) (marshal .List (.list<- x) port))
+  .unmarshal: (compose .<-list (.@ .List .unmarshal))
   ;; TODO: for union, inter, diff, compare, equal, subset,
   ;; optimize for full subtables, by caching count in wrapper?
   .union: (lambda (a b) (.call Table .merge (lambda (_ _ _) (some (void))) a b)) ;; : @ <- @ @

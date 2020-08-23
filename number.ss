@@ -9,7 +9,6 @@
   :gerbil/gambit/bits :gerbil/gambit/bytes :gerbil/gambit/exact :gerbil/gambit/ports :scheme/base
   :std/iter :std/misc/bytes :std/misc/hash :std/srfi/1 :std/sugar
   :clan/base :clan/io :clan/number
-  :clan/pure/dict/intdict
   ./poo ./mop ./brace ./io)
 
 ;; TODO: basic interface for arithmetics, with proper type signatures.
@@ -43,7 +42,19 @@
 
 (.def (Rational @ Real)
   sexp: 'Rational
-  .element?: rational?)
+  .element?: rational?
+  #| ;; NB: a Scheme "rational" includes floating point numbers.
+  ;; For actual ratios between integers, we should have a separate type "Ratnum" or some such.
+  .Pair: (Pair Integer Nat)
+  .natpair<-: (lambda (x) (cons (numerator x) (denominator x)))
+  .<-natpair: (lambda (numerator denominator) (/ numerator denominator))
+  .marshal: (lambda (x port) (marshal .Pair (.natpair<- x) port))
+  .unmarshal: (compose .<-natpair (.@ .Pair .unmarshal))
+  .bytes<-: (bytes<-<-marshal .marshal)
+  .<-bytes<-: (<-bytes<-unmarshal .unmarshal)
+  .json<-: (compose (.@ .Pair .json<-) .<-natpair)
+  .<-json: (compose .<-natpair (.@ .Pair .<-json))
+  |#)
 
 (.def (Integer @ [methods.bytes<-marshal Rational]
                  .string<- .<-string)
@@ -181,32 +192,3 @@
   .<-json: .validate
   .bytes<-: bytes<-double
   .<-bytes: double<-bytes)
-
-(.def (IntSet @ [methods.bytes<-marshal Type.])
-  sexp: 'IntSet
-  .Int: Integer
-  .element?: (lambda (x) (and (intdict? x)
-                         (every (lambda (x)
-                                  (and (element? .Int (car x))
-                                       (eq? #t (cdr x))))
-                                (intdict->list x))))
-  .sexp<-: (lambda (x) `(.call ,sexp .<-list (@list ,@(.list<- x))))
-  .json<-: (lambda (x) (map (.@ .Int .json<-) (.list<- x)))
-  .<-json: (lambda (x) (.<-list (map (.@ .Int .<-json) x)))
-  .marshal: (lambda (x port)
-              (def l (.list<- x))
-              (marshal .Int (length l) port)
-              (for-each (cut marshal .Int <> port) l))
-  .unmarshal: (lambda (port)
-                (.<-list (for/collect (_ (in-range (unmarshal .Int port)))
-                           (unmarshal .Int port))))
-  .empty: empty-intdict
-  .empty?: intdict-empty?
-  .add: (lambda (x i) (intdict-put x i #t))
-  .remove: intdict-remove
-  .has?: intdict-has-key?
-  .list<-: intdict-keys
-  .<-list: (lambda (x) (list->intdict (map (cut cons <> #t) x)))
-  .=?: intdict=?
-  .min-elt: (compose first-value intdict-min-key)
-  .max-elt: (compose first-value intdict-max-key))

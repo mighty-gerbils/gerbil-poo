@@ -78,8 +78,8 @@
       (Branch height: Height left: T right: T)
       (Skip height: Height bits-height: Height bits: Key child: T))
 
-  T: {(:: @T [methods.bytes<-marshal])
-      sexp: '$Trie
+  T: {(:: @T [methods.bytes<-marshal Type.])
+      sexp: `(.@ ,(.@ @ sexp) T)
       .element?: $Trie?
       ;; TODO: autogenerate that
       .marshal:
