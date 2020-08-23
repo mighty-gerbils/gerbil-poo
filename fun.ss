@@ -29,17 +29,22 @@
   .json<-: (lambda (v) (json<- T (.unwrap v)))
   .<-json: (lambda (b) (.wrap (<-json T b))))
 
+(.def (Wrapper. @ []
+       .ap ;; : (Wrap t) <- t
+       .unap) ;; : t <- (Wrap t)
+  .bind: (lambda (x f) (f (.unap x))) ;; : u <- (Wrap t) (u <- t)
+  .map: (lambda (f x) (.ap (f (.unap x))))) ;; : (Wrap u) <- (u <- t) (Wrap t)
+
 (.def (Wrap. @ [methods.io<-wrap]
        T ;; : Type.
        Wrapper) ;; : Functor.
-  .wrap: (.@ Wrapper .ap) ;; : (Wrap t) <- t
-  .unwrap: (.@ Wrapper .unap) ;; : t <- (Wrap t)
-  .bind/wrap: (.@ Wrapper .bind) ;; : u <- (Wrap t) (u <- t) = (lambda (x f) (f (.unwrap x)))
-  .map/wrap: (.@ Wrapper .map)) ;; : (Wrap u) <- (u <- t) (Wrap t) = (lambda (f x) (.wrap (f (.unwrap x))))
+  .wrap: (.@ Wrapper .ap)
+  .unwrap: (.@ Wrapper .unap)
+  .bind/wrap: (.@ Wrapper .bind)
+  .map/wrap: (.@ Wrapper .map))
 
 (.def (IdWrap @ Wrap.)
   Wrapper: Identity)
-
 
 ;; Dependent variant of Functor, taking explicit type parameters at runtime
 (.def (Functor^. @ []

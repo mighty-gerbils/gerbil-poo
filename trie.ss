@@ -51,10 +51,12 @@
 
   sexp: 'Trie.
 
+  Wrapper: Identity
+
   ;; The type of values stored in a Trie.
   ;; ... except that some binary methods deal with two different value types;
   ;; we then write @[a/Value] to denote a Trie where Value has been overriden with a (type variable)
-  Value: Type. ;; : Type
+  Value: Any ;; : Type
 
   ;; The type of keys used to index the trie. It should be a subtype of Nat.
   ;; The Trie construction could be conceivably extended to handle signed Integer's,
@@ -109,11 +111,12 @@
   ;; An (Unstep @ @) provides methods to undo zipping steps, operating on smaller @ tries
   ;; to yield larger tries. With parameters trunk and branch other than @, an Unstep can be used
   ;; to compute on abstractions of tries, e.g. on their merkleized digests.
-  Unstep: {(:: @ Type.)  ;; : Type <- Type Type ;; actually, a two-parameter type
+  Unstep: {(:: @U Type.)  ;; : Type <- Type Type ;; actually, a two-parameter type
            ;; (lambda (trunk branch) (Struct left: (Fun trunk <- Key Height trunk branch)
            ;;                    right: (Fun trunk <- Key Height branch trunk)
            ;;                    skip: (Fun trunk <- Key Height Height Key trunk)))
-           sexp: '(.@ Trie. Unstep) .element?: $Unstep?
+           sexp: `(.@ ,(.@ @ sexp) Unstep)
+           .element?: $Unstep?
            ;; : (Unstep a a) <- branch:(Fun a <- Key Height a a) skip:(Fun a <- Key Height Height Key a)
            .symmetric: (lambda (branch: branch skip: skip) ($Unstep branch branch skip))
            .up: (.symmetric branch: (lambda (_ h l r) (.make-branch h l r))
@@ -130,7 +133,7 @@
   ;; an can be undone to recover a larger trie from the same smaller trie or a modified variant thereof.
   ;; More generally, a (Step branch) lets you work on an abstraction of a trie, e.g. its merkleization.
   Step: {(:: @S Type.) ;;(lambda (t) (Sum (BranchStep branch: t) (SkipStep bits-height: Height)))
-    sexp: '(.@ Trie. Step)
+    sexp: `(.@ ,(.@ @ sexp) Step)
     .element?: $Step?
     ;; Given a record of (Unstep trunk branch) methods, a (Step branch) operates on a (Pair trunk Costep)
     ;; : (forall (trunk branch)
@@ -154,13 +157,12 @@
                   (cons (($Unstep-skip unstep) upkey h bh bits trie) ($Costep h upkey)))))))
 
     .up: (let (up (.@ Unstep .up)) (lambda (step acc) (.op up step acc)))
-
     ;; Can be used to trivially merkleize a step.
     ;; : (Step a) <- (Fun a <- b) (Step b)
     .map: (lambda (f s) (match s ((BranchStep branch) (BranchStep (f branch))) ((SkipStep _) s)))}
 
   Costep: {(:: @C Type.) ;;(Struct height: Height key: Key)
-    sexp: '(.@ Trie. Costep)
+    sexp: `(.@ ,(.@ @ sexp) Costep)
     .validate:
     (lambda (x ctx)
       (def c [[validate: x] . ctx])
@@ -172,8 +174,10 @@
       x)}
 
   Path: {(:: @P Type.) ;;(lambda (t) (Struct costep: Costep steps: (List (Step t))))
-    sexp: `(.call ,(.@ @ sexp) Path ,(.@ A sexp))
+    sexp: (if (eq? A @) `(.@ ,(.@ @ sexp) Path) `(.o (:: @P (.@ ,(.@ @ sexp) Path)) A: ,(.@ A sexp)))
     A: @ ;; type parameter for the content of the path attribute
+    ;; TODO: sexp<- json<- bytes<- <-json <-bytes
+    ;;.sexp<-: (lambda (x) `($Path ,(sexp<- Costep ($Path-costep x)) (@list ,@(map (.@ (.+ Step {A}) .sexp<-) ($Path-steps x)))))
     ;; TODO: have validate function and protocol with better error messages?
     ;; validate wrt the parameter type?
     ;; : Bool <- Any
@@ -197,19 +201,30 @@
                   (c new-height steps))))))))
       path)
 
+    ;; : (Pair trunk Costep) <- (Unstep trunk branch) trunk (Path branch)
     .op: (let (apply-step (.@ Step .op))
-           (lambda (unstep t path) ;; : (Pair trunk Costep) <- (Unstep trunk branch) trunk (Path branch)
+           (lambda (unstep t path)
              (let-match (($Path costep steps) path) (let-match (($Costep height _) costep)
-               (def h (.trie-height t))
-               (when (and h height (> h height)) (invalid sexp '.op unstep t path))
-               (foldl (cut apply-step unstep <> <>)
-                      (cons (.ensure-height height t) costep) steps)))))
+               (foldl (cut apply-step unstep <> <>) (cons t costep) steps)))))
 
-    .up: (let (up (.@ Unstep .up)) (lambda (t path) (.op up t path)))
+    ;; : (Pair trunk Costep) <- (Unstep trunk branch) trunk (Path branch)
+    .op: (let (apply-step (.@ Step .op))
+           (lambda (unstep t path)
+             (let-match (($Path costep steps) path) (let-match (($Costep height _) costep)
+               (foldl (cut apply-step unstep <> <>) (cons t costep) steps)))))
+
+    ;; : (Pair @ Costep) <- @ (Path @)
+    .up: (let (up (.@ Unstep .up))
+           (lambda (t path)
+             (def h (.trie-height t))
+             (def ph ($Costep-height ($Path-costep path)))
+             (when (and h ph (> h ph)) (invalid sexp '(Path .up) t path))
+             (.op up (.ensure-height ph t) path)))
 
     .map: ;; : (Path a) <- (a <- b) (Path b)
-    (lambda (f path) (def f/step (cut (.@ Step .map) f <> ))
-       ($Costep ($Path-costep path) (map f/step ($Path-steps path))))}
+    (let (step-map (.@ Step .map))
+      (lambda (f path) (def f/step (cut step-map f <>))
+         ($Path ($Path-costep path) (map f/step ($Path-steps path)))))}
 
   ;; Given a Branch at given height and key for its lowest binding,
   ;; return the key for the lowest binding of its right branch
@@ -621,6 +636,7 @@
     Z: (Pair A {(:: @P Path) A})
     .element?: (.@ Z .element?)
     .validate: (.@ Z .validate)
+    .sexp<-: (.@ Z .sexp<-)
     .bytes<-: (.@ Z .bytes<-)
     .<-bytes: (.@ Z .<-bytes)
     .json<-: (.@ Z .json<-)
