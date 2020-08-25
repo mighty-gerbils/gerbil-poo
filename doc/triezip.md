@@ -14,7 +14,8 @@ with my own prototype object system [POO](https://github.com/fare/gerbil-poo)
 to represent runtime descriptors for dynamically-enforced dependent typeclasses.
 But the same design can be readily adapted (with more or less pain, depending)
 to whichever language your blockchain (or non-blockchain) codebase is using.
-Indeed, we at *Mutual Knowledge Systems can help you and your development team adopt this technology*
+Indeed, we at *[Mutual Knowledge Systems](https://mukn.io)
+can help you and your development team adopt this technology*
 through our consulting, development and training services.
 
 Finally, note that we only claim originality in the particular way we combine
@@ -38,7 +39,7 @@ as a full binary tree of a given height,
 where some nodes are marked as omitted (or `Empty`), signifying no mapping for the omitted keys.
 A good article about them is
 [Fast Mergable Integer Maps](http://www.eecs.usma.edu/webs/people/okasaki/ml98maps.ps)
-by Chris Okasaki & Andrew Gill, 1998
+by Chris Okasaki & Andrew Gill, 1998.
 
 Tries have many advantages:
 
@@ -47,7 +48,7 @@ Tries have many advantages:
      in the size of the keys and/or the size of the data.
 
   2. Unlike most other balanced trees, tries provide a *canonical* representation for any mapping:
-     two equal mappings with always be represented by structurally equal tries.
+     two equal mappings will always be represented by structurally equal tries.
      By contrast, red-black trees, AVL trees, B-trees, etc., may be faster for many use cases,
      but which tree you obtain will depend on the history of insertions and modifications.
 
@@ -86,7 +87,11 @@ as the inverse of exponentials or of exponential functors, and we can thus write
 
     (deftype Height (Log2 Key))
 
-Making height one less than the `integer-length` leads to minor space and time saving compared to directly using that height: for instance, we can store all heights for a `Key==UInt256` with numbers from 0 to 255 or type `UInt8`, instead of numbers from 1 to 256 as would happen with using `integer-length`.
+Making height one less than the `integer-length` leads to minor space and time saving
+compared to directly using that integer-length: for instance, we can store
+all heights for a `Key==UInt256` with numbers from 0 to 255 or type `UInt8`,
+instead of numbers from 1 to 256 as would happen with using `integer-length`,
+which could require an extra byte.
 
 ### Trie type definition
 
@@ -104,17 +109,25 @@ thus decreasing the number of entities required in the following discussion.
 But you can save one byte per node (plus padding)
 by not redundantly carrying height information everywhere.
 
-A further space optimization is to define another alternative kind of node,
+A further space optimization we use in our actual implementation is
+to define another alternative kind of node,
 `(Skip Height Height Key Trie)`, that will "skip" over a bunch of bit keys,
 replacing any series of consecutive `Branch`es where one arm is `Empty`.
-Then, `Empty` is forbidden anywhere but at the top.
+Then, `Empty` is forbidden anywhere but at the top,
+and the number of nodes in the tree remains proportional to the number of leaves,
+when, without this optimization, it would increase with the height of the tree,
+which grows logarithmically with the greatest index in the tree.
 This optimization is largely orthogonal to the rest of this discussion,
-so I will simplify it away in this write-up.
+so I will simplify it away in most of this write-up.
 
 In any case, tries are not a "free" representation like arbitrary binary trees,
-but are heavily constrained with a somewhat elaborate invariant that may involve data such as height
-that may or may not be included in some global contextual information node only
-rather than each individual node redundantly with the others.
+but are heavily constrained with a somewhat elaborate invariant.
+The invariant involves data such as height that may be redundantly included
+in each individual node (as in the representation used in this paper and this repository),
+or might instead be included only in some global contextual information "head" node.
+For those familiar with the correspondance between number representation systems and data containers,
+tries correspond to the familiar binary representation system.
+
 
 ## Trie Zippers
 
@@ -136,7 +149,7 @@ Indeed, you can trivially extract a lens from a zipper, but not the other way ar
 
 If you squint, you can view the usual accessors on a data structure as
 implicitly using a zipper "all the way down" to reach some individual leaf data,
-then sometimes back "all the way up" to return an updated data structure.
+then, after modification, back "all the way up" to return an updated data structure.
 Zippers may even be used explicitly, in the internals of the implementation of those accessors.
 
 But the real power of zippers is in keeping them partly zipped or unzipped,
@@ -333,6 +346,13 @@ versus `2 log2 N` node traversals without zipper, with `log2 1000≅10` and `log
 we could have predicted the speedup as a factor `½ log2 N`, or 5x to 10x indeed.
 On an actual depth 27 trie, we thus predict the speedup would be more like 13x.
 
+By contrast, in [the representation used by Ethereum](https://medium.com/shyft-network-media/understanding-trie-databases-in-ethereum-9f03d2c3325d), that uses 16-fold branch nodes,
+a trie with 2**27 entries (one per block so far) would fit in a trie of depth 7;
+thus at a constant 4 hashings per node on average,
+we'd save only a factor 1.75x on node hashings as such;
+but at each level we could also batch up to 16 consecutive accesses in a single node hashing computation,
+for a total maximum speedup of about 28x.
+
 ### Conclusion
 
 The technique above can be extremely useful to blockchains,
@@ -341,7 +361,7 @@ but really to any setting where trees are used,
 whether balanced or not, pure or not, persistent or not,
 merkleized or not, Btrees, Patricia trees, Splice trees, etc.
 
-We at Mutual Knowledge Systems will gladly consult with your company,
+We at [Mutual Knowledge Systems](https://mukn.io) will gladly consult with your company,
 whether in the blockchain space or not, to implement this technique correctly,
 train your team to use it, or more generally help you adopt
 better data structures, better algorithms, better software architecture
