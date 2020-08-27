@@ -341,28 +341,30 @@ A simple benchmark with our code shows a 5x to 10x speedup for batches of 1000 t
 on an initially singleton trie of depth 27 vs not using zippers on an otherwise identical code base.
 
 Actually, with our optimized representation using Skip nodes, the actual number of nodes
-matters more than the total depth, and with an average of `4` amortized node traversals per zipper operation
-versus `2 log2 N` node traversals without zipper, with `log2 1000≅10` and `log2 1000000≅20`,
+matters more than the total depth, and with an average of
+`4` amortized node operations per zipper operation
+versus `2 log2 N` amortized node operations without zipper,
+with `log2 1000≅10` and `log2 1000000≅20`,
 we could have predicted the speedup as a factor `½ log2 N`, or 5x to 10x indeed.
 On an actual depth 27 trie, we thus predict the speedup would be more like 13x.
 
 By contrast, in [the representation used by Ethereum](https://medium.com/shyft-network-media/understanding-trie-databases-in-ethereum-9f03d2c3325d), that uses 16-fold branch nodes,
-a trie with 2**27 entries (one per block so far) would fit in a trie of depth 7;
-thus at a constant 4 hashings per node on average,
-we'd save only a factor 1.75x on node hashings as such;
-but at each level we could also batch up to 16 consecutive accesses in a single node hashing computation,
-for a total maximum speedup of about 28x.
+a trie with `2**27` entries (one per block so far) would fit in a trie of depth 7.
+At each level we could also batch up to 16 consecutive accesses in a single node hashing computation,
+and would need only `1+1/15` amortized node operations per zipper operation,
+versus `2 log4 N` amortized node operations without zipper,
+so we can also predict a speedup of about 13x in this case.
 
 ### Conclusion
 
 The technique above can be extremely useful to blockchains,
-in which tries are an essential data structure,
-but really to any setting where trees are used,
+in which tries are an essential data structure;
+but really it is useful in any setting where batch operations on trees are used,
 whether balanced or not, pure or not, persistent or not,
 merkleized or not, Btrees, Patricia trees, Splice trees, etc.
 
 We at [Mutual Knowledge Systems](https://mukn.io) will gladly consult with your company,
 whether in the blockchain space or not, to implement this technique correctly,
 train your team to use it, or more generally help you adopt
-better data structures, better algorithms, better software architecture
-and better programming practices in your business.
+better data structures, faster algorithms, more robust software architecture
+and safer software development practices in your business.
