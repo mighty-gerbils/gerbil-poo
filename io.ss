@@ -100,8 +100,12 @@
 ;; or for the length to be prepended. Another way is to have some terminator value (e.g. 0 in C strings).
 
 (.defgeneric (marshal type x port) slot: .marshal)
-
 (.defgeneric (unmarshal type port) slot: .unmarshal)
+
+(defrule (marshal-product port (val type) ...)
+  (begin (marshal type val port) ...))
+(defrule (unmarshal-product port type ...)
+  (left-to-right values (unmarshal type port) ...))
 
 
 ;;; Converting to/from bytes
