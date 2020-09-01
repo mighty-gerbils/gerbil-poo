@@ -4,8 +4,8 @@
   :gerbil/gambit/bits :gerbil/gambit/random :gerbil/gambit/ports
   :std/format :std/iter :std/misc/list :std/misc/queue :std/misc/shuffle
   :std/sort :std/srfi/1 :std/srfi/13 :std/sugar :std/test
-  :clan/assert :clan/base :clan/debug :clan/hash :clan/list :clan/number :clan/option :clan/roman
-  :clan/with-id
+  :clan/assert :clan/base :clan/debug :clan/hash :clan/list
+  :clan/number :clan/option :clan/timestamp :clan/roman :clan/with-id
   :clan/t/test-support
   ../poo ../mop ../io ../number ../type ../fun ../table ../rationaldict)
 
@@ -13,17 +13,16 @@
 ;; TODO: support multimethods / externally defined methods / monkey patching / whatever
 ;;  so that tests can be defined as generic functions?
 
-(defsyntax (def-table-test-accessors stx)
-  (syntax-case stx ()
-    ((ctx T) #'(ctx ctx T))
-    ((_ ctx T)
-     #'(with-id ctx (E F alist<- <-alist <-l)
-         (defrule (E e) (.@ T e))
-         (defrule (F f args (... ...)) (.call T f args (... ...)))
-         ;; TODO: for tries, check that the alists are already sorted!
-         (def (alist<- t) (sort (F .list<- (validate T t)) (comparing-key test: < key: car)))
-         (def (<-alist t) (validate T (F .<-list (shuffle t))))
-         (def (<-l l) (<-alist (al<-ks l)))))))
+(defrules def-table-test-accessors ()
+  ((d T) (d d T))
+  ((_ ctx T)
+   (with-id ctx (E F alist<- <-alist <-l)
+     (defrule (E e) (.@ T e))
+     (defrule (F f args (... ...)) (.call T f args (... ...)))
+     ;; TODO: for tries, check that the alists are already sorted?
+     (defrule (alist<- t) (sort (F .list<- (validate T t)) (comparing-key test: < key: car)))
+     (defrule (<-alist t) (validate T (F .<-list (shuffle t))))
+     (defrule (<-l l) (<-alist (al<-ks l))))))
 
 (defrule (table-test-case T name body ...)
   (test-case (format "~a for ~s" name (.@ T sexp))
@@ -288,12 +287,17 @@
       (check-equal? (alist<- (F .update/opt 1597 toggle (E .empty))) (alist<- t3))
       (check-equal? (alist<- (F .update/opt 1597 toggle t3)) '()))))
 
+;; TODO: use this simple benchmark?
+(def (benchmark T n m)
+  (def-table-test-accessors T)
+  (F .count (F .<-zipper (with-timing ()
+    (for/fold (acc (F .zipper<- (E .empty))) ((k (iota m n))) (zipper-acons k k acc))))))
+
 (def (table-tests T)
-  ;;  (read-only-linear-table-test T)
+  (read-only-linear-table-test T)
   (simple-linear-table-test T)
   (harder-linear-table-test T)
-  ;;  (multilinear-table-test T)
+  (multilinear-table-test T)
   (read-only-linear-table-test T)
   (regression-tests T)
   (update-tests T))
-

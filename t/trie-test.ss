@@ -65,6 +65,8 @@
             (.all-slots-sorted T)))
 ;;(traceT)
 
+(def-table-test-accessors T)
+
 (def trie-test
   (test-suite "test suite for clan/poo/trie"
     (init-test-random-source!)
