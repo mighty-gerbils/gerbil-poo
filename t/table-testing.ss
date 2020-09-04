@@ -291,7 +291,7 @@
 (def (benchmark T n m)
   (def-table-test-accessors T)
   (F .count (F .<-zipper (with-timing ()
-    (for/fold (acc (F .zipper<- (E .empty))) ((k (iota m n))) (zipper-acons k k acc))))))
+    (for/fold (acc (F .zipper<- (E .empty))) ((k (iota m n))) (F .zipper-acons k k acc))))))
 
 (def (table-tests T)
   (read-only-linear-table-test T)
