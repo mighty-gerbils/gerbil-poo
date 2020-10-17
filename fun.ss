@@ -8,12 +8,29 @@
   :clan/option
   ./poo ./mop ./brace ./number ./type ./io)
 
-(.def (Functor. @ Type.
-       .tap ;; : Type <- Type
-       .ap ;; : (forall a (Fun (@ a) <- a))
-       .map)) ;; : (forall a b (Fun (Fun (@ a) <- (@ b)) (Fun a <- b)))
+(.def (Category. @ Type. ;; The Category is identified to the type of its objects/nodes/states/points
+  ;; @ : Type ;; objects of the category, points of the space, states of the computation…
+  Arrow ;; : Type ;; (homo)morphisms of the category, transformations, state transitions with effects…
+  domain ;; : @ <- Arrow ;; start node of an arrow
+  codomain ;; : @ <- Arrow ;; end node of an arrow
+  compose ;; : Arrow <- Arrow Arrow ;; given arrows A<-B and B<-C, return an arrow A<-C
+  ;; logical constraint: associativity law for compose
+  identity ;; : Arrow <- @ ;; given a node A, an identity node A<-A
+  ;; left- and right- identity laws for compose
+  ;; also equality predicate and laws for that?
+  ))
 
-(.def (Identity @ Functor.) ;; also a monad
+(.def (Functor. @ Type.
+  Domain Codomain ;; functor C<-D from D to C
+  .ap ;; : Codomain <- Domain
+  .map)) ;; : Codomain.Arrow <- Domain.Arrow
+
+(.def (ParametricFunctor. @ [Functor.] ;; BlindParametric
+  .tap ;; : Type <- Type ;; computes the Codomain from the Domain
+  .ap ;; : (forall a (Fun (.tap a) <- a)) ;; the code does NOT depend on the input type!
+  .map)) ;; : (forall a b (Fun Fun (.tap a) <- (.tap b)) (Fun a <- b))) ;; the code does NOT depend on the input type!
+
+(.def (Identity @ ParametricFunctor.) ;; also a monad
   .tap: identity
   .ap: identity
   .map: identity
