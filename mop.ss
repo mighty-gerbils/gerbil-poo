@@ -100,7 +100,7 @@
   (lambda (x) (try (.validate x '()) #t (catch (_) #f)))
   .validate: ;; : @ <- Any ?(List Any) ;; identity for an @, throws a type-error if input isn't a @
   (lambda (x (context '())) (if (.element? x) x (type-error context Type @ [value: x])))
-  .sexp<-: (lambda (x) (.@ x sexp)))
+  .sexp<-: (lambda (x) (.@ x sexp))) ;; : SEXP <- @
 
 (def (display-poo l (port (current-output-port)))
   (let d ((space? #f))

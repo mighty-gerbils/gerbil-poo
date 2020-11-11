@@ -43,18 +43,17 @@
 (.def (Rational @ Real)
   sexp: 'Rational
   .element?: rational?
-  #| ;; NB: a Scheme "rational" includes floating point numbers.
+  ;; NB: a Scheme "rational" includes floating point numbers.
   ;; For actual ratios between integers, we should have a separate type "Ratnum" or some such.
-  .Pair: (Pair Integer Nat)
-  .natpair<-: (lambda (x) (cons (numerator x) (denominator x)))
-  .<-natpair: (lambda (numerator denominator) (/ numerator denominator))
-  .marshal: (lambda (x port) (marshal .Pair (.natpair<- x) port))
-  .unmarshal: (compose .<-natpair (.@ .Pair .unmarshal))
+  #|.Pair: (Pair Integer Nat) ;; Pair isn't defined until a later file. Commenting out for now.
+  .pair<-: (lambda (x) (cons (numerator x) (denominator x)))
+  .<-pair: (lambda (numerator denominator) (/ numerator denominator))
+  .marshal: (lambda (x port) (marshal .Pair (.pair<- x) port))
+  .unmarshal: (compose .<-pair (.@ .Pair .unmarshal))
   .bytes<-: (bytes<-<-marshal .marshal)
-  .<-bytes<-: (<-bytes<-unmarshal .unmarshal)
-  .json<-: (compose (.@ .Pair .json<-) .<-natpair)
-  .<-json: (compose .<-natpair (.@ .Pair .<-json))
-  |#)
+  .<-bytes: (<-bytes<-unmarshal .unmarshal)
+  .json<-: (compose (.@ .Pair .json<-) .<-pair)
+  .<-json: (compose .<-pair (.@ .Pair .<-json))|#)
 
 (.def (Integer @ [methods.bytes<-marshal Rational]
                  .string<- .<-string)
