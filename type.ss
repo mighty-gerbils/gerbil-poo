@@ -6,7 +6,7 @@
 (import
   :gerbil/gambit/bits :gerbil/gambit/bytes :gerbil/gambit/ports
   :std/format :std/iter :std/lazy :std/misc/hash :std/misc/list
-  :std/srfi/1 :std/srfi/43 :std/sugar :std/text/hex
+  :std/srfi/1 :std/srfi/43 :std/sugar :std/text/hex :std/text/json
   :clan/assert :clan/base :clan/hash :clan/io :clan/json :clan/list :clan/maybe :clan/number
   :clan/syntax :clan/with-id
   ./poo ./mop ./brace ./io ./number)
@@ -346,10 +346,14 @@
                  `(.call ,sexp make ',tag ,(sexp<- (.ref variants tag) (.@ v value))))
       .json<-: (lambda (v)
                  (def tag (.@ v tag))
-                 (hash ("tag" (symbol->string tag)) ("value" (json<- (.ref variants tag) (.@ v value)))))
+                 (def tagj (symbol->string tag))
+                 (def valj (json<- (.ref variants tag) (.@ v value)))
+                 (if (json-symbolic-keys)
+                     (hash (tag tagj) (value valj))
+                     (hash ("tag" tagj) ("value" valj))))
       .<-json: (lambda (j)
-                 (def tag (string->symbol (hash-ref j "tag")))
-                 (make tag (<-json (.ref variants tag) (hash-ref j "value"))))
+                 (def tag (string->symbol (hash-ref j (if (json-symbolic-keys) 'tag "tag"))))
+                 (make tag (<-json (.ref variants tag) (hash-ref j (if (json-symbolic-keys) 'value "value")))))
       .marshal: (lambda (v port)
                   (def tag (.@ v tag))
                   (def tag-n (index-of variant-names tag))
