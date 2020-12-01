@@ -339,17 +339,17 @@
      sealed: {type: Bool default: #f}}
    proto: Class.)
 
-(def (proto class) (.@ class proto))
+(def (instance class . plist) (apply .cc (.@ class proto) plist))
 
 ;; TODO: make-instance or new should .instantiate the object.
 ;; TODO: What name for a syntax that does not instantiate it?
 (defrules new ()
   ((_ (class self slots ...) slot-defs ...)
-   {(:: self (proto class) slots ...) slot-defs ...})
+   {(:: self (instance class) slots ...) slot-defs ...})
   ((_ (class) slot-defs ...)
-   {(:: self (proto class)) slot-defs ...})
+   {(:: self (instance class)) slot-defs ...})
   ((_ class slot-defs ...)
-   {(:: self (proto class)) slot-defs ...}))
+   {(:: self (instance class)) slot-defs ...}))
 
 (defrules .defclass ()
   ((_ (class class-options ...) (slotdefs ...) options ...)
@@ -358,7 +358,7 @@
    (.defclass (class) (slotdefs ...) options ...)))
 
 (def (slot-lens slot-name)
-  {(:: @ (proto Lens))
+  {(:: @ (instance Lens))
    .get: (lambda (s) (.ref s slot-name))
    .set: (lambda (x s) (.cc s slot-name x))})
 

@@ -69,11 +69,11 @@ goes at least back to 1979 in the tradition of Smalltalk and its descendants:
 [Slate](https://github.com/briantrice/slate-language) (2008).
 
 There have mean many
-[prototype]()
+[prototype](https://en.wikipedia.org/wiki/Prototype-based_programming)
 [object](https://en.wikibooks.org/wiki/Scheme_Programming/Object_Orientation)
 [systems](http://community.schemewiki.org/?object-systems)
 in Scheme over the years:
-[T](https://en.wikipedia.org/wiki/T_(programming_language)) (1982),
+[T](https://en.wikipedia.org/wiki/T_(programming_language)) (1981),
 [YASOS](http://people.csail.mit.edu/jaffer/SLIB.html) (1992),
 [Protobj](https://www.neilvandyke.org/racket/protobj/) (2005),
 [Prometheus](https://github.com/jorgenschaefer/prometheus) (2005),

@@ -283,11 +283,11 @@
    slot-names: (map car a)
    types: (map (lambda (s) (.@ (.ref slots s) type)) slot-names)
    optionals: (map (lambda (s) (.@ (.ref slots s) optional)) slot-names)
-   .sexp<-: (lambda (v) `(.cc (proto ,sexp)
-                         ,@(append-map (lambda (s t o)
-                                         (when/list (or (not o) (.key? v s))
-                                           [[(keywordify s) (sexp<- t (.ref v s))]]))
-                                       slot-names types optionals)))
+   .sexp<-: (lambda (v) `(instance ,sexp
+                      ,@(append-map (lambda (s t o)
+                                      (when/list (or (not o) (.key? v s))
+                                        [(keywordify s) (sexp<- t (.ref v s))]))
+                                    slot-names types optionals)))
    .json<-: (lambda (v) (list->hash-table
                     (append-map (lambda (s t o) (when/list (or (not o) (.key? v s))
                                              [(cons (symbol->string s) (json<- t (.ref v s)))]))
