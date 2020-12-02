@@ -280,7 +280,7 @@
   (def a (map (match <> ([kw type . options] (cons (symbolify kw) (apply RecordSlot type options))))
               (alist<-plist plist)))
   {(:: @ [methods.bytes<-marshal Class.] proto)
-   sexp: ['Record . plist]
+   sexp: ['Record (append-map (match <> ([k . s] [(symbol->keyword k) ['@list (.@ s type sexp)]])) a)...]
    slots: (.<-alist a)
    slot-names: (map car a)
    types: (map (lambda (s) (.@ (.ref slots s) type)) slot-names)
