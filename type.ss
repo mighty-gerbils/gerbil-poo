@@ -223,6 +223,8 @@
 
 (.def (Pair. @ [methods.bytes<-marshal Type.] left right)
   sexp: `(Pair ,(.@ left sexp) ,(.@ right sexp))
+  .element?: (lambda (v) (and (pair? v) (element? left (car v)) (element? right (cdr v))))
+  .sexp<-: (lambda (v) `(cons ,(sexp<- left (car v)) ,(sexp<- right (cdr v))))
   .json<-: (lambda (v) [(json<- left (car v)) (json<- right (cdr v))])
   .<-json: (lambda (j) (cons (car j) (cadr j)))
   .marshal: (lambda (v port)
@@ -329,7 +331,7 @@
   (def a (map (match <> ([kw . type] (cons (symbolify kw) type))) (alist<-plist plist)))
   (def tag-marsh-t (UInt (integer-length (max 0 (1- (length a))))))
   {(:: @ [methods.bytes<-marshal Type.])
-      sexp: ['Sum . plist]
+      sexp: ['Sum (append-map (match <> ([k . t] [k (.@ t sexp)])) a)...]
       variants: (.<-alist a)
       variant-names: (map car a)
       types: (map cdr a)

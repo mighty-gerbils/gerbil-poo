@@ -93,14 +93,14 @@
      ((.has? self sexp) (object->string (.@ self sexp))))))
 
 (.def (Type. @)
+  .type: Type
   sexp: (error "missing type sexp" @) ;; Any
   ;; NB: either `validate` or `element?` can be primary, with the other method deduced from it.
   ;; But if you fail to override either, it's bottomless mutual recursion calling them.
   .element?: ;; : Bool <- Any ;; is this an element of this type?
   (lambda (x) (try (.validate x '()) #t (catch (_) #f)))
   .validate: ;; : @ <- Any ?(List Any) ;; identity for an @, throws a type-error if input isn't a @
-  (lambda (x (context '())) (if (.element? x) x (type-error context Type @ [value: x])))
-  .sexp<-: (lambda (x) (.@ x sexp))) ;; : SEXP <- @
+  (lambda (x (context '())) (if (.element? x) x (type-error context Type @ [value: x]))))
 
 (def (display-poo l (port (current-output-port)))
   (let d ((space? #f))
@@ -329,6 +329,7 @@
   slots: {sexp: {type: Any}
           .element?: {type: (Fun Bool <- Any)}}
   .element?: (λ (x) (and (poo? x) (.has? x sexp) (.has? x .element?)))
+  .sexp<-: (lambda (x) (.@ x sexp)) ;; : SEXP <- @
   proto: Type.)
 
 (.def (Class @ Type)
