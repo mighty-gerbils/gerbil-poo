@@ -69,7 +69,7 @@ goes at least back to 1979 in the tradition of Smalltalk and its descendants:
 [Slate](https://github.com/briantrice/slate-language) (2008).
 
 There have mean many
-[prototype](https://en.wikipedia.org/wiki/Prototype-based_programming)
+[prototype](https://web.media.mit.edu/~lieber/Lieberary/OOP/Delegation/Delegation.html)
 [object](https://en.wikibooks.org/wiki/Scheme_Programming/Object_Orientation)
 [systems](http://community.schemewiki.org/?object-systems)
 in Scheme over the years:
