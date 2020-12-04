@@ -274,7 +274,7 @@
 
 (def (RecordSlot type . options)
   (def o (.<-alist (map (match <> ([k . v] (cons (symbolify k) v))) (alist<-plist options))))
-  {(:: @ [o]) (type) optional: (.has? o default)})
+  {(:: @ [o]) (type) optional: (or (.ref o 'optional false) (.has? o default))})
 
 (def (Record . plist)
   (def a (map (match <> ([kw type . options] (cons (symbolify kw) (apply RecordSlot type options))))
@@ -285,15 +285,18 @@
    slot-names: (map car a)
    types: (map (lambda (s) (.@ (.ref slots s) type)) slot-names)
    optionals: (map (lambda (s) (.@ (.ref slots s) optional)) slot-names)
+   defaults: (map (lambda (s) (.ref (.ref slots s) 'default void)) slot-names)
    .sexp<-: (lambda (v) `(instance ,sexp
                       ,@(append-map (lambda (s t o)
                                       (when/list (or (not o) (.key? v s))
                                         [(keywordify s) (sexp<- t (.ref v s))]))
                                     slot-names types optionals)))
    .json<-: (lambda (v) (list->hash-table
-                    (append-map (lambda (s t o) (when/list (or (not o) (.key? v s))
-                                             [(cons (symbol->string s) (json<- t (.ref v s)))]))
-                         slot-names types optionals)))
+                    (append-map (lambda (s t o d) (when/list (or (not o)
+                                                            (and (.key? v s)
+                                                                 (not (equal? (.ref v s) d))))
+                                               [(cons (symbol->string s) (json<- t (.ref v s)))]))
+                         slot-names types optionals defaults)))
    .<-json: (lambda (j)
               (.mix (.<-alist (append-map (lambda (s t o)
                                             (def ss (symbol->string s))
