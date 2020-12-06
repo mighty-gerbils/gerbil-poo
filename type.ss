@@ -276,6 +276,9 @@
   (def o (.<-alist (map (match <> ([k . v] (cons (symbolify k) v))) (alist<-plist options))))
   {(:: @ [o]) (type) optional: (or (.ref o 'optional false) (.has? o default))})
 
+;; TODO: Generate a proto field that supports initialization-time defaults.
+;; TODO: Support single inheritance.
+;; TODO: Support multiple inheritance.
 (def (Record . plist)
   (def a (map (match <> ([kw type . options] (cons (symbolify kw) (apply RecordSlot type options))))
               (alist<-plist plist)))

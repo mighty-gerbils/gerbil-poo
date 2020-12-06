@@ -37,6 +37,8 @@
   .comparer: number-comparer
   .non-negative?: (cut <= 0 <>)
   .sign: (cut number-comparer <> 0)
+  .<-json: identity
+  .json<-: identity
   .max: max
   .min: min)
 
