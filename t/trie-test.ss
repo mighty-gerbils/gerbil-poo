@@ -6,7 +6,7 @@
   :std/sort :std/srfi/1 :std/srfi/13 :std/sugar :std/test
   :clan/assert :clan/base :clan/debug :clan/hash :clan/list :clan/number :clan/option :clan/roman
   :clan/with-id
-  :clan/t/test-support
+  :clan/testing
   ../poo ../mop ../io ../number ../type ../fun ../trie
   ./table-testing)
 
