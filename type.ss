@@ -33,6 +33,7 @@
              (for ((i (in-iota l)))
                (unless (element? (vector-ref types i) (vector-ref x i)) (return #f)))
              #t)))
+  .sexp<-: (lambda (v) `(vector ,@(vector->list (vector-map (lambda (_ t x) (sexp<- t x)) types v))))
   .json<-: (lambda (v) (vector->list (vector-map (lambda (_ t x) (json<- t x)) types v)))
   .<-json: (lambda (j) (vector-map (lambda (_ t x) (<-json t x)) types (if (list? j) (list->vector j) j)))
   .marshal: (lambda (v port)
