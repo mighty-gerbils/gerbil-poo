@@ -77,12 +77,6 @@
 
 ;;; JSON I/O
 
-;; gf to extract a value of given type from some json
-(.defgeneric (<-json type j) slot: .<-json)
-
-;; gf to extract some json from a value of given type
-(.defgeneric (json<- type x) slot: .json<-)
-
 (def (@@method :json poo) (json<- (.@ poo .type) poo))
 
 (def (json-string<- type x)

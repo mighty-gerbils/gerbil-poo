@@ -11,7 +11,7 @@
   :gerbil/gambit/exact :gerbil/gambit/ports
   :std/error :std/format :std/generic :std/iter :std/lazy
   :std/misc/list :std/misc/repr :std/srfi/1 :std/sugar
-  :clan/base :clan/error :clan/hash :clan/io :clan/list
+  :clan/base :clan/error :clan/hash :clan/io :clan/list :clan/syntax
   ./poo ./brace)
 
 ;; * Options
@@ -91,6 +91,11 @@
     (cond
      ((.has? self .type .sexp<-) (.call (.@ self .type) .sexp<- self))
      ((.has? self sexp) (object->string (.@ self sexp))))))
+
+;; gf to extract a value of given type from some json
+(.defgeneric (<-json type j) slot: .<-json)
+;; gf to extract some json from a value of given type
+(.defgeneric (json<- type x) slot: .json<-)
 
 (.def (Type. @)
   .type: Type
@@ -178,9 +183,13 @@
 
 (.def (MonomorphicPoo. @ Type. type) ;; all the values are of given type
   sexp: `(MonomorphicPoo ,(.@ type sexp))
-  .element?: (cut monomorphic-poo? type <>))
+  .element?: (cut monomorphic-poo? type <>)
+  .sexp<-: (lambda (x) `(.o ,@(append-map (match <> ([s . v] [(keywordify s) (sexp<- type v)]))
+                                     (.sorted-alist x))))
+  .json<-: (lambda (x) (list->hash-table (map (match <> ([s . v] (cons s (json<- type v)))) (.alist x))))
+  .<-json: (lambda (j) (.<-alist (map (match <> ([s . v] (cons (symbolify s) (<-json type v)))) (hash->list j)))))
 
-(def (MonomorphicPoo type) {(:: @ MonomorphicPoo.) (type)})
+(def (MonomorphicPoo type) {(:: @ MonomorphicPoo.) type})
 (def PooPoo (MonomorphicPoo Poo))
 (def (map-poo-values f poo)
   (def m {})
