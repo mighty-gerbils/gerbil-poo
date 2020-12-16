@@ -113,7 +113,7 @@
   .<-string: string->symbol
   .string<-: symbol->string)
 (.def (Keyword @ [methods.json&bytes&marshal<-string Type.])
-  exp: 'Keyword
+  sexp: 'Keyword
   .element?: keyword?
   .<-string: string->keyword
   .string<-: keyword->string)
