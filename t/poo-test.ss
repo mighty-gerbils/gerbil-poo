@@ -9,45 +9,44 @@
   :clan/assert :clan/base
   ../poo ../brace)
 
-
 (def poo-test
   (test-suite "test suite for clan/poo/poo"
     (test-case "simple tests from poo.md"
-      (assert-equal! (poo? (.o (x 1) (y 2))) #t)
-      (assert-equal! (poo? 42) #f)
+      (check-equal? (poo? (.o (x 1) (y 2))) #t)
+      (check-equal? (poo? 42) #f)
       (.def foo (x 1))
       (.def! foo y (x) (+ x 3))
-      (assert-equal! (.get foo y) 4)
+      (check-equal? (.get foo y) 4)
       (.def bar (x 1))
-      (assert-equal! (.get bar x) 1)
+      (check-equal? (.get bar x) 1)
       (.set! bar x 18)
-      (assert-equal! (.get bar x) 18)
-      (assert-equal! (.key? foo 'y) #t)
-      (assert-equal! (.has? foo z) #f)
+      (check-equal? (.get bar x) 18)
+      (check-equal? (.key? foo 'y) #t)
+      (check-equal? (.has? foo z) #f)
       (def (sort-symbols symbols) (sort symbols (λ (a b) (string< (symbol->string a) (symbol->string b)))))
-      (assert-equal! (sort-symbols (.all-slots foo)) '(x y))
-      (assert-equal! (sort-symbols (.all-slots bar)) '(x))
+      (check-equal? (sort-symbols (.all-slots foo)) '(x y))
+      (check-equal? (sort-symbols (.all-slots bar)) '(x))
       (def my-point (.o (x 3) (y 4)))
       (.def blued (color 'blue))
       (def my-colored-point (.mix blued my-point))
-      (assert-equal! (.ref my-colored-point 'x) 3)
-      (assert-equal! (.ref my-colored-point 'y) 4)
-      (assert-equal! (.ref my-colored-point 'color) 'blue)
-      (assert-equal! (.get my-colored-point x) (.ref my-colored-point 'x))
+      (check-equal? (.ref my-colored-point 'x) 3)
+      (check-equal? (.ref my-colored-point 'y) 4)
+      (check-equal? (.ref my-colored-point 'color) 'blue)
+      (check-equal? (.get my-colored-point x) (.ref my-colored-point 'x))
       (def complex (.o (:: @ [] x y) (x+iy (+ x (* 0+1i y)))))
       (.def (polar @ [] x+iy)
          (rho (magnitude x+iy)) (theta (angle x+iy)))
-      (assert-equal! (.get (.mix my-colored-point polar complex) rho) 5)
+      (check-equal? (.get (.mix my-colored-point polar complex) rho) 5)
     (test-case "slot tests from poo.md"
       (let ((x 1) (y 2))
         (.def point (x) (y))
-        (assert-equal! (map (cut .ref point <>) '(x y)) [1 2]))
+        (check-equal? (map (cut .ref point <>) '(x y)) [1 2]))
       (.def gerbil-config
         (modules => prepend '(gerbil gambit)))
       (def (prepend x y) (append y x))
       (.def base-config
         (modules '(kernel stdlib init)))
-      (assert-equal! (.get (.mix gerbil-config base-config) modules)
+      (check-equal? (.get (.mix gerbil-config base-config) modules)
                      '(gerbil gambit kernel stdlib init))
       (.def (hello @ [] name)
         (language 'en)
@@ -58,8 +57,8 @@
         (greeting-fmt (next) (if (eq? language 'fr) "salut, ~a" (next))))
       (.def (french-hello @ localize-hello)
         (language 'fr))
-      (assert-equal! (.get localize-hello greeting) "hello, poo")
-      (assert-equal! (.get french-hello greeting) "salut, poo")))
+      (check-equal? (.get localize-hello greeting) "hello, poo")
+      (check-equal? (.get french-hello greeting) "salut, poo")))
     (test-case "simple hello tests"
       (.def hello
         (name (error "Undefined"))
@@ -75,48 +74,62 @@
         (level => + 1)
         (greet (λ () (displayln greeting))))
       (def french (.o (language 'french) (level => + 1)))
-      (assert-equal! (.get alice name) "Alice")
-      (assert-equal! (.get bob name) "Bob")
-      (assert-equal! (.get alice greeting) "Hello, Alice.")
-      (assert-equal! (.get hello level) 0)
-      (assert-equal! (.get alice level) 1)
-      (assert-equal! (.get bob level) 2)
-      (assert-equal! (.get (.mix french bob) level) 3)
-      (assert-equal! (with-output-to-string (λ () (.call bob greet))) "Hello, Bob.\n")
-      (assert-equal! (with-output-to-string (λ () (.call (.mix french bob) greet))) "Salut, Bob.\n"))
+      (check-equal? (.get alice name) "Alice")
+      (check-equal? (.get bob name) "Bob")
+      (check-equal? (.get alice greeting) "Hello, Alice.")
+      (check-equal? (.get hello level) 0)
+      (check-equal? (.get alice level) 1)
+      (check-equal? (.get bob level) 2)
+      (check-equal? (.get (.mix french bob) level) 3)
+      (check-equal? (with-output-to-string (λ () (.call bob greet))) "Hello, Bob.\n")
+      (check-equal? (with-output-to-string (λ () (.call (.mix french bob) greet))) "Salut, Bob.\n"))
     (test-case "testing side-effects"
       (def foo (.o (x 6)))
       (.def! foo y (x) (* x 7))
       (.def (bar @ foo x y) (z (+ x 3)) (all [x y z]))
-      (assert-equal! (.get foo x) 6)
-      (assert-equal! (.get foo y) 42)
-      (assert-equal! (.get bar x) 6)
-      (assert-equal! (.get bar y) 42)
+      (check-equal? (.get foo x) 6)
+      (check-equal? (.get foo y) 42)
+      (check-equal? (.get bar x) 6)
+      (check-equal? (.get bar y) 42)
       (.set! bar x 1)
-      (assert-equal! (.get foo x) 6)
-      (assert-equal! (.get foo y) 42)
-      (assert-equal! (.get foo x) 6)
-      (assert-equal! (.get foo y) 42)
-      (assert-equal! (.get bar x) 1))
+      (check-equal? (.get foo x) 6)
+      (check-equal? (.get foo y) 42)
+      (check-equal? (.get foo x) 6)
+      (check-equal? (.get foo y) 42)
+      (check-equal? (.get bar x) 1))
     (test-case "keyword and brace syntax"
-      (assert-equal! 2 (.get (.o a: 1 b: (+ a 1)) b))
-      (assert-equal! 2 (.get {a: 1 b: (+ a 1)} b))
-      (assert-equal! 2 (let ((a 0)) (.get (.o a: 1 b: (+ a 1)) b))) ;; proper shadowing
-      (assert-equal! 2 (let ((a 0)) (.@ {a: 1 b: (+ a 1)} b)))) ;; proper shadowing
+      (check-equal? 2 (.get (.o a: 1 b: (+ a 1)) b))
+      (check-equal? 2 (.get {a: 1 b: (+ a 1)} b))
+      (check-equal? 2 (let ((a 0)) (.get (.o a: 1 b: (+ a 1)) b))) ;; proper shadowing
+      (check-equal? 2 (let ((a 0)) (.@ {a: 1 b: (+ a 1)} b)))) ;; proper shadowing
     (test-case "referring to another method"
       (def m (.o a: 1+ b: a c: ((lambda (aa) (lambda (x) (aa x))) a) d: (lambda (x) (a x))))
-      (assert-equal! (map (lambda (x) ((.ref m x) 2)) '(a b c d)) [3 3 3 3]))
+      (check-equal? (map (lambda (x) ((.ref m x) 2)) '(a b c d)) [3 3 3 3]))
     (test-case "testing overrides"
       (def m (.o a: 1 b: 2 c: 3))
       (def n (.cc m b: 20 'c 30 d: 40))
-      (assert-equal! (.sorted-alist n) '((a . 1) (b . 20) (c . 30) (d . 40))))
+      (check-equal? (.sorted-alist n) '((a . 1) (b . 20) (c . 30) (d . 40))))
     (test-case "testing match"
       (def m {a: 1 b: 2 c: 3})
-      (assert-equal! [1 2 3]
+      (check-equal? [1 2 3]
                      (match m ({(a) (b) (c)} [a b c])))
       (def n {(m) d: 4})
-      (assert-equal! [4 1 3]
+      (check-equal? [4 1 3]
                      (match n ({d: a m: {a: c c: d}} [a c d])))
-      (assert-equal! 'nomatch
+      (check-equal? 'nomatch
                      (match n ({d: {a: _} m: _} 'false-match) (_ 'nomatch))))
-    ))
+    (test-case "testing with-slots"
+      (def o {a: 1 b: 2 c: 3})
+      (check-equal? (with-slots (a b c) o [a b c]) [1 2 3]))
+    (test-case "testing with-prefixed-slots"
+      (def o {a: 1 b: 2 c: 3})
+      (check-equal? (with-prefixed-slots (o- a) o [o-a]) [1])
+      (check-equal? (with-prefixed-slots (o- a b c) o [o-a o-b o-c]) [1 2 3]))
+    (test-case "testing def-slots"
+      (def o {a: 1 b: 2 c: 3})
+      (def-slots (a b c) o)
+      (check-equal? [a b c] [1 2 3]))
+    (test-case "testing def-prefixed-slots"
+      (def o {a: 1 b: 2 c: 3})
+      (def-prefixed-slots (o- a b c) o)
+      (check-equal? [o-a o-b o-c] [1 2 3]))))

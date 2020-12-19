@@ -301,7 +301,7 @@
   proto: {.type: @ optional: #f hidden: #f}
   .slot-checker:
     (λ (@@ slot-name base x)
-      (with-slots (@@ type constant optional)
+      (with-slots (type constant optional) @@
         (if (.key? x slot-name)
           (let ((value (.ref x slot-name base)))
             (and
@@ -310,7 +310,7 @@
           (and (.has? @@ optional) optional))))
   .slot-definer:
     (λ (@@ slot-name x)
-       (with-slots (@@ type constant compute default)
+       (with-slots (type constant compute default) @@
          (cond
           ((.has? @@ constant) (.putslot! x slot-name (constant-slot constant)))
           ((.has? @@ compute) (.putslot! x slot-name compute))

@@ -12,13 +12,13 @@
   .all-slots .all-slots-sorted .alist .sorted-alist .<-alist
   .@ .+ .cc
   poo poo-prototypes poo-instance ;; shouldn't these remain internals?
-  with-slots)
+  with-slots def-slots with-prefixed-slots def-prefixed-slots)
 
 (import
   ;;(for-syntax :std/misc/repr) :std/misc/repr ;; XXX debug
   :std/lazy :std/misc/hash :std/misc/list :std/sort :std/srfi/1 :std/srfi/13 :std/sugar
   (for-syntax :clan/base :std/iter)
-  :clan/base)
+  :clan/base :clan/with-id)
 
 (defstruct poo (prototypes instance) constructor: :init!)
 (defmethod {:init! poo}
@@ -187,28 +187,51 @@
 (defrules poo/slot-init-form (=> =>.+)
   ((_ self slots slot form)
    (λ (self super-prototypes base)
-     (with-slots (self . slots) (poo/form-named slot form))))
+     (with-slots slots self (poo/form-named slot form))))
   ((_ self slots slot => form args ...)
    (λ (self super-prototypes base)
      (let ((inherited-value (compute-slot self super-prototypes 'slot base)))
-       (with-slots (self . slots) (form inherited-value args ...)))))
+       (with-slots slots self (form inherited-value args ...)))))
   ((_ self slots slot =>.+ args ...)
    (poo/slot-init-form self slots slot => .+ args ...))
   ((_ self slots slot (next-method) form)
    (λ (self super-prototypes base)
      (let ((inherited-value (lazy (compute-slot self super-prototypes 'slot base))))
        (let-syntax ((next-method (syntax-rules () ((_) (force inherited-value)))))
-         (with-slots (self . slots) (poo/form-named slot form))))))
+         (with-slots slots self (poo/form-named slot form))))))
   ((_ self slots slot)
    (λ (self super-prototypes base) slot)))
 
 ;;NB: This doesn't work, because of slots that appear more than once.
-#;(defrule (with-slots (self slot ...) body ...) (let-id-rule ((slot (.@ self slot)) ...) body ...))
+#;(defrule (with-slots (slot ...) self body ...) (let-id-rule ((slot (.@ self slot)) ...) body ...))
 
 (defrules with-slots ()
-  ((_ (self) body ...) (begin body ...))
-  ((_ (self slot slots ...) body ...)
-   (let-id-rule (slot (.@ self slot)) (with-slots (self slots ...) body ...))))
+  ((_ () self body ...) (begin body ...))
+  ((_ (slot slots ...) self body ...)
+   (let-id-rule (slot (.@ self slot)) (with-slots (slots ...) self body ...))))
+
+(defrule (def-slots (slot ...) self)
+  (defvalues (slot ...) (values (.@ self slot) ...)))
+
+;; TODO: have it called with-slots in both cases, but autodetect
+;; that the first argument is a keyword or string?
+(defrules with-prefixed-slots ()
+  ((ctx (prefix slot ...) self body ...)
+   (with-prefixed-slots ctx (prefix slot ...) self body ...))
+  ((_ ctx (prefix) self body ...) (begin body ...))
+  ((_ ctx (prefix slot slots ...) self body ...)
+   (with-id/expr ctx ((var #'prefix #'slot))
+     (let-id-rule (var (.@ self slot))
+       (with-prefixed-slots ctx (prefix slots ...) self body ...)))))
+
+(defrules def-prefixed-slots ()
+  ((ctx (prefix slot ...) self)
+   (def-prefixed-slots ctx (prefix slot ...) self))
+  ((_ ctx (prefix) self) (void))
+  ((_ ctx (prefix slot slots ...) self)
+   (with-id ctx ((var #'prefix #'slot))
+     (def var (.@ self slot))
+     (def-prefixed-slots ctx (prefix slots ...) self))))
 
 ;; TODO: use defsyntax-for-match, and in the pattern use (? test :: proc => pattern) to do the job
 (defsyntax-for-match .o
@@ -283,3 +306,9 @@
 ;; Should we keep an indefinitely growing list of the super formulas?
 ;; Should we maintain flags as to which formulas do or don't use the super and/or self references,
 ;; so we know what to invalidate or not?
+
+;; TODO: For type validation,
+;; 1. cache which types an instance was tested to be part of,
+;; which allows for fast checking of types for recursive data structures,
+;; maybe even with cycles.
+;; 2. have a mechanism to extend the above to non-instances.
