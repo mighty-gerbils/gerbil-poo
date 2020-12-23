@@ -121,7 +121,7 @@
           (write (sexp<- x (pop! l)) port) (d #t))
          (else (pr x port) (d #t)))))))
 
-(def (display-poo-ln . l) (display-poo l (current-output-port)))
+(def (display-poo-ln . l) (display-poo l (current-output-port)) (newline (current-output-port)))
 
 (def (display-context c (port (current-output-port)))
   (for-each (lambda (l) (display-poo l port) (newline port))
@@ -357,11 +357,11 @@
 ;; TODO: What name for a syntax that does not instantiate it?
 (defrules new ()
   ((_ (class self slots ...) slot-defs ...)
-   {(:: self (instance class) slots ...) slot-defs ...})
+   {(:: self (.@ class proto) slots ...) slot-defs ...})
   ((_ (class) slot-defs ...)
-   {(:: self (instance class)) slot-defs ...})
+   {(:: self (.@ class proto)) slot-defs ...})
   ((_ class slot-defs ...)
-   {(:: self (instance class)) slot-defs ...}))
+   {(:: self (.@ class proto)) slot-defs ...}))
 
 (defrules .defclass ()
   ((_ (class class-options ...) (slotdefs ...) options ...)
