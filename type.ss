@@ -103,7 +103,7 @@
 (.def (methods.bytes&marshal<-string @ [methods.bytes<-marshal] .<-string .string<-)
   .String: String
   .marshal: (lambda (x port) (marshal .String (.string<- x) port))
-  .unmarshal: (lambda (port) (.<-string (unmarshal .String port))))
+  .unmarshal: (lambda (port) (eofmap .<-string (unmarshal .String port))))
 (.def (methods.json&bytes&marshal<-string @ [methods.bytes&marshal<-string] .<-string .string<-)
   .<-json: .<-string
   .json<-: .string<-)
@@ -247,7 +247,7 @@
   .pair<-: (lambda (x) (cons (numerator x) (denominator x)))
   .<-pair: (lambda (numerator denominator) (/ numerator denominator))
   .marshal: (lambda (x port) (marshal .Pair (.pair<- x) port))
-  .unmarshal: (compose .<-pair (.@ .Pair .unmarshal))
+  .unmarshal: (lambda (port) (eofmap .<-pair (.call .Pair .unmarshal port)))
   .bytes<-: (bytes<-<-marshal .marshal)
   .<-bytes: (<-bytes<-unmarshal .unmarshal)
   .json<-: (compose (.@ .Pair .json<-) .<-pair)

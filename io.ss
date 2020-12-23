@@ -118,11 +118,11 @@
 
 (.def (methods.marshal<-bytes @ [] .<-bytes .bytes<- .Bytes)
   .marshal: (lambda (x port) (marshal .Bytes (.bytes<- x) port))
-  .unmarshal: (lambda (port) (.<-bytes (unmarshal .Bytes port))))
+  .unmarshal: (lambda (port) (eofmap .<-bytes (unmarshal .Bytes port))))
 
 (.def (methods.marshal<-fixed-length-bytes @ [] .<-bytes .bytes<- length-in-bytes)
   .marshal: (lambda (x port) (write-bytes (.bytes<- x) port))
-  .unmarshal: (lambda (port) (.<-bytes (read-bytes length-in-bytes port))))
+  .unmarshal: (lambda (port) (eofmap .<-bytes (read-bytes length-in-bytes port))))
 
 ;;; Converting to/from string
 

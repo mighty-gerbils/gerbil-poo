@@ -5,7 +5,7 @@
 (import
   :std/error :std/iter
   (only-in :clan/list acons)
-  :clan/option
+  :clan/option :clan/io
   ./poo ./mop ./brace ./number ./type ./io)
 
 (.def (Category. @ Type. ;; The Category is identified to the type of its objects/nodes/states/points
@@ -40,7 +40,7 @@
 
 (.def (methods.io<-wrap @ [] T .wrap .unwrap)
   .marshal: (lambda (v port) (marshal T (.unwrap v) port))
-  .unmarshal: (lambda (port) (.wrap (unmarshal T port)))
+  .unmarshal: (lambda (port) (eofmap .wrap (unmarshal T port)))
   .bytes<-: (lambda (v) (bytes<- T (.unwrap v)))
   .<-bytes: (lambda (b) (.wrap (<-bytes T b)))
   .json<-: (lambda (v) (json<- T (.unwrap v)))

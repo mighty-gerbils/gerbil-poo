@@ -101,6 +101,7 @@
       .unmarshal:
       (lambda (port)
         (match (read-byte port)
+          (#!eof #!eof)
           (0 (Empty))
           (1 (Leaf (unmarshal Value port)))
           (2 (left-to-right Branch (unmarshal Height port)

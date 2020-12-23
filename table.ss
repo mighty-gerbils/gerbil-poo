@@ -4,7 +4,7 @@
 
 (import
   :std/iter :std/misc/alist
-  :clan/base :clan/list :clan/option
+  :clan/base :clan/list :clan/option :clan/io
   ./brace ./io ./mop ./number ./poo ./type)
 
 ;; TODO: have APIs look more like LIL, less like OCaml?
@@ -190,7 +190,7 @@
   .bytes<-: (compose (.@ .Bindings .bytes<-) .list<-) ;; : Bytes <- @
   .<-bytes: (compose .<-list (.@ .Bindings .<-bytes)) ;; : @ <- Bytes
   .marshal: (lambda (x port) (marshal .Bindings (.list<- x) port))
-  .unmarshal: (compose .<-list (.@ .Bindings .unmarshal)))
+  .unmarshal: (lambda (port) (eofmap .<-list (.call .Bindings .unmarshal port))))
 
 (.def (Set<-Table. @ Type. Table sexp)
   ;; Table must be a table from Elt to Unit, i.e. (.@ Table Key) == Elt, (.@ Table Value) == Unit
@@ -235,7 +235,7 @@
   .bytes<-: (compose (.@ .List .bytes<-) .list<-) ;; : Bytes <- @
   .<-bytes: (compose .<-list (.@ .List .<-bytes)) ;; : @ <- Bytes
   .marshal: (lambda (x port) (marshal .List (.list<- x) port))
-  .unmarshal: (compose .<-list (.@ .List .unmarshal))
+  .unmarshal: (lambda (port) (eofmap .<-list (.call .List .unmarshal port)))
   ;; TODO: for union, inter, diff, compare, equal, subset,
   ;; optimize for full subtables, by caching count in wrapper?
   .union: (lambda (a b) (.call Table .merge (lambda (_ _ _) (some (void))) a b)) ;; : @ <- @ @

@@ -159,7 +159,7 @@
   .<-bytes: (compose .<-string bytes->string)
   .json<-: .string<- .<-json: .<-string
   .marshal: (lambda (x port) (write-sized16-bytes (.bytes<- x) port))
-  .unmarshal: (lambda (port) (.<-bytes (read-sized16-bytes port)))
+  .unmarshal: (lambda (port) (eofmap .<-bytes (read-sized16-bytes port)))
   .=?: equal?)
 
 (.def (Poo @ Type.) sexp: 'Poo .element?: poo?
