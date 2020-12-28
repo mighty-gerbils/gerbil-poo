@@ -158,8 +158,8 @@
   .bytes<-: (compose string->bytes .string<-)
   .<-bytes: (compose .<-string bytes->string)
   .json<-: .string<- .<-json: .<-string
-  .marshal: (lambda (x port) (write-sized16-bytes (.bytes<- x) port))
-  .unmarshal: (lambda (port) (.<-bytes (read-sized16-bytes port)))
+  .marshal: (lambda (x port) (marshal-sized16-bytes (.bytes<- x) port))
+  .unmarshal: (lambda (port) (.<-bytes (unmarshal-sized16-bytes port)))
   .=?: equal?)
 
 (.def (Poo @ Type.) sexp: 'Poo .element?: poo?
