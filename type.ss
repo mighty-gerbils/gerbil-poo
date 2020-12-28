@@ -74,7 +74,7 @@
   .Length: Nat
   .zero: #u8()
   .marshal: (lambda (x port) (marshal .Length (bytes-length x) port) (write-u8vector x port))
-  .unmarshal: (lambda (port) (def n (unmarshal .Length port)) (read-bytes* n port)))
+  .unmarshal: (lambda (port) (def n (unmarshal .Length port)) (unmarshal-n-bytes n port)))
 (.def (BytesN. @ [methods.bytes Type.] n)
   sexp: `(BytesN ,n)
   .element?: (λ (x) (and (bytes? x) (= (bytes-length x) n)))
@@ -83,7 +83,7 @@
   .<-string: (λ (x) (validate @ (hex-decode x)))
   .<-bytes: (cut validate @ <>)
   .marshal: write-u8vector
-  .unmarshal: (cut read-bytes* n <>))
+  .unmarshal: (cut unmarshal-n-bytes n <>))
 (def (BytesN n) (.cc BytesN. n: n))
 
 (.def (String @ [methods.marshal<-bytes Type.])
