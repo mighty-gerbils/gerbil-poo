@@ -137,14 +137,6 @@
     (newline port))
   rebind: #t)
 
-(defstruct tv (type value) transparent: #t)
-(.def (TV @)
-  sexp: 'TV ;; Type and Value
-  .validate: (lambda (x (ctx '()))
-               (def c [[validating: x] . ctx])
-               (match x ((tv t v) (validate t v c)) (_ (type-error c "no tv"))))
-  .sexp<-: (lambda (x) `(tv ,(.@ @ sexp) (sexp<- (tv-type x) (tv-value x)))))
-
 ;; TODO: teach .defgeneric about optional arguments.
 ;; TODO: use macro that leaves source info by default, returns a function when passed as argument.
 (def (validate type x (context '())) (.call type .validate x context))
@@ -153,7 +145,7 @@
 (.def (Any @ [Type.])
   sexp: 'Any
   .element?: true
-  .sexp<-: (cut list 'quote <>)
+  .sexp<-: (lambda (x) (if (or (pair? x) (null? x) (symbol? x)) (list 'quote x) x))
   .string<-: repr .<-string: invalid
   .bytes<-: (compose string->bytes .string<-)
   .<-bytes: (compose .<-string bytes->string)
@@ -215,7 +207,7 @@
                            (validate type elem [[position: i] . ctx]))
                          types elems (iota (length types)))))
                (nest
-                (lambda ins) (let (ctx2 [[calling: f type: (tv Type @) inputs: ins] . ctx]))
+                (lambda ins) (let (ctx2 [[calling: f type: (cons Type @) inputs: ins] . ctx]))
                 (validate-row ctx2 inputs: inputs ins) (lambda (vins))
                 (call/values (lambda () (apply f vins))) (lambda outs)
                 (validate-row [[outputs: outs] . ctx2] outputs: outputs outs list->values)))

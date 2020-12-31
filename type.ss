@@ -70,6 +70,7 @@
   .<-json: .<-string)
 (.def (Bytes @ [methods.bytes Type.])
   sexp: 'Bytes
+  .sexp<-: (lambda (x) `(hex-decode ,(hex-encode x)))
   .element?: bytes?
   .Length: Nat
   .zero: #u8()
@@ -78,6 +79,7 @@
 (.def (BytesN. @ [methods.bytes Type.] n)
   sexp: `(BytesN ,n)
   .element?: (λ (x) (and (bytes? x) (= (bytes-length x) n)))
+  .sexp<-: (.@ Bytes .sexp<-)
   .length-in-bytes: n
   .zero: (make-bytes n)
   .<-string: (λ (x) (validate @ (hex-decode x)))
@@ -110,17 +112,19 @@
 (.def (Symbol @ [methods.json&bytes&marshal<-string Type.])
   sexp: 'Symbol
   .element?: symbol?
+  .sexp<-: (cut list 'quote <>)
   .<-string: string->symbol
   .string<-: symbol->string)
 (.def (Keyword @ [methods.json&bytes&marshal<-string Type.])
   sexp: 'Keyword
   .element?: keyword?
+  .sexp<-: identity
   .<-string: string->keyword
   .string<-: keyword->string)
 (.def (Json @ [methods.bytes&marshal<-string Type.])
   sexp: 'Json
   .element?: true
-  .sexp<-: identity ;; TODO: recursively handle tables
+  .sexp<-: (lambda (x) `(json<-string ,(.string<- x)))
   .json<-: identity
   .<-json: identity
   .string<-: string<-json
@@ -137,6 +141,7 @@
   .discriminant-length-in-bits: (integer-length (1- (length types)))
   .discriminant-length-in-bytes: (n-bytes<-n-bits .discriminant-length-in-bits)
   .discriminant<-: (lambda (v) (let/cc return (vector-for-each (lambda (i t) (when (element? t v) (return i))) types@) #f))
+  .sexp<-: (lambda (v) (sexp<- (vector-ref types@ (.discriminant<- v)) v))
   .json<-: (lambda (v) (def disc (.discriminant<- v))
               ;;[disc (json<- (vector-ref types@ disc) v)])
               (json<- (vector-ref types@ disc) v))
@@ -155,6 +160,7 @@
 (.def (Bottom @ Type.)
   sexp: 'Bottom
   .element?: false
+  .sexp<-: invalid
   .bytes<-: invalid .<-bytes: invalid
   .json<-: invalid .<-json: invalid
   .marshal: invalid .unmarshal: invalid)
@@ -164,6 +170,7 @@
 (.def (Top @ [Type.])
   sexp: 'Top
   .element?: true
+  .sexp<-: invalid
   .string<-: invalid .<-string: invalid
   .bytes<-: invalid .<-bytes: invalid
   .json<-: invalid .<-json: invalid)
@@ -175,6 +182,7 @@
   .Log: Bottom
   kvalue: (lambda _ value)
   jsvalue: (json-normalize value)
+  .sexp<-: (.@ Any .sexp<-)
   .json<-: (lambda (x) (assert-equal! x value) jsvalue)
   .<-json: (lambda (x) (assert-equal! x jsvalue) value)
   .bytes<-: (lambda _ #u8())
@@ -236,6 +244,21 @@
                                (d (unmarshal right port)))
                           (cons a d))))
 (def (Pair left right) {(:: @ Pair.) (left) (right)})
+
+(.def (TypeValuePair @ Type.)
+  sexp: 'TypeValuePair
+  .element?: (match <> ([t . v] (and (element? Type t) (element? t v))) (_ #f))
+  .validate: (lambda (x (ctx '()))
+               (def c [[validating: x] . ctx])
+               (match x ([t . v] (validate Type t ctx) (validate t x ctx))
+                      (_ (type-error ctx "not a type-value pair" x))))
+  .sexp<-: (match <> ([t . v] `(cons ,(.@ t sexp) ,(sexp<- t v))))
+  .json<-: (match <> ([t . v] [(sexp<- Type t) (json<- t v)])) ;; supposes a simple enough type
+  .<-json: invalid ;; maybe we should somehow register types that are valid for I/O into a table?
+  .marshal: invalid
+  .unmarshal: invalid)
+
+
 
 ;; This was not put in number.ss because it depended on Pair
 (.def (Rational @ Real)

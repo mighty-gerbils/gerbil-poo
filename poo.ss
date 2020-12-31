@@ -20,26 +20,40 @@
   (for-syntax :clan/base :std/iter)
   :clan/base :clan/with-id)
 
-(defstruct poo (prototypes instance) constructor: :init!)
+;; Signature of specification for slot spec of type A.
+;; deftype SlotSpec[A] (A <- Poo (Listof Poo) Symbol (A <-))
+
+(defstruct poo
+  (prototypes ;; : (Listof Poo)
+   instance) ;; : (Table (A <- Poo (Listof Poo) Symbol (A <-)) <- Symbol) ;; for a slot of value type A, a slot specification.
+  constructor: :init!)
 (defmethod {:init! poo}
    (lambda (self prototypes (instance #f))
      (struct-instance-init! self prototypes instance)))
 
+;; Ensure that a poo object has a table to hold instance slot values, *and*, in some near future,
+;; run any initialization code and assertions associated to the instance.
+;; : Unit <- Poo
 (def (.instantiate poo.)
   (match poo.
     ((poo _ #f) (set! (poo-instance poo.) (hash))) ;; TODO: call .init method?
     ((poo _ _) (void)) ;; already instantiated
     (else (error "No poo" poo.))))
 
+;; : (Bottom <-) <- Poo Symbol
 (def (no-such-slot poo. slot)
   (λ () (error "No such slot" poo. slot)))
 
+;; For a slot of type A
+;; : A <- Poo Symbol ?(A <-)
 (def (.ref poo. slot (base (no-such-slot poo. slot)))
   (.instantiate poo.)
   (match poo.
     ((poo prototypes instance)
      (hash-ensure-ref instance slot (cut compute-slot poo. prototypes slot base)))))
 
+;; Computing a slot of type A
+;; : A <- Poo (List Poo) Symbol (A <-)
 (def (compute-slot poo. prototypes slot base)
   (match prototypes
     ([] (base))
@@ -48,6 +62,8 @@
         (fun poo. super-prototypes base)
         (compute-slot poo. super-prototypes slot base)))))
 
+;; Flatten a nested list of prototypes into a single list.
+;; : (Listof Prototype) <- Any ?(Listof Prototype)
 (def (append-prototypes x (prototypes []))
   (match x ;; TODO: use lazy merging of patricia trees to maximize the sharing of structure? hash-consing?
     ([] prototypes)
@@ -55,12 +71,18 @@
     ((poo ps _) (append ps prototypes))
     (_ (error "invalid poo spec" x))))
 
+;; Combine multiple poos. Leftmost is closer to the instance, rightmost is cloesr to the base.
+;; : Poo <- Poo ...
 (def (.mix . poos)
   (poo (append-prototypes poos) #f))
 
+;; Combine multiple poos, but put the first one at the end
+;; (note: the rest is in the usual order. Maybe we will reverse it in some future.)
+;; : Poo <- Poo Poo ...
 (def (.+ base . mixins)
   (.mix mixins base))
 
+;; : Bool <- Poo Symbol
 (def (.key? poo. slot)
   (match poo.
     ((poo prototypes instance)
