@@ -375,74 +375,7 @@ There are more examples are in the file [`poo-test.ss`](tests/poo-test.ss).
 
 ## Future Features
 
-In the future, we may add the following features:
-
-  * Redefine POO in a more compositional way, with a builtin MOP.
-    https://github.com/fare/projects/issues/7
-    Start from something minimal, in the spirit of the 99-character functions
-    ```
-    (define (make p b) (letrec ((f (p (λ a (apply f a)) b))) f))
-    (define ((inhr p q) f s) (p f (q f s)))
-    ```
-    Maybe a record that caches together both the prototype function and its lazy fixed point,
-    together with a meta-object, itself a prototype that describes how instantiation and composition work,
-    as well as additional type-specific accessors or extension points, encoding information, etc.
-    ```
-    (defstruct poo (meta prototype instance) constructor: :init!)
-    ```
-    We might want to make "meta" part of the prototype and of the instance, but then
-    this already supposes some fixed magic record structure in said prototype or instance,
-    which gets into the way of some nice algebraic composable structure for said prototype or instance,
-    unless made separable in a way that becomes isomorphic to the above, just with extra steps.
-    With a separate meta-object, we can compositionally build up the meta-object
-    to refine how the prototypes are instantiated and composed, how they can be built in terms
-    of "extension points" each of which will be its own prototype, etc.
-    With "objects", an extension point is further refined to specify a record of extension points;
-    with "method combinations", some extension point will control the flattening of individual prototypes;
-    with "prototype linearization", super prototypes are a dependency graph, not a mere list,
-    and a list is first extracted from that graph (based on some external global well-ordering
-    of all prototypes?).
-    The "object" reference would provide context for the lazy evaluation of whatever "attributes"
-    (each the cached computed fixed-point value of some "extension point"), etc.
-
-  * Maybe improve the object definition syntax using keywords, as in e.g.
-    `(.o self: self super: super inherit: [supers ...] bind: (x y z) bind-these: #t (slot forms) ...)`
-    To implement it with `syntax-case`, see e.g. these definitions for [defproto](https://github.com/vyzo/gerbil/blob/ee22de628a656ee59c6c72bc25d7b2e25a4ece2f/src/std/actor/proto.ss#L261) and [defhandler](https://github.com/belmarca/gerbil-fwd/blob/83120eac03fa39338c82993d3041ddad01432419/fwd/routing.ss#L65).
-
-  * Make it optional whether to include the currently-defined slots in the list of slots to be bound.
-
-  * Constraint-checking assertions and other instantiation-time side-effects
-    as part of the `.instantiate` function.
-
-  * A library for class-based object orientation using POO as its meta-object protocol (MOP):
-    the same descriptor meta-object, viewed as a prototype is a class descriptor,
-    and viewed as an instance is a type descriptor.
-    Its element template prototype can specify provide default slot values
-    as well as constraints on slot types and slot values.
-
-  * Constraint-checking assertions and other instantiation-time side-effects,
-    and a function `.instantiate` to invoke them without accessing a slot.
-
-  * Enforcement of a discipline on prototype mutability.
-    Objects must not be modified after having been used as super-prototypes.
-
-  * Reflection on objects, to view a list of slots, to intercept how slots are computed,
-    or determine who has access to which slots when.
-
-  * Support for conditionally-defined slots, or slots for computed names.
-
-  * Support for slot definition macros with non-local effects to the rest of the object,
-    e.g. to declare a slot as "public" or "private",
-    and have that reflected in a list of either kind of slots, and/or in slot-property meta-slot;
-    similarly, slot combination methods as meta-information, similar to method combination in CLOS.
-
-  * A better implementation of Jsonnet and/or Nix in Gerbil, based on POO (?)
-
-  * Design and implement a type system that works well with POO.
-    https://github.com/fare/projects/issues/3
-    This type system probably would have some notion of subtyping, such that
-    a function prototype has type `(forall a (forall b < a (b <- (b <- a) <- a)))`.
-
+There are infinitely many possible improvements. See [`TODO.md`](TODO.md) for a few salient ones.
 
 ## Implementation Notes
 
@@ -468,40 +401,3 @@ contains a list of layers, one for each prototype in the list, that maps slot na
 for the definitions present in that given prototype.
 The first layer can also serve to cache all slot computations and
 hold values of slots modified by side-effects.
-
-### Internals TODO
-
-  * Implement a proper inheritence DAG with a list of super-prototypes from which a
-    prototype-precedence list is deduced, rather than require the user to supply the precedence list.
-
-  * Represent prototypes as pure persistent maps, instead of hash-tables and/or lists thereof?
-    Merge them in a way that maximizes sharing of state, maybe even with hash-consing.
-
-  * Represent the instance (or its base layer, if there are many layers) as a vector,
-    wherein the indexes are based on the hash-consed "shape" of the prototype,
-    the shape being the sorted list of its slot names.
-
-  * Combine the two above optimizations with a third, wherein any name used in a prototype
-    is assigned a unique integer number (based on tree walking the entire program?), and
-    hash-consed word-granular (rather than bitwise) patricia tree datastructures are used for shapes.
-
-  * Better debugging for circular definitions with a variant of hash-ensure-ref that detects them.
-
-  * Make sure this works well with constant-folding in the underlying compiler.
-
-  * Look at Squeak Traits and/or its descendant Perl 6 object
-    for how they linearize inheritance hierarchies.
-    Each prototype or class can choose how it linearizes its super-objects.
-
-  * In Slate a mixin is an object with behavior and no state.
-    In Squeak, a Trait has a protocol that has modular requirements and provisions.
-    Records, delegation. Object/Meta delegation flag attached to the slot.
-    e.g. for "new", you want a new object, not a new class.
-    Primitives: method lookup, method lookup after (from some point in the hierarchy).
-    method-not-found catch-all.
-    Multimethod dispatch: the earlier arguments would take priority over later one for method-not-found;
-    in DSLs, the method-not-found would do autodiscovery from e.g. the filesystem.
-    Subjective dispatch vs objective dispatch.
-    Performance: Method inline caching.
-
-  * Look what we can save from [TinyCLOS](https://github.com/ultraschemer/gambit-tiny-clos/blob/master/tiny-clos/core.scm) ?

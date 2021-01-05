@@ -45,12 +45,14 @@
 
 ;; Method to inherit from another object and trace its procedure-valued methods.
 ;; Example usage: { foo: => (trace-inherited-method `(.@ ,(.@ @ sexp) foo)) }
-(def (trace-inherited-method name)
-  (lambda (inherited) (if (procedure? inherited) (traced-function name inherited) inherited)))
+(def (trace-inherited-slot name)
+  (lambda (self super-prototypes slot-name base)
+    (def inherited (compute-slot self super-prototypes slot-name base))
+    (if (procedure? inherited) (traced-function `(.@ ,name ,slot-name) inherited) inherited)))
 
 ;; Create a variant of a poo that traces all its methods.
-(def (trace-poo poo (name (.get poo 'sexp)))
+(def (trace-poo poo (name (.@ poo sexp)))
   (def wrapped {(:: @ poo)})
-  (for-each (lambda (slot) (.putslot! wrapped slot (trace-inherited-method `(.@ ,name ,slot))))
+  (for-each (lambda (slot) (.putslot! wrapped slot (trace-inherited-slot name)))
             (.all-slots poo))
   wrapped)

@@ -4,15 +4,7 @@
 ;; See doc/poo.md for documentation
 ;; TODO: see Future Features and the Internals TODO sections in document above.
 
-(export #t);; XXX for debugging macros as used in other modules; remove afterwards
-(export
-  .o .o/ctx .def .def/ctx
-  poo? .mix .ref .instantiate .get .call .def! .key? .has?
-  .putslot! .setslot! .put! .set!
-  .all-slots .all-slots-sorted .alist .sorted-alist .<-alist
-  .@ .+ .cc
-  poo poo-prototypes poo-instance ;; shouldn't these remain internals?
-  with-slots def-slots with-prefixed-slots def-prefixed-slots)
+(export #t)
 
 (import
   ;;(for-syntax :std/misc/repr) :std/misc/repr ;; XXX debug
@@ -20,50 +12,68 @@
   (for-syntax :clan/base :std/iter)
   :clan/base :clan/with-id)
 
-;; Signature of specification for slot spec of type A.
-;; deftype SlotSpec[A] (A <- Poo (Listof Poo) Symbol (A <-))
+;; Type signature of the various components involved in specifying a Poo object.
+;; * A is an indexed type that maps symbol slot s to value of dependent type (A s).
+;; * Note the final argument s to the SlotSpec is meant for reflection purposes,
+;;   as are the arguments provided to the base case;
+;;   it not meant to be used in regular methods,
+;;   except maybe for error messages and other debugging purposes.
+;;
+;; (deftype (BaseSpec A s) (Fun (A s) <- (Poo A) s:Symbol))
+;; (deftype (SlotSpec A s) (Fun (A s) <- Poo (Listof (Prototype A)) (BaseSpec A s) s:Symbol))
+;; (deftype (Prototype A) (Table (SlotSpec A s) <- s:Symbol))
+;; (deftype (Instance A) (Table (A s) <- s:Symbol))
+;; (deftype (Poo A) (Record prototypes: [(Listof (Prototype A))] instance: [(OrFalse (Instance A))]))
 
-(defstruct poo
-  (prototypes ;; : (Listof Poo)
-   instance) ;; : (Table (A <- Poo (Listof Poo) Symbol (A <-)) <- Symbol) ;; for a slot of value type A, a slot specification.
+(defstruct poo ;; : (Poo A)
+  (prototypes ;; : (Listof (Prototype A))
+   instance) ;; : (Instance A)
   constructor: :init!)
 (defmethod {:init! poo}
-   (lambda (self prototypes (instance #f))
-     (struct-instance-init! self prototypes instance)))
+  (lambda (self prototypes (instance #f))
+    (struct-instance-init! self prototypes instance)))
 
 ;; Ensure that a poo object has a table to hold instance slot values, *and*, in some near future,
 ;; run any initialization code and assertions associated to the instance.
-;; : Unit <- Poo
+;; : Unit <- (Poo _)
 (def (.instantiate poo.)
   (match poo.
     ((poo _ #f) (set! (poo-instance poo.) (hash))) ;; TODO: call .init method?
     ((poo _ _) (void)) ;; already instantiated
     (else (error "No poo" poo.))))
 
-;; : (Bottom <-) <- Poo Symbol
+;; : (Bottom <-) <- (Poo _) Symbol
 (def (no-such-slot poo. slot)
-  (λ () (error "No such slot" poo. slot)))
+  (error "No such slot" poo. slot))
 
 ;; For a slot of type A
-;; : A <- Poo Symbol ?(A <-)
-(def (.ref poo. slot (base (no-such-slot poo. slot)))
+;; : (A s) <- (Poo A) s:Symbol ?((A s) <-)
+(def (.ref poo. slot (base no-such-slot))
   (.instantiate poo.)
   (match poo.
     ((poo prototypes instance)
-     (hash-ensure-ref instance slot (cut compute-slot poo. prototypes slot base)))))
+     (hash-ensure-ref instance slot
+                      (cut compute-slot poo. prototypes slot base)))))
 
-;; Computing a slot of type A
-;; : A <- Poo (List Poo) Symbol (A <-)
+;; Computing a slot
+;; : (A s) <- (Poo A) (Listof (Prototype A)) s:Symbol (BaseSpec A s)
 (def (compute-slot poo. prototypes slot base)
   (match prototypes
-    ([] (base))
+    ([] (base poo. slot))
     ([prototype . super-prototypes]
      (if-let (fun (hash-get prototype slot))
-        (fun poo. super-prototypes base)
+        (fun poo. super-prototypes base slot)
         (compute-slot poo. super-prototypes slot base)))))
 
+;; : (BaseSpec A s) <- (A s)
+(def (base<-value value) (lambda (_self _slot) value))
+
+;; : (BaseSpec A s) <- ((A s) <-)
+(def (base<-thunk thunk) (lambda (_self _slot) (thunk)))
+
 ;; Flatten a nested list of prototypes into a single list.
-;; : (Listof Prototype) <- Any ?(Listof Prototype)
+;; The optional argument is the tail of the flattened list so far, to which to prepend the rest.
+;; : (Listof (Prototype A)) <- Any ?(Listof (Prototype A))
 (def (append-prototypes x (prototypes []))
   (match x ;; TODO: use lazy merging of patricia trees to maximize the sharing of structure? hash-consing?
     ([] prototypes)
@@ -72,17 +82,17 @@
     (_ (error "invalid poo spec" x))))
 
 ;; Combine multiple poos. Leftmost is closer to the instance, rightmost is cloesr to the base.
-;; : Poo <- Poo ...
+;; : (Poo A) <- (Poo A) ...
 (def (.mix . poos)
   (poo (append-prototypes poos) #f))
 
 ;; Combine multiple poos, but put the first one at the end
 ;; (note: the rest is in the usual order. Maybe we will reverse it in some future.)
-;; : Poo <- Poo Poo ...
+;; : (Poo A) <- (Poo A) (Poo A) ...
 (def (.+ base . mixins)
   (.mix mixins base))
 
-;; : Bool <- Poo Symbol
+;; : Bool <- (Poo _) Symbol
 (def (.key? poo. slot)
   (match poo.
     ((poo prototypes instance)
@@ -95,6 +105,7 @@
   ((_ x slot) (.key? x 'slot))
   ((_ x slot1 slot2 slot3 ...) (and (.has? x slot1) (.has? x slot2 slot3 ...))))
 
+;; : (Listof Symbol) <- (Poo _)
 (def .all-slots
   (nest
    (λ-ematch) ((poo prototypes instance))
@@ -107,20 +118,38 @@
      (hash-put! h k #t)
      (c k))))
 
+;; : (Listof Symbol) <- (Poo _)
 (def (.all-slots-sorted poo)
   (sort (.all-slots poo) symbol<?))
 
+;; : (Listof (Pair s:Symbol (A s))) <- (Poo A)
 (def (.alist poo)
   (map (λ (slot) (cons slot (.ref poo slot))) (.all-slots poo)))
 
+;; : (Listof (Pair s:Symbol (A s))) <- (Poo A)
 (def (.sorted-alist poo)
   (map (λ (slot) (cons slot (.ref poo slot))) (.all-slots-sorted poo)))
 
 ;; For (? test :: proc => pattern),
 ;;   test = (o?/keys ks)
 ;;   proc = (.refs/keys ks)
+;; : Bool <- (Poo _) <- (Listof Symbol)
 (def ((o?/keys ks) o) (and (poo? o) (andmap (cut .key? o <>) ks)))
+;; : (IndexedList ss A) <- (Poo A) <- ss:(Listof Symbol)
 (def ((.refs/keys ks) o) (map (cut .ref o <>) ks))
+
+;; : (SlotSpec A s) <- (A s)
+(def (constant-slot x) (λ (_ _ _ _) x))
+
+;; : (SlotSpec A s) <- ((A s) <- (A s))
+(def (override-slot f)
+  (λ (self super-prototypes slot-name base)
+    (f (compute-slot self super-prototypes slot-name base))))
+
+;; : (SlotSpec A s) <- ((A s) <- (Lazy (A s)))
+(def (lazy-override-slot f)
+  (λ (self super-prototypes slot-name base)
+    (f (lazy (compute-slot self super-prototypes slot-name base)))))
 
 ;; the ctx argument exists for macro-scope purposes
 ;; TODO: use a syntax-parameter for self instead of the ctx argument?
@@ -208,21 +237,21 @@
 
 (defrules poo/slot-init-form (=> =>.+)
   ((_ self slots slot form)
-   (λ (self super-prototypes base)
+   (λ (self super-prototypes slot-name base)
      (with-slots slots self (poo/form-named slot form))))
   ((_ self slots slot => form args ...)
-   (λ (self super-prototypes base)
+   (λ (self super-prototypes slot-name base)
      (let ((inherited-value (compute-slot self super-prototypes 'slot base)))
        (with-slots slots self (form inherited-value args ...)))))
   ((_ self slots slot =>.+ args ...)
    (poo/slot-init-form self slots slot => .+ args ...))
   ((_ self slots slot (next-method) form)
-   (λ (self super-prototypes base)
+   (λ (self super-prototypes slot-name base)
      (let ((inherited-value (lazy (compute-slot self super-prototypes 'slot base))))
        (let-syntax ((next-method (syntax-rules () ((_) (force inherited-value)))))
          (with-slots slots self (poo/form-named slot form))))))
   ((_ self slots slot)
-   (λ (self super-prototypes base) slot)))
+   (λ (self super-prototypes slot-name base) slot)))
 
 ;;NB: This doesn't work, because of slots that appear more than once.
 #;(defrule (with-slots (slot ...) self body ...) (let-id-rule ((slot (.@ self slot)) ...) body ...))
@@ -288,6 +317,7 @@
 (defrules .call ()
   ((_ poo slot args ...) ((.get poo slot) args ...)))
 
+;; : Unit <- (Poo A) s:Symbol (SlotSpec A s)
 (def (.putslot! poo. slot definition)
   (ematch poo. ((poo [proto . protos] _) (hash-put! proto slot definition))))
 
@@ -297,18 +327,21 @@
   ((_ poo slot (slots ...) slotspec ...)
    (.putslot! poo 'slot (poo/slot-init-form poo (slot slots ...) slot slotspec ...))))
 
+;; : Unit <- (Poo A) s:Symbol (A s)
 (def (.put! poo. slot value) ;; TODO: check instance mutability status first
   (.instantiate poo.)
   (hash-put! (poo-instance poo.) slot value))
 
 (defrules .set! () ((_ poo. slot value) (.put! poo. 'slot value)))
 
+;; : (Poo A) <- IndexedList ? ((Pair s (A s)) <- s:Symbol)
 (def (.<-alist alist)
   (def o (.o))
-  (for-each (match <> ([k . v] (.putslot! o k (λ (self super-prototypes base) v)))) alist)
+  (for-each (match <> ([k . v] (.putslot! o k (λ (self super-prototypes slot base) v)))) alist)
   o)
 
 ;; carbon copy / clone c...
+;; : (Poo A') <- (Poo A) <<TODO: type for overrides from A to A' ...>>
 (def (.cc poo. . overrides)
   (def i (cond ((poo-instance poo.) => hash-copy) (else (hash))))
   (def o (poo (poo-prototypes poo.) i))

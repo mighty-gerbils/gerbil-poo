@@ -37,10 +37,10 @@
   .empty?: (lambda (t) (eqv? t .empty))
 
   ;; : (Fun Bool <- @ Key)
-  .key?: (lambda (t key) (let/cc ret (.ref t key (lambda () (ret #f))) #t))
+  .key?: (lambda (t key) (let/cc ret (.ref t key (lambda _ (ret #f))) #t))
 
   ;; : (Fun (Option Value) <- @ Key)
-  .ref/opt: (lambda (t key) (let/cc ret (some (.ref t key (lambda () (ret #f))))))
+  .ref/opt: (lambda (t key) (let/cc ret (some (.ref t key (lambda _ (ret #f))))))
 
   ;; : Unit <- (Fun Unit <- Key Value) @
   .for-each: (lambda (f t) (.foldl (lambda (k v a) (void (f k v))) (void) t))
@@ -129,7 +129,7 @@
   .update: (lambda (k f t (default false))
              (.update/opt k (lambda (vo) (some (f (option-get/default vo default)))) t))
   ;; NB: For a handful of flat datastructures that don't have deep traversals, this could be better:
-  ;;.update: (lambda (k f t (default false)) (.acons k (f (.ref t k default)) t))
+  ;;.update: (lambda (k f t (default false)) (.acons k (f (.ref t k (lambda _ (default)))) t))
 
   ;; : @ <- (Fun (Option Value) <- Key Value Value) @ @
   .union:

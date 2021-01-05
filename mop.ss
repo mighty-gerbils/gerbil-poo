@@ -27,32 +27,37 @@
 (defsyntax (.defgeneric stx) ;; define a generic function that invokes the prototype's slot
   (def (parse-options options)
     (def slot-name #f)
-    (def default #f)
+    (def compute-default #f)
     (def from #f)
     (let loop ((options options))
       (match options
-        ([] (values slot-name default (or from 'instance)))
+        ([] (values slot-name compute-default (or from 'instance)))
         ([kw val . rest]
          (match (syntax-e kw)
-           (slot: (when slot-name (error "slot-name set twice" stx))
-                  (set! slot-name val))
-           (from: (when from (error "from set twice" stx))
-                  (case (syntax-e val)
-                    ((type) (set! from 'type))
-                    ((instance) (set! from 'instance))
-                    (else (error "invalid option" stx val))))
-           (default: (when default (error "default set twice" stx))
-                     (set! default val))
+           (slot:
+            (when slot-name (error "slot-name set twice" stx))
+            (set! slot-name val))
+           (from:
+            (when from (error "from set twice" stx))
+            (case (syntax-e val)
+              ((type) (set! from 'type))
+              ((instance) (set! from 'instance))
+              (else (error "invalid option" stx val))))
+           (compute-default:
+            (when compute-default (error "default set twice" stx))
+            (set! compute-default val))
+           (default:
+            (when compute-default (error "default set twice" stx))
+            (set! compute-default (with-syntax ((expr val)) #'(lambda (_ _) expr))))
            (x (error "invalid option" x stx)))
          (loop rest))
         (_ (error "invalid options" options (syntax->datum options))))))
   (syntax-case stx ()
     ((.defgeneric (gf self . formals) options ...)
      (begin
-       (define-values (slot-name default from) (parse-options (syntax->list #'(options ...))))
+       (define-values (slot-name compute-default from) (parse-options (syntax->list #'(options ...))))
        (with-syntax* ((slot-name (or slot-name (symbolify "." #'gf)))
-                      (default* default)
-                      (base (if default #'(λ () default*) #'(no-such-slot self 'slot-name)))
+                      (base (or compute-default #'no-such-slot))
                       (methods (case from
                                  ((instance) #'self)
                                  ((type) #'(.get self .type))
@@ -261,7 +266,7 @@
      (and (poo? x)
           (every (λ (slot-name)
                    (def slot (.ref effective-slots slot-name))
-                   (def base (.ref slot 'base (λ () (no-such-slot x slot-name))))
+                   (def base (.ref slot 'base (base<-value no-such-slot)))
                    (slot-checker slot slot-name base x))
                  (.all-slots effective-slots))
           (or (not sealed) ;; sealed means only defined slots can be present.
@@ -278,14 +283,12 @@
 
 (def ClassProto Class.)
 
-(def (constant-slot x) (λ (_ _ _) x))
-
 (.def (Slot @ Class.)
   sexp: 'Slot
   slots:
    {type: {type: Type optional: #t}
     constant: {type: Any optional: #t}
-    compute: {type: (Fun Any <- Poo Any (Fun Any <-)) optional: #t} ;; second Any should be (List Poo)
+    compute: {type: (Fun Any <- Poo Any (Fun Any <- Any Any) Any) optional: #t} ;; the type should be a SlotSpec (see top of poo.ss for a type with indexed typed)
     base: {type: Any optional: #t default: no-such-slot}
     default: {type: Any optional: #t}
     optional: {type: Bool default: #f}
@@ -347,7 +350,7 @@
 
 ;; TODO: make-instance or new should .instantiate the object.
 ;; TODO: What name for a syntax that does not instantiate it?
-(defrules new ()
+(defrules .new ()
   ((_ (class self slots ...) slot-defs ...)
    {(:: self (.@ class proto) slots ...) slot-defs ...})
   ((_ (class) slot-defs ...)
