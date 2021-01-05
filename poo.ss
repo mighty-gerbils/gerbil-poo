@@ -20,7 +20,7 @@
 ;;   except maybe for error messages and other debugging purposes.
 ;;
 ;; (deftype (BaseSpec A s) (Fun (A s) <- (Poo A) s:Symbol))
-;; (deftype (SlotSpec A s) (Fun (A s) <- Poo (Listof (Prototype A)) (BaseSpec A s) s:Symbol))
+;; (deftype (SlotSpec A s) (Fun (A s) <- Poo (Listof (Prototype A)) s:Symbol (BaseSpec A s)))
 ;; (deftype (Prototype A) (Table (SlotSpec A s) <- s:Symbol))
 ;; (deftype (Instance A) (Table (A s) <- s:Symbol))
 ;; (deftype (Poo A) (Record prototypes: [(Listof (Prototype A))] instance: [(OrFalse (Instance A))]))
@@ -62,7 +62,7 @@
     ([] (base poo. slot))
     ([prototype . super-prototypes]
      (if-let (fun (hash-get prototype slot))
-        (fun poo. super-prototypes base slot)
+        (fun poo. super-prototypes slot base)
         (compute-slot poo. super-prototypes slot base)))))
 
 ;; : (BaseSpec A s) <- (A s)
