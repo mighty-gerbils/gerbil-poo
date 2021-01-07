@@ -8,7 +8,7 @@
 
 (import
   ;;(for-syntax :std/misc/repr) :std/misc/repr ;; XXX debug
-  :std/lazy :std/misc/hash :std/misc/list :std/sort :std/srfi/1 :std/srfi/13 :std/sugar
+  :std/lazy :std/misc/hash :std/iter :std/misc/list :std/sort :std/srfi/1 :std/srfi/13 :std/sugar
   (for-syntax :clan/base :std/iter)
   :clan/base :clan/with-id)
 
@@ -129,6 +129,10 @@
 ;; : (Listof (Pair s:Symbol (A s))) <- (Poo A)
 (def (.sorted-alist poo)
   (map (λ (slot) (cons slot (.ref poo slot))) (.all-slots-sorted poo)))
+
+;; Force the lazy computation of all slots in a poo --- assuming no-such-slot as the base for all of them
+;; : (Poo A) <- (Poo A)
+(def (force-poo poo) (for-each (cut .ref poo <>) (.all-slots poo)) poo)
 
 ;; For (? test :: proc => pattern),
 ;;   test = (o?/keys ks)
