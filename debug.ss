@@ -37,11 +37,11 @@
             (f "  ~s =>" expr)
             (call-with-values thunk (λ x (let (vx (apply values x)) (v type vx) vx))))))
     (if tag
-        (begin
-          (f "~a~%" tag)
-          (for-each x dbg-exprs dbg-types dbg-thunks)
-          (if thunk (x expr type thunk) (void)))
-        (if thunk (thunk) (void)))))
+      (begin
+        (unless (void? tag) (f "~a~%" tag))
+        (for-each x dbg-exprs dbg-types dbg-thunks)
+        (if thunk (x expr type thunk) (void)))
+      (if thunk (thunk) (void)))))
 
 ;; Method to inherit from another object and trace its procedure-valued methods.
 ;; Example usage: { foo: => (trace-inherited-method `(.@ ,(.@ @ sexp) foo)) }
