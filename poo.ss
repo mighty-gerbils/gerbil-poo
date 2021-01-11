@@ -49,7 +49,7 @@
 ;; For a slot of type A
 ;; : (A s) <- (Poo A) s:Symbol ?((A s) <-)
 (def (.ref poo. slot (base no-such-slot))
-  (unless (poo? poo.) (error ".ref: No poo" poo. "slot:" slot))
+  (unless (poo? poo.) (error ".ref: No poo" poo. slot: slot))
   (.instantiate poo.)
   (match poo.
     ((poo prototypes instance)
