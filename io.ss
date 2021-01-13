@@ -77,7 +77,7 @@
 
 ;;; JSON I/O
 
-(def (@@method :json poo) (json<- (.@ poo .type) poo))
+(defmethod (@@method :json poo) (lambda (self) (json<- (.@ self .type) self)))
 
 (def (json-string<- type x)
   (string<-json (json<- type x)))
@@ -131,3 +131,29 @@
 
 ;; : 'a <- 'a:Type String
 (.defgeneric (<-string type b) slot: .<-string)
+
+
+;;; Gambit printer hook for poo. See https://github.com/vyzo/gerbil/issues/589
+(defmethod (@@method :wr poo)
+  (lambda (self we)
+    (def slots (.all-slots-sorted self))
+    (def h (poo-instance self))
+    (def (src x) (##wr-str we ",") (##wr we x))
+    (def first? #t)
+    (cond
+     ;;((.has? self .type print-object) ((.@ self .type print-object) self port options))
+     ((.has? self .type .sexp<-) (src ((.@ self .type .sexp<-) self)))
+     ;;((.has? self .type) (print-class-object self port options))
+     ;;((.has? self .pr) (.call self .pr port options))
+     ((.has? self sexp) (src (.@ self sexp)))
+     ((.has? self .sexp) (src (.@ self .sexp)))
+     ((eq? (write-style we) 'mark)
+      (for-each (lambda (k) (when (and h (hash-key? h k)) (##wr we (hash-get h k)))) slots))
+     (else
+      (##wr-str we "{")
+      (for-each (lambda (k)
+                  (if first? (set! first? #f) (##wr-str we " "))
+                  (##wr-str we (string-append (symbol->string k) ": "))
+                  (if (and h (hash-key? h k)) (##wr we (hash-get h k)) (##wr-str we "…")))
+                slots)
+      (##wr-str we "}")))))
