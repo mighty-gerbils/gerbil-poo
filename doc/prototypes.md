@@ -133,13 +133,13 @@ it creates the following JSON record:
 
 ```json
 {
-  person1: {
-    name: "Alice",
-    welcome: "Hello Alice!"
+  "person1": {
+    "name": "Alice",
+    "welcome": "Hello Alice!"
   },
-  person2: {
-    name: "Bob",
-    welcome: "Hello Bob!"
+  "person2": {
+    "name": "Bob",
+    "welcome": "Hello Bob!"
   }
 }
 ```

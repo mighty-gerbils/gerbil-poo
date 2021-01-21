@@ -264,10 +264,13 @@
 (defrules with-slots ()
   ((_ () self body ...) (begin body ...))
   ((_ (slot slots ...) self body ...)
-   (let-id-rule (slot (.@ self slot)) (with-slots (slots ...) self body ...))))
+   (let (poo self)
+     (let-id-rule (slot (.@ poo slot)) (with-slots (slots ...) poo body ...)))))
 
 (defrule (def-slots (slot ...) self)
-  (defvalues (slot ...) (values (.@ self slot) ...)))
+  (begin
+    (def poo self)
+    (defvalues (slot ...) (values (.@ poo slot) ...))))
 
 ;; TODO: have it called with-slots in both cases, but autodetect
 ;; that the first argument is a keyword or string?
@@ -318,6 +321,12 @@
   ((_ poo slot slots ...) (.get (.ref poo 'slot) slots ...)))
 
 (defalias .@ .get)
+
+(defrules .get-set! ()
+  ((_ poo slot v) (.put! poo 'slot v))
+  ((_ poo slot0 slot1 slots ... v) (.get-set! (.@ poo slot0) slot1 slots ... v)))
+
+(defalias .@-set! .get-set!)
 
 (defrules .call ()
   ((_ poo slot args ...) ((.get poo slot) args ...)))

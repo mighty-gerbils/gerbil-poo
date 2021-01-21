@@ -134,6 +134,7 @@
 
 
 ;;; Gambit printer hook for poo. See https://github.com/vyzo/gerbil/issues/589
+;;; See also ##inverse-eval.
 (defmethod (@@method :wr poo)
   (lambda (self we)
     (def slots (.all-slots-sorted self))

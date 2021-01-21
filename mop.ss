@@ -126,7 +126,11 @@
           (write (sexp<- x (pop! l)) port) (d #t))
          (else (pr x port) (d #t)))))))
 
-(def (display-poo-ln . l) (display-poo l (current-output-port)) (newline (current-output-port)))
+(def (display-poo-ln . l)
+  (def port (current-output-port))
+  (display-poo l port)
+  (newline port)
+  (force-output port))
 
 (def (display-context c (port (current-output-port)))
   (for-each (lambda (l) (display-poo l port) (newline port))
