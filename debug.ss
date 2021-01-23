@@ -1,7 +1,7 @@
 (export #t)
 (import
   :gerbil/gambit/ports
-  :std/format
+  :std/format :std/sugar
   :clan/base :clan/debug
   ./poo ./mop ./io ./type ./brace)
 
@@ -30,9 +30,16 @@
             (apply fprintf (current-error-port) fmt args)
             (force-output (current-error-port))))
        (v (λ (t x)
-            (if (element? t x)
-              (f " ~s~%" (sexp<- t x))
-              (f " [TYPE ERROR: not a ~s] ~r~%" (.@ t sexp) x))))
+            (cond
+             ((not t) (f " ~a~%" x))
+             ((procedure? t)
+              (f " ~a~%" (try (t x) (catch (_) (format "[CONVERSION ERROR] ~r" x)))))
+             ((element? Type t)
+              (if (element? t x)
+                (f " ~s~%" (sexp<- t x))
+                (f " [TYPE ERROR: not a ~s] ~r~%" (.@ t sexp) x)))
+             (else
+              (error "Invalid type or DDT printing specifier" t x)))))
        (x (λ (expr type thunk)
             (f "  ~s =>" expr)
             (call-with-values thunk (λ x (let (vx (apply values x)) (v type vx) vx))))))
