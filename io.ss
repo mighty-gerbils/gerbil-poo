@@ -148,8 +148,8 @@
     (set! inconsistent? (and (object-%instance self) (not (object-%slot-funs self))))
     (defvalues (slots h)
       (if inconsistent?
-        (values (.all-slots self) (object-%instance self))
-        (values (map car (append (object-slots self) (object-defaults self))) (hash))))
+        (values (map car (append (object-slots self) (object-defaults self))) (hash))
+        (values (.all-slots self) (object-%instance self))))
     (if (eq? (write-style we) 'mark)
       (for-each (lambda (k) (when (and h (hash-key? h k)) (##wr we (hash-get h k)))) slots)
       (let ()
