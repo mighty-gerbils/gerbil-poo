@@ -106,9 +106,17 @@
 ;; gf to extract some json from a value of given type
 (.defgeneric (json<- type x) slot: .json<-)
 
-(.def (Type. @)
+;; For now, types are just runtime descriptors...
+(defsyntax (define-type stx)
+  (syntax-case stx ()
+    ((_ name desc) (identifier? #'name)
+     #'(def name (.cc desc sexp: 'name)))
+    ((_ (name opts ...) spec ...) (identifier? #'name)
+     (with-syntax ((ctx stx))
+       #'(.def/ctx ctx (name opts ...) sexp: 'name spec ...)))))
+
+(define-type (Type. @ [])
   .type: Type
-  sexp: (error "missing type sexp" @) ;; Any
   ;; NB: either `validate` or `element?` can be primary, with the other method deduced from it.
   ;; But if you fail to override either, it's bottomless mutual recursion calling them.
   .element?: ;; : Bool <- Any ;; is this an element of this type?
@@ -155,8 +163,7 @@
 (def (validate type x (context '())) (.call type .validate x context))
 
 ;; Any accepts any Scheme object, but only does best effort at printing, invalid reading
-(.def (Any @ [Type.])
-  sexp: 'Any
+(define-type (Any @ [Type.])
   .element?: true
   .sexp<-: (lambda (x) (if (or (pair? x) (null? x) (symbol? x)) (list 'quote x) x))
   .string<-: repr .<-string: invalid
@@ -167,11 +174,10 @@
   .unmarshal: (lambda (port) (.<-bytes (unmarshal-sized16-bytes port)))
   .=?: equal?)
 
-(.def (Object @ Type.) sexp: 'Object .element?: object?
-      .sexp<-: identity) ;; TODO: improve on that
+(define-type (Object @ Type.)
+  .element?: object? .sexp<-: identity) ;; TODO: improve on that
 
-(.def (Bool @ Type.)
-  sexp: 'Bool
+(define-type (Bool @ Type.)
   .length-in-bytes: 1
   .element?: boolean?
   .sexp<-: identity
@@ -263,7 +269,7 @@
 (.defgeneric (slot-checker slot-descriptor slot-name x) slot: .slot-checker from: type)
 (.defgeneric (slot-definer slot-descriptor slot-name x) slot: .slot-definer from: type)
 
-(.def (Class. class Type. slots sexp sealed) ;; this is the class descriptor for class descriptor objects.
+(define-type (Class. class Type. slots sexp sealed) ;; this is the class descriptor for class descriptor objects.
   .type: Class
   effective-slots:
    (let (slot-base (.@ .type slot-descriptor-class proto))
@@ -290,8 +296,7 @@
 
 (def ClassProto Class.)
 
-(.def (Slot @ Class.)
-  sexp: 'Slot
+(define-type (Slot @ Class.)
   slots:
    {type: {type: Type optional: #t}
     constant: {type: Any optional: #t}
@@ -322,8 +327,7 @@
          )))
 
 ;; TODO: functional lenses in (.lens foo) as well as imperative accessors
-(.def (Lens @ Class.)
-  sexp: 'Lens. ;; Lens 's 'a
+(define-type (Lens @ Class.) ;; Lens 's 'a
   slots: =>.+ { ;; or should we have just a ((f a) <- (f : Functor) ((f b) <- b) a) ?
     .get: { } ;; 's -> 'a
     .set: { }} ;; 'a -> 's -> 's
@@ -336,16 +340,14 @@
   .compose: (lambda (l1 l2) {.get: (lambda (s) (.call l2 .get (.call l1 s)))
                         .set: (lambda (a s) (.modify l1 (cut .call l2 .set a <>) s))}))
 
-(.def (Type @ Class.)
-  sexp: 'Type
+(define-type (Type @ Class.)
   slots: {sexp: {type: Any}
           .element?: {type: (Fun Bool <- Any)}}
   .element?: (λ (x) (and (object? x) (.has? x sexp) (.has? x .element?)))
   .sexp<-: (lambda (x) (.@ x sexp)) ;; : SEXP <- @
   proto: Type.)
 
-(.def (Class @ Type)
-   sexp: 'Class
+(define-type (Class @ Type)
    slot-descriptor-class: Slot ;; MOP magic!
    slots: =>.+
     {slots: {type: ObjectObject} ;; would be (MonomorphicObject Slot) if we didn't automatically append Slot
@@ -366,7 +368,7 @@
 
 (defrules .defclass ()
   ((_ (class class-options ...) (slotdefs ...) options ...)
-   (.def (class class-options ...) sexp: 'class (slots =>.+ {slotdefs ...}) options ...))
+   (define-type (class class-options ...) (slots =>.+ {slotdefs ...}) options ...))
   ((_ class (slotdefs ...) options ...)
    (.defclass (class) (slotdefs ...) options ...)))
 
@@ -374,8 +376,5 @@
   {(:: @ (instance Lens))
    .get: (lambda (s) (.ref s slot-name))
    .set: (lambda (x s) (.cc s slot-name x))})
-
-;; For now, types are just runtime descriptors...
-(defrule (define-type a desc) (def a (.mix {sexp: 'a} desc)))
 
 ;; TODO: a special slot .parameters, and a function that specialized a object on its positional parameters?

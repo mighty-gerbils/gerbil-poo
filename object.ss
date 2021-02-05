@@ -52,6 +52,10 @@
     (set! (object-%slot-funs self) #f)
     (set! (object-%all-slots self) #f)))
 
+(defstruct (InvalidObject Exception) (slots) transparent: #t)
+(def (invalid-object-summary self)
+  (InvalidObject (map car (append (object-slots self) (object-defaults self)))))
+
 (def (compute-precedence-list! self (heads '()))
   (cond
    ((object-%precedence-list self))
@@ -60,7 +64,9 @@
     (for-each (rcurry compute-precedence-list! [self . heads]) (object-supers self))
     (let (precedence-list
           (c3-compute-precedence-list
-           self get-supers: object-supers get-precedence-list: object-%precedence-list))
+           self get-supers: object-supers
+           get-name: invalid-object-summary
+           get-precedence-list: object-%precedence-list))
       (set! (object-%precedence-list self) precedence-list)
       precedence-list))))
 
@@ -242,14 +248,14 @@
       (def sym (syntax-e name))
       (unless (symbol? sym) (raise-syntax-error #f "Slot name not a symbol" ctx name))
       (if (hash-key? methods sym)
-        (raise-syntax-error #f "Multiple slot methods specified" ctx name)
+        (raise-syntax-error #f "Multiple slot methods specified" name ctx)
         (hash-put! methods sym #t))
       (c [name . more]))
     (def (do-defaults name value)
       (def sym (syntax-e name))
       (unless (symbol? sym) (raise-syntax-error #f "Slot name not a symbol" ctx name))
       (if (hash-key? defaults sym)
-        (raise-syntax-error #f "Multiple slot defaults specified" ctx name)
+        (raise-syntax-error #f "Multiple slot defaults specified" name ctx)
         (hash-put! defaults sym #f))
       (d [name value]))
     (syntax-case spec (?)

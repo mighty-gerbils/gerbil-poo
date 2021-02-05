@@ -8,8 +8,7 @@
   :clan/pure/dict/rationaldict
   ./object ./brace ./io ./mop ./number ./type ./table)
 
-(.def (RationalDict. @ [methods.table] Value)
-   sexp: '(RationalDict)
+(define-type (RationalDict. @ [methods.table] Value)
    Key: Rational
    Value: Any
    .validate: => (λ (super)
@@ -34,8 +33,7 @@
   (if (eq? Value Any) RationalDict.
       {(:: @ RationalDict.) Value sexp: `(RationalDict ,(.@ Value sexp))}))
 
-(.def (RationalSet @ [Set<-Table.])
-  sexp: 'RationalSet
+(define-type (RationalSet @ [Set<-Table.])
   Elt: Rational
   Table: {(:: @T RationalDict.) Key: Elt Value: Unit}
   .list<-: rationaldict-keys

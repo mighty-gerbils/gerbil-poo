@@ -60,7 +60,7 @@
   (validate Type type)
   {(:: @ List.) (type)})
 
-(.def methods.bytes
+(define-type (methods.bytes @ [])
   .sexp<-: (lambda (x) ['hex-decode (hex-encode x)])
   .string<-: hex-encode
   .<-string: hex-decode
@@ -68,8 +68,7 @@
   .<-bytes: identity
   .json<-: .string<-
   .<-json: .<-string)
-(.def (Bytes @ [methods.bytes Type.])
-  sexp: 'Bytes
+(define-type (Bytes @ [methods.bytes Type.])
   .sexp<-: (lambda (x) `(hex-decode ,(hex-encode x)))
   .element?: bytes?
   .Length: Nat
@@ -88,8 +87,7 @@
   .unmarshal: (cut unmarshal-n-bytes n <>))
 (def (BytesN n) (.cc BytesN. n: n))
 
-(.def (String @ [methods.marshal<-bytes Type.])
-  sexp: 'String
+(define-type (String @ [methods.marshal<-bytes Type.])
   .element?: string?
   .Bytes: Bytes
   .zero: ""
@@ -102,34 +100,31 @@
   .<-bytes: bytes->string
   .<-json: (cut validate @ <>)
   .json<-: identity)
-(.def (methods.bytes&marshal<-string @ [methods.bytes<-marshal] .<-string .string<-)
+(define-type (methods.bytes&marshal<-string @ [methods.bytes<-marshal] .<-string .string<-)
   .String: String
   .marshal: (lambda (x port) (marshal .String (.string<- x) port))
   .unmarshal: (lambda (port) (.<-string (unmarshal .String port))))
-(.def (methods.json&bytes&marshal<-string @ [methods.bytes&marshal<-string] .<-string .string<-)
+(define-type (methods.json&bytes&marshal<-string @ [methods.bytes&marshal<-string] .<-string .string<-)
   .<-json: .<-string
   .json<-: .string<-)
-(.def (Symbol @ [methods.json&bytes&marshal<-string Type.])
-  sexp: 'Symbol
+(define-type (Symbol @ [methods.json&bytes&marshal<-string Type.])
   .element?: symbol?
   .sexp<-: (cut list 'quote <>)
   .<-string: string->symbol
   .string<-: symbol->string)
-(.def (Keyword @ [methods.json&bytes&marshal<-string Type.])
-  sexp: 'Keyword
+(define-type (Keyword @ [methods.json&bytes&marshal<-string Type.])
   .element?: keyword?
   .sexp<-: identity
   .<-string: string->keyword
   .string<-: keyword->string)
-(.def (Json @ [methods.bytes&marshal<-string Type.])
-  sexp: 'Json
+(define-type (Json @ [methods.bytes&marshal<-string Type.])
   .element?: true
   .sexp<-: (lambda (x) `(json<-string ,(.string<- x)))
   .json<-: identity
   .<-json: identity
   .string<-: string<-json
   .<-string: json<-string)
-(.def (methods.string&bytes&marshal<-json @ [methods.bytes&marshal<-string] .json<- .<-json)
+(define-type (methods.string&bytes&marshal<-json @ [methods.bytes&marshal<-string] .json<- .<-json)
   .string<-: (compose string<-json .json<-)
   .<-string: (compose .<-json json<-string))
 
@@ -157,8 +152,7 @@
 (def (Or . types) {(:: @ Or.) (types)})
 
 ;; Bottom tells you everything about nothing
-(.def (Bottom @ Type.)
-  sexp: 'Bottom
+(define-type (Bottom @ Type.)
   .element?: false
   .sexp<-: invalid
   .bytes<-: invalid .<-bytes: invalid
@@ -167,8 +161,7 @@
 (defalias ⊥ Bottom)
 
 ;; Top tells you nothing about everything
-(.def (Top @ [Type.])
-  sexp: 'Top
+(define-type (Top @ [Type.])
   .element?: true
   .sexp<-: invalid
   .string<-: invalid .<-string: invalid
@@ -245,8 +238,7 @@
                           (cons a d))))
 (def (Pair left right) {(:: @ Pair.) (left) (right)})
 
-(.def (TypeValuePair @ Type.)
-  sexp: 'TypeValuePair
+(define-type (TypeValuePair @ Type.)
   .element?: (match <> ([t . v] (and (element? Type t) (element? t v))) (_ #f))
   .validate: (lambda (x (ctx '()))
                (def c [[validating: x] . ctx])
@@ -261,8 +253,7 @@
 
 
 ;; This was not put in number.ss because it depended on Pair
-(.def (Rational @ Real)
-  sexp: 'Rational
+(define-type (Rational @ Real)
   .element?: rational?
   ;; NB: a Scheme "rational" includes floating point numbers.
   ;; For actual ratios between integers, we should have a separate type "Ratnum" or some such.

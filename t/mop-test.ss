@@ -17,13 +17,11 @@
            [[Bool 5]
             [Integer 3.14159]]))
     (test-case "class tests"
-      (.def (Amount @ Class.)
-        repr: 'Amount
+      (define-type (Amount @ Class.)
         slots: =>.+
         {quantity: {type: Number}
          unit: {type: Symbol}})
-      (.def (LocatedAmount @ Amount)
-        repr: 'LocatedAmount
+      (define-type (LocatedAmount @ Amount)
         slots: =>.+
         {location: {type: Symbol}
          unit: =>.+ {default: 'BTC}}

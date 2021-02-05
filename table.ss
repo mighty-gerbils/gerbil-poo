@@ -16,7 +16,7 @@
 ;; so the object is moved first in OO style, but at whatever "usual" place in the other style.
 
 ;; NB: General methods for maps, that are not trie-specific
-(.def (methods.table @ []
+(define-type (methods.table @ []
        Key ;; : Type
        Value ;; : Type
        .empty ;; : @
@@ -192,7 +192,7 @@
   .marshal: (lambda (x port) (marshal .Bindings (.list<- x) port))
   .unmarshal: (compose .<-list (.@ .Bindings .unmarshal)))
 
-(.def (Set<-Table. @ Type. Table sexp)
+(define-type (Set<-Table. @ Type. Table sexp)
   ;; Table must be a table from Elt to Unit, i.e. (.@ Table Key) == Elt, (.@ Table Value) == Unit
   Elt: (.@ Table Key) ;; : Type
   .validate: (.@ Table .validate) ;; : @ <- Any

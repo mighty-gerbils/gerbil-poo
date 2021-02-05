@@ -54,6 +54,12 @@
 (defmethod (@@method :pr object)
   (λ (self (port (current-output-port)) (options (current-representation-options)))
     (cond
+     ((and (object-%instance self) (not (object-%slot-funs self)))
+      (let ()
+        (def (d . l) (for-each (cut display <> port) l))
+        (d "#" (object->serial-number self) "#;{(inconsistent object)")
+        (for-each (lambda (slot) (d " " slot)) (map car (append (object-slots self) (object-defaults self))))
+        (d "}")))
      ((.has? self .type print-object) ((.@ self .type print-object) self port options))
      ((.has? self .type .sexp<-) (write ((.@ self .type .sexp<-) self) port))
      ((.has? self .type) (print-class-object self port options))
@@ -65,11 +71,11 @@
       x (port (current-output-port)) (options (current-representation-options)))
   (def (d x) (display x port))
   (def (w x) (write x port))
-  (d "(begin0 #") (d (object->serial-number x)) (d " {")
+  (d "#") (d (object->serial-number x)) (d "#;{")
   (try
    (for-each (λ-match ([k . v] (d " (") (w k) (d " ") (prn v) (d ")"))) (.alist x))
    (catch (e) (void)))
-  (d "})"))
+  (d "}"))
 
 (.defgeneric (printable-slots x) from: type default: .all-slots slot: .printable-slots)
 
@@ -83,7 +89,7 @@
 (def (<-json-string type x)
   (<-json type (json<-string x)))
 
-(.def (methods.string<-json @ [] .json<- .<-json)
+(define-type (methods.string<-json @ [] .json<- .<-json)
   .string<-: (compose string<-json .json<-)
   .<-string: (compose .<-json json<-string))
 
@@ -111,15 +117,15 @@
 ;; : 'a <- 'a:Type Bytes
 (.defgeneric (<-bytes type b) slot: .<-bytes)
 
-(.def (methods.bytes<-marshal @ [] .marshal .unmarshal)
+(define-type (methods.bytes<-marshal @ [] .marshal .unmarshal)
   .bytes<-: (bytes<-<-marshal .marshal)
   .<-bytes: (<-bytes<-unmarshal .unmarshal))
 
-(.def (methods.marshal<-bytes @ [] .<-bytes .bytes<- .Bytes)
+(define-type (methods.marshal<-bytes @ [] .<-bytes .bytes<- .Bytes)
   .marshal: (lambda (x port) (marshal .Bytes (.bytes<- x) port))
   .unmarshal: (lambda (port) (.<-bytes (unmarshal .Bytes port))))
 
-(.def (methods.marshal<-fixed-length-bytes @ [] .<-bytes .bytes<- length-in-bytes)
+(define-type (methods.marshal<-fixed-length-bytes @ [] .<-bytes .bytes<- length-in-bytes)
   .marshal: (lambda (x port) (write-bytes (.bytes<- x) port))
   .unmarshal: (lambda (port) (.<-bytes (unmarshal-n-bytes length-in-bytes port))))
 
@@ -136,8 +142,14 @@
 ;;; See also ##inverse-eval.
 (defmethod (@@method :wr object)
   (lambda (self we)
-    (def slots (.all-slots self))
-    (def h (object-instance self))
+    (def inconsistent? (and (object-%instance self) (not (object-%slot-funs self))))
+    (unless inconsistent?
+      (ignore-errors (instantiate-object! self)))
+    (set! inconsistent? (and (object-%instance self) (not (object-%slot-funs self))))
+    (defvalues (slots h)
+      (if inconsistent?
+        (values (.all-slots self) (object-%instance self))
+        (values (map car (append (object-slots self) (object-defaults self))) (hash))))
     (if (eq? (write-style we) 'mark)
       (for-each (lambda (k) (when (and h (hash-key? h k)) (##wr we (hash-get h k)))) slots)
       (let ()
@@ -145,18 +157,20 @@
         (def first? #t)
         (##wr-str we (format "#~d " (object->serial-number self)))
         (##wr-str we "#;")
-        (cond
-         ;;((.has? self .type print-object) ((.@ self .type print-object) self port options))
-         ((.has? self .type .sexp<-) (src ((.@ self .type .sexp<-) self)))
-         ;;((.has? self .type) (print-class-object self port options))
-         ;;((.has? self .pr) (.call self .pr port options))
-         ((.has? self sexp) (src (.@ self sexp)))
-         ((.has? self .sexp) (src (.@ self .sexp)))
-         (else
+        (def (wr-fields)
           (##wr-str we "{")
           (for-each (lambda (k)
                       (if first? (set! first? #f) (##wr-str we " "))
                       (##wr-str we (string-append (symbol->string k) ": "))
                       (if (and h (hash-key? h k)) (##wr we (hash-get h k)) (##wr-str we "…")))
                     slots)
-          (##wr-str we "}")))))))
+          (##wr-str we "}"))
+        (cond
+         (inconsistent? (##wr-str we "(inconsistent object ") (wr-fields) (##wr-str we ")"))
+         ;;((.has? self .type print-object) ((.@ self .type print-object) self port options))
+         ((.has? self .type .sexp<-) (src ((.@ self .type .sexp<-) self)))
+         ;;((.has? self .type) (print-class-object self port options))
+         ;;((.has? self .pr) (.call self .pr port options))
+         ((.has? self sexp) (src (.@ self sexp)))
+         ((.has? self .sexp) (src (.@ self .sexp)))
+         (else (wr-fields)))))))

@@ -44,13 +44,10 @@
 (defstruct $Unstep (left right skip) transparent: #t) ;; left: (Fun trunk <- Key Height trunk branch) right: (Fun trunk <- Key Height branch trunk) skip: (Fun trunk <- Key Height Height Key trunk) ;; the first argument, key, only contains the high bits and must be shifted by 1+ the second argument Height, to get the full key for the first element of the trie node resulting from unstepping. ;; trunk is conceptually branch plus optional path-dependent information
 (defstruct $Path (costep steps) transparent: #t) ; costep: Costep steps: (List (Step t))
 
-(.def (Trie. @ [Wrap. methods.table] ;; @ <: (Wrap T)
+(define-type (Trie. @ [Wrap. methods.table] ;; @ <: (Wrap T)
        .validate ;; : @ <- Any
        .wrap ;; : (Wrap t) <- t
        .unwrap) ;; : t <- (Wrap t)
-
-  sexp: 'Trie.
-
   Wrapper: Identity
 
   ;; The type of values stored in a Trie.
@@ -931,7 +928,7 @@
     (when (plus? from) (let-values (((_ _ r) (.split (1- from) t))) (set! t r)))
     (make-iterator [[0 . t]] next)))
 
-(.def (TrieSet. @ Set<-Table.)
+(define-type (TrieSet. @ Set<-Table.)
   Table: {(:: @ Trie.) Value: Unit}
   .subset?: ;; is a a subset of b
   (lambda (a b)

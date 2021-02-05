@@ -12,8 +12,7 @@
   ./object ./mop ./brace ./io)
 
 ;; TODO: basic interface for arithmetics, with proper type signatures.
-(.def (Number @ Type.)
-  sexp: 'Number
+(define-type (Number @ Type.)
   .element?: number?
   .sexp<-: identity
   .add: +
@@ -26,8 +25,7 @@
   .string<-: number->string
   .=?: (cut = <> <>))
 
-(.def (Real @ Number)
-  sexp: 'Real
+(define-type (Real @ Number)
   .element?: real?
   ;; function taking two entries a, b.
   ;; -- If a = b then returns 0;
@@ -46,9 +44,7 @@
   .max: max
   .min: min)
 
-(.def (Integer @ [methods.bytes<-marshal Real]
-                 .string<- .<-string)
-  sexp: 'Integer
+(define-type (Integer @ [methods.bytes<-marshal Real] .string<- .<-string)
   .element?: exact-integer?
   .json<-: (lambda (x) (if (<= (integer-length x) 53) x (.string<- x)))
   .<-json: (lambda (x) (if (exact-integer? x) x (.<-string x)))
@@ -66,8 +62,7 @@
   .succ: 1+
   .pred: 1-)
 
-(.def (Nat @ Integer)
-  sexp: 'Nat
+(define-type (Nat @ Integer)
   .marshal: write-varnat
   .unmarshal: read-varnat
   .sub: (lambda (x y) (if (>= x y) (- x y) (error "Overflow" - x y)))
@@ -153,8 +148,7 @@
 (def (UInt .length-in-bits)
   (hash-ensure-ref UInt<-length-in-bits .length-in-bits (lambda () {(:: @ UInt.) (.length-in-bits)})))
 
-(.def (JsInt @ [methods.marshal<-fixed-length-bytes Integer] .validate)
-  sexp: 'JsInt
+(define-type (JsInt @ [methods.marshal<-fixed-length-bytes Integer] .validate)
   .element?: (λ (x) (and (exact-integer? x) (<= .most-negative x .most-positive)))
   .most-positive: (1- (expt 2 53))
   .most-negative: (- (expt 2 53)) ;; make it an even SInt53
@@ -174,8 +168,7 @@
 (def (double<-bytes bytes)
   (u8vector-double-ref bytes 0 big))
 
-(.def (Float @ [methods.marshal<-bytes Real] .validate)
-  sexp: 'Float
+(define-type (Float @ [methods.marshal<-bytes Real] .validate)
   .element?: flonum?
   .length-in-bytes: 8
   .json<-: identity
