@@ -434,9 +434,7 @@
 
 ;; : (Object A) <- IndexedList ? ((Pair s (A s)) <- s:Symbol)
 (def (.<-alist alist)
-  (def o (.o))
-  (for-each (match <> ([k . v] (.putslot! o k (λ (self super-prototypes slot base) v)))) alist)
-  o)
+  (make-object slots: (for/collect (([k . v] alist)) (cons k ($constant-slot-spec v)))))
 
 ;; carbon copy / clone c...
 ;; : (Object A') <- (Object A) <<TODO: type for overrides from A to A' ...>>
