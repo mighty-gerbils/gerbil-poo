@@ -12,7 +12,7 @@
   :std/error :std/format :std/generic :std/iter :std/lazy
   :std/misc/list :std/misc/repr :std/srfi/1 :std/sugar
   :clan/base :clan/error :clan/hash :clan/io :clan/list :clan/syntax
-  ./poo ./brace)
+  ./object ./brace)
 
 ;; * Options
 ;; default: default value when no method is defined, also bottom value for fixed-point
@@ -57,12 +57,15 @@
      (begin
        (define-values (slot-name compute-default from) (parse-options (syntax->list #'(options ...))))
        (with-syntax* ((slot-name (or slot-name (symbolify "." #'gf)))
-                      (base (or compute-default #'no-such-slot))
                       (methods (case from
                                  ((instance) #'self)
                                  ((type) #'(.get self .type))
                                  (else (error "invalid from" (syntax->datum stx)))))
-                      (method #'(.ref methods 'slot-name base))
+                      (method (if compute-default
+                                (with-syntax ((compute-default compute-default))
+                                  #'(try (.ref methods 'slot-name)
+                                         (catch (NoApplicableMethod? _) (compute-default self 'slot-name))))
+                                #'(.ref methods 'slot-name)))
                       ((selfvar ...) (case from ((type) #'(self)) ((instance) #'())))
                       (body (if (and (stx-null? #'formals) (eq? from 'instance))
                               #'method
@@ -72,8 +75,8 @@
 ;;(def (and-combination new-value old-value) (and (new-value dont-call-next-method) (old-value)))
 
 (defrules .method ()
-  ((_ poo slot) (.get poo .type slot))
-  ((_ poo slot args ...) ((.method poo .type slot) args ...)))
+  ((_ object slot) (.get object .type slot))
+  ((_ object slot args ...) ((.method object .type slot) args ...)))
 
 (.defgeneric (element? type x)
    ;;default: false
@@ -91,11 +94,12 @@
       x
       `',x))) ;; TODO: do better than that.
 
-(defmethod (@@method :sexp poo)
+(defmethod (@@method :sexp object)
   (λ (self)
     (cond
      ((.has? self .type .sexp<-) (.call (.@ self .type) .sexp<- self))
-     ((.has? self sexp) (object->string (.@ self sexp))))))
+     ((.has? self sexp) (.@ self sexp))
+     (else self))))
 
 ;; gf to extract a value of given type from some json
 (.defgeneric (<-json type j) slot: .<-json)
@@ -112,11 +116,11 @@
   .validate: ;; : @ <- Any ?(List Any) ;; identity for an @, throws a type-error if input isn't a @
   (lambda (x (context '())) (if (.element? x) x (type-error context Type @ [value: x]))))
 
-(def (display-poo l (port (current-output-port)))
+(def (display-object l (port (current-output-port)))
   (let d ((space? #f))
     (unless (null? l)
-      (when space? (display " " port))
       (let (x (pop! l))
+        (when (and space? (not (string? x))) (display " " port))
         (cond
          ((string? x)
           (display x port) (d #f))
@@ -126,14 +130,14 @@
           (write (sexp<- x (pop! l)) port) (d #t))
          (else (pr x port) (d #t)))))))
 
-(def (display-poo-ln . l)
+(def (display-object-ln . l)
   (def port (current-output-port))
-  (display-poo l port)
+  (display-object l port)
   (newline port)
   (force-output port))
 
 (def (display-context c (port (current-output-port)))
-  (for-each (lambda (l) (display-poo l port) (newline port))
+  (for-each (lambda (l) (display-object l port) (newline port))
             (reverse (append c (current-error-context)))))
 
 (defstruct (<Error> exception) (tag args context) transparent: #t)
@@ -142,7 +146,7 @@
 (defmethod (@@method display-exception <Error>)
   (lambda (self port)
     (display-context (<Error>-context self) port)
-    (display-poo (cons (<Error>-tag self) (<Error>-args self)) port)
+    (display-object (cons (<Error>-tag self) (<Error>-args self)) port)
     (newline port))
   rebind: #t)
 
@@ -163,7 +167,7 @@
   .unmarshal: (lambda (port) (.<-bytes (unmarshal-sized16-bytes port)))
   .=?: equal?)
 
-(.def (Poo @ Type.) sexp: 'Poo .element?: poo?
+(.def (Object @ Type.) sexp: 'Object .element?: object?
       .sexp<-: identity) ;; TODO: improve on that
 
 (.def (Bool @ Type.)
@@ -178,25 +182,23 @@
   .marshal: (marshal<-bytes<- .bytes<-)
   .unmarshal: (unmarshal<-<-bytes .<-bytes .length-in-bytes))
 
-(def (poo-values x) (map (cut .ref x <>) (.all-slots x)))
-(def (monomorphic-poo? type x)
-  (and (poo? x) (every (cut element? type <>) (poo-values x))))
+(def (object-values x) (map (cut .ref x <>) (.all-slots x)))
+(def (monomorphic-object? type x)
+  (and (object? x) (every (cut element? type <>) (object-values x))))
 
-(.def (MonomorphicPoo. @ Type. type) ;; all the values are of given type
-  sexp: `(MonomorphicPoo ,(.@ type sexp))
-  .element?: (cut monomorphic-poo? type <>)
-  .sexp<-: (lambda (x) `(.o ,@(append-map (match <> ([s . v] [(keywordify s) (sexp<- type v)]))
-                                     (.sorted-alist x))))
+(.def (MonomorphicObject. @ Type. type) ;; all the values are of given type
+  sexp: `(MonomorphicObject ,(.@ type sexp))
+  .element?: (cut monomorphic-object? type <>)
+  .sexp<-: (lambda (x) `(.o ,@(append-map (match <> ([s . v] [(keywordify s) (sexp<- type v)])) (.alist x))))
   .json<-: (lambda (x) (list->hash-table (map (match <> ([s . v] (cons s (json<- type v)))) (.alist x))))
   .<-json: (lambda (j) (.<-alist (map (match <> ([s . v] (cons (symbolify s) (<-json type v)))) (hash->list j)))))
 
-(def (MonomorphicPoo type) {(:: @ MonomorphicPoo.) type})
-(def PooPoo (MonomorphicPoo Poo))
-(def (map-poo-values f poo)
-  (def m {})
-  (for-each (λ (slot) (.put! m slot (f (.ref poo slot))))
-            (.all-slots poo))
-  m)
+(def (MonomorphicObject type) {(:: @ MonomorphicObject.) type})
+(def ObjectObject (MonomorphicObject Object))
+(def (map-object-values f object)
+  (make-object slots:
+               (map (lambda (slot) (cons slot ($constant-slot-spec (f (.ref object slot)))))
+                    (.all-slots object))))
 
 ;; TODO: support optional and keyword arguments in the input types, and multiple arities a la case-lambda
 ;; TODO: support contract-checking validation wrapping that works well with tail-calls and continuations,
@@ -229,6 +231,7 @@
 
 ;; The expander complains "Syntax Error: Ambiguous pattern".
 ;; TODO: Use syntax-case, detect when there are opposite arrows, curry when there are multiple ones?
+;; With no arrow, it's a thunk (no inputs) with the given outputs.
 (defsyntax (Fun stx)
   (syntax-case stx ()
     ((_ . io)
@@ -254,30 +257,30 @@
                        (defvalues (inputs moreios) (split-at i k))
                        [#'Function [#'@list (loop inputs (cdr moreios))] [#'@list . i]]))
                  (else [#'Function [#'@list . iol] [#'@list . i]])))))
-        (else (error "illegal Fun type" stx))))))) ;; or should it be (Values . io) ?
+        (else
+         [#'Function [#'@list . iol] []]))))))
 
-(.defgeneric (slot-checker slot-descriptor slot-name base x) slot: .slot-checker from: type)
+(.defgeneric (slot-checker slot-descriptor slot-name x) slot: .slot-checker from: type)
 (.defgeneric (slot-definer slot-descriptor slot-name x) slot: .slot-definer from: type)
 
 (.def (Class. class Type. slots sexp sealed) ;; this is the class descriptor for class descriptor objects.
   .type: Class
   effective-slots:
    (let (slot-base (.@ .type slot-descriptor-class proto))
-     (map-poo-values (cut .mix <> slot-base) slots))
+     (map-object-values (cut .mix <> slot-base) slots))
   .sexp<-: (lambda (x) (.@ x sexp))
   .element?:
    (λ (x)
-     (and (poo? x)
+     (and (object? x)
           (every (λ (slot-name)
                    (def slot (.ref effective-slots slot-name))
-                   (def base (.ref slot 'base (base<-value no-such-slot)))
-                   (slot-checker slot slot-name base x))
+                   (slot-checker slot slot-name x))
                  (.all-slots effective-slots))
           (or (not sealed) ;; sealed means only defined slots can be present.
-              (every (cut .key? effective-slots <>) (.all-slots x)))))
+              (every (cut .slot? effective-slots <>) (.all-slots x)))))
   slots: {.type: {type: Type default: class hidden: #t}}
   proto:
-   (let ((p {}))
+   (let (p {})
      (for-each (λ (slot-name)
                  (def slot (.ref effective-slots slot-name))
                  (slot-definer slot slot-name p))
@@ -292,17 +295,16 @@
   slots:
    {type: {type: Type optional: #t}
     constant: {type: Any optional: #t}
-    compute: {type: (Fun Any <- Poo Any (Fun Any <- Any Any) Any) optional: #t} ;; the type should be a SlotSpec (see top of poo.ss for a type with indexed typed)
-    base: {type: Any optional: #t default: no-such-slot}
+    compute: {type: (Fun Any <- Object (Fun Any <-)) optional: #t} ;; a function that takes self and superfun, suitable to be passed to $computed-slot-spec
     default: {type: Any optional: #t}
     optional: {type: Bool default: #f}
     hidden: {type: Bool default: #f}}
   proto: {.type: @ optional: #f hidden: #f}
   .slot-checker:
-    (λ (@@ slot-name base x)
+    (λ (@@ slot-name x)
       (with-slots (type constant optional) @@
-        (if (.key? x slot-name)
-          (let ((value (.ref x slot-name base)))
+        (if (.slot? x slot-name)
+          (let ((value (.ref x slot-name)))
             (and
               (or (not (.has? @@ type)) (element? type value))
               (or (not (.has? @@ constant)) (equal? constant value))))
@@ -311,12 +313,12 @@
     (λ (@@ slot-name x)
        (with-slots (type constant compute default) @@
          (cond
-          ((.has? @@ constant) (.putslot! x slot-name (constant-slot constant)))
-          ((.has? @@ compute) (.putslot! x slot-name compute))
-          ((.has? @@ default) (.putslot! x slot-name (constant-slot default)))
+          ((.has? @@ constant) (.putslot! x slot-name ($constant-slot-spec constant)))
+          ((.has? @@ compute) (.putslot! x slot-name ($computed-slot-spec compute)))
+          ((.has? @@ default) (.putdefault! x slot-name default))
           ((and (.has? @@ type) (.has? type proto))
-           (.putslot! x slot-name (constant-slot (.@ type proto)))))
-         ;;TODO: (put-assertion! x (λ (self) (assert! (slot-checker slot-name base self))))
+           (.putslot! x slot-name ($constant-slot-spec (.@ type proto)))))
+         ;;TODO: (put-assertion! x (λ (self) (assert! (slot-checker slot-name self))))
          )))
 
 ;; TODO: functional lenses in (.lens foo) as well as imperative accessors
@@ -338,7 +340,7 @@
   sexp: 'Type
   slots: {sexp: {type: Any}
           .element?: {type: (Fun Bool <- Any)}}
-  .element?: (λ (x) (and (poo? x) (.has? x sexp) (.has? x .element?)))
+  .element?: (λ (x) (and (object? x) (.has? x sexp) (.has? x .element?)))
   .sexp<-: (lambda (x) (.@ x sexp)) ;; : SEXP <- @
   proto: Type.)
 
@@ -346,7 +348,7 @@
    sexp: 'Class
    slot-descriptor-class: Slot ;; MOP magic!
    slots: =>.+
-    {slots: {type: PooPoo} ;; would be (MonomorphicPoo Slot) if we didn't automatically append Slot
+    {slots: {type: ObjectObject} ;; would be (MonomorphicObject Slot) if we didn't automatically append Slot
      sealed: {type: Bool default: #f}}
    proto: Class.)
 
@@ -376,4 +378,4 @@
 ;; For now, types are just runtime descriptors...
 (defrule (define-type a desc) (def a (.mix {sexp: 'a} desc)))
 
-;; TODO: a special slot .parameters, and a function that specialized a poo on its positional parameters?
+;; TODO: a special slot .parameters, and a function that specialized a object on its positional parameters?

@@ -6,7 +6,7 @@
   :std/iter :std/misc/list :std/misc/alist
   :clan/base :clan/list :clan/option
   :clan/pure/dict/rationaldict
-  ./brace ./io ./mop ./number ./poo ./type ./table)
+  ./object ./brace ./io ./mop ./number ./type ./table)
 
 (.def (RationalDict. @ [methods.table] Value)
    sexp: '(RationalDict)

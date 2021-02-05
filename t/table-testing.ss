@@ -7,7 +7,7 @@
   :clan/assert :clan/base :clan/debug :clan/hash :clan/list
   :clan/number :clan/option :clan/timestamp :clan/roman :clan/with-id
   :clan/testing
-  ../poo ../mop ../io ../number ../type ../fun ../table ../rationaldict)
+  ../object ../mop ../io ../number ../type ../fun ../table ../rationaldict)
 
 ;; TODO: systematically write function properties and make more property-based tests?
 ;; TODO: support multimethods / externally defined methods / monkey patching / whatever

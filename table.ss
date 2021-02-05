@@ -5,7 +5,7 @@
 (import
   :std/iter :std/misc/alist
   :clan/base :clan/list :clan/option
-  ./brace ./io ./mop ./number ./poo ./type)
+  ./brace ./io ./mop ./number ./object ./type)
 
 ;; TODO: have APIs look more like LIL, less like OCaml?
 ;; Especially since we may (1) use similar metaprogramming for OO style (?), and

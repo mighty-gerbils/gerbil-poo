@@ -1,5 +1,5 @@
 (export
-  poo-test)
+  object-test)
 
 ;; NB: For debugging, use (import :std/interactive)
 
@@ -7,13 +7,13 @@
   :gerbil/gambit/ports
   :std/format :std/sort :std/srfi/13 :std/test
   :clan/assert :clan/base
-  ../poo ../brace)
+  ../object ../brace)
 
-(def poo-test
-  (test-suite "test suite for clan/poo/poo"
+(def object-test
+  (test-suite "test suite for clan/poo/object"
     (test-case "simple tests from poo.md"
-      (check-equal? (poo? (.o (x 1) (y 2))) #t)
-      (check-equal? (poo? 42) #f)
+      (check-equal? (object? (.o (x 1) (y 2))) #t)
+      (check-equal? (object? 42) #f)
       (.def foo (x 1))
       (.def! foo y (x) (+ x 3))
       (check-equal? (.get foo y) 4)
@@ -21,7 +21,7 @@
       (check-equal? (.get bar x) 1)
       (.set! bar x 18)
       (check-equal? (.get bar x) 18)
-      (check-equal? (.key? foo 'y) #t)
+      (check-equal? (.slot? foo 'y) #t)
       (check-equal? (.has? foo z) #f)
       (def (sort-symbols symbols) (sort symbols (λ (a b) (string< (symbol->string a) (symbol->string b)))))
       (check-equal? (sort-symbols (.all-slots foo)) '(x y))
@@ -106,9 +106,10 @@
       (def m (.o a: 1+ b: a c: ((lambda (aa) (lambda (x) (aa x))) a) d: (lambda (x) (a x))))
       (check-equal? (map (lambda (x) ((.ref m x) 2)) '(a b c d)) [3 3 3 3]))
     (test-case "testing overrides"
-      (def m (.o a: 1 b: 2 c: 3))
+      (def m (.o c: 3 b: 2 a: 1))
       (def n (.cc m b: 20 'c 30 d: 40))
-      (check-equal? (.sorted-alist n) '((a . 1) (b . 20) (c . 30) (d . 40))))
+      (check-equal? (.alist n) '((c . 30) (b . 20) (a . 1) (d . 40)))
+      (check-equal? (.alist/sort n) '((a . 1) (b . 20) (c . 30) (d . 40))))
     (test-case "testing match"
       (def m {a: 1 b: 2 c: 3})
       (check-equal? [1 2 3]
@@ -132,4 +133,10 @@
     (test-case "testing def-prefixed-slots"
       (def o {a: 1 b: 2 c: 3})
       (def-prefixed-slots (o- a b c) o)
-      (check-equal? [o-a o-b o-c] [1 2 3]))))
+      (check-equal? [o-a o-b o-c] [1 2 3]))
+    (test-case "testing multiple inheritance"
+      (def o {o: ? 0 x: => 1+ l: => (cut cons 'o <>)})
+      (def a {(:: @ o) o: ? 1 y: 3 l: => (cut cons 'a <>)})
+      (def b {(:: @ o) o: ? 2 x: => 1+ l: => (cut cons 'b <>)})
+      (def f {(:: @ [a b]) l: ? '(f) x: ? 4})
+      (check-equal? (.alist f) '((x . 6) (l a b o f) (o . 1) (y . 3))))))

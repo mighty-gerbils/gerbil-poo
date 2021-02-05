@@ -4,7 +4,7 @@
   :gerbil/gambit/ports
   :std/format :std/misc/repr :std/sort :std/srfi/13 :std/sugar :std/test
   :clan/assert :clan/base
-  ../poo ../mop ../number ../type ../brace)
+  ../object ../mop ../number ../type ../brace)
 
 (def mop-test
   (test-suite "test suite for clan/poo/mop"
@@ -35,12 +35,12 @@
       (check-equal? (.get stolen quantity) 744408)
       (check-equal? (.get stolen unit) 'BTC)
       (check-equal? (location stolen) 'MtGox)
-      (check-exception (.get grand location) true)
+      (check-exception (.@ grand location) true)
       (check-equal? (.get grand quantity) 1000)
       (check-equal? (.get grand unit) 'USD)
       (check-equal? (location grand) 'unknown)
       (map (λ-match ([type element] (validate type element)))
-           [[Poo stolen]
+           [[Object stolen]
             [Amount stolen]
             [LocatedAmount stolen]
             [Amount (.new Amount (quantity 50) (unit 'ETH))]
@@ -48,11 +48,11 @@
             [LocatedAmount (.new LocatedAmount (location 'Binance) (quantity 100))] ;; default unit
             ])
       (map (λ-match ([type element] (assert! (not (element? type element)))))
-           [[Poo 5]
+           [[Object 5]
             [Amount (.new Amount (quantity 100))] ;; missing unit
             [LocatedAmount (.o (location 'BitShares) (quantity 50) (unit 'ETH))] ;; missing .type
             ]))
     (test-case "Lenses"
       (check-equal?
-       (.sorted-alist (.call Lens .modify (slot-lens 'a) 1+ (.o a: 1 b: 6)))
+       (.alist (.call Lens .modify (slot-lens 'a) 1+ {a: 1 b: 6}))
        '((a . 2) (b . 6))))))

@@ -5,7 +5,7 @@
   :gerbil/gambit/ports
   :std/format :std/sort :std/srfi/13 :std/sugar :std/test
   :clan/assert :clan/base
-  ../poo ../mop ../number ../type)
+  ../object ../mop ../number ../type)
 
 (defrule (check-rep parse unparse rep obj)
   (begin ;;let ((rep rep) (obj obj))

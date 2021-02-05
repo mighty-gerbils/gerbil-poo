@@ -9,7 +9,7 @@
   :std/srfi/1 :std/srfi/43 :std/sugar :std/text/hex :std/text/json
   :clan/assert :clan/base :clan/hash :clan/io :clan/json :clan/list :clan/maybe :clan/number
   :clan/syntax :clan/with-id
-  ./poo ./mop ./brace ./io ./number)
+  ./object ./mop ./brace ./io ./number)
 
 ;; vector-map-in-order : [Index A B ... -> C] [Vectorof A] [Vectorof B] ... -> [Vectorof C]
 ;; The applictions of `f` are in order, unlike `vector-map`, but like `vector-for-each`
@@ -315,7 +315,7 @@
 
 (def (RecordSlot type . options)
   (def o (.<-alist (map (match <> ([k . v] (cons (symbolify k) v))) (alist<-plist options))))
-  {(:: @ [o]) (type) optional: (or (.ref o 'optional false) (.has? o default))})
+  {(:: @ [o]) (type) optional: (or (and (.has? o optional) (.@ o optional)) (.has? o default))})
 
 ;; TODO: Generate a proto field that supports initialization-time defaults.
 ;; TODO: Support single inheritance.
@@ -329,15 +329,16 @@
    slot-names: (map car a)
    types: (map (lambda (s) (.@ (.ref slots s) type)) slot-names)
    optionals: (map (lambda (s) (.@ (.ref slots s) optional)) slot-names)
-   defaults: (map (lambda (s) (.ref (.ref slots s) 'default void)) slot-names)
+   defaults: (map (lambda (s) (def slot (.ref slots s)) (if (.has? slot default) (.@ slot default) (void)))
+                  slot-names)
    .sexp<-: (lambda (v) `(instance ,sexp
                       ,@(append-map (lambda (s t o)
-                                      (when/list (or (not o) (.key? v s))
+                                      (when/list (or (not o) (.slot? v s))
                                         [(keywordify s) (sexp<- t (.ref v s))]))
                                     slot-names types optionals)))
    .json<-: (lambda (v) (list->hash-table
                     (append-map (lambda (s t o d) (when/list (or (not o)
-                                                            (and (.key? v s)
+                                                            (and (.slot? v s)
                                                                  (not (equal? (.ref v s) d))))
                                                [(cons (symbol->string s) (json<- t (.ref v s)))]))
                          slot-names types optionals defaults)))
@@ -350,8 +351,8 @@
                     proto))
    .marshal: (lambda (v port) (for-each (lambda (s t o)
                                      (if o
-                                       (let (has? (.key? v s))
-                                         (marshal Bool (.key? v s) port)
+                                       (let (has? (.slot? v s))
+                                         (marshal Bool (.slot? v s) port)
                                          (when has? (marshal t (.ref v s) port)))
                                        (marshal t (.ref v s) port)))
                                    slot-names types optionals))
@@ -387,7 +388,7 @@
       (lambda (v)
         (match v
           ({(tag) (value)}
-           (and (.key? variants tag)
+           (and (.slot? variants tag)
                 (element? (.ref variants tag) value)))
           (_ #f)))
       .sexp<-: (lambda (v)

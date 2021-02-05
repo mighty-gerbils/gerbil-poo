@@ -8,7 +8,7 @@
   :gerbil/gambit/bits :gerbil/gambit/bytes
   :std/error :std/format :std/iter :std/sugar
   :clan/base :clan/option :clan/number
-  ./poo ./mop ./brace ./number ./type ./fun ./io ./table)
+  ./object ./mop ./brace ./number ./type ./fun ./io ./table)
 
 #;(import :clan/debug :clan/exception :gerbil/gambit/threads :gerbil/gambit/continuations)
 #;(defrule (aver cond msg expr ...)
@@ -200,12 +200,6 @@
                   (validate Height new-height ctx2)
                   (c new-height steps))))))))
       path)
-
-    ;; : (Pair trunk Costep) <- (Unstep trunk branch) trunk (Path branch)
-    .op: (let (apply-step (.@ Step .op))
-           (lambda (unstep t path)
-             (let-match (($Path costep steps) path) (let-match (($Costep height _) costep)
-               (foldl (cut apply-step unstep <> <>) (cons t costep) steps)))))
 
     ;; : (Pair trunk Costep) <- (Unstep trunk branch) trunk (Path branch)
     .op: (let (apply-step (.@ Step .op))

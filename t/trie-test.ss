@@ -7,7 +7,7 @@
   :clan/assert :clan/base :clan/debug :clan/hash :clan/list :clan/number :clan/option :clan/roman
   :clan/with-id
   :clan/testing
-  ../poo ../mop ../io ../number ../type ../fun ../trie
+  ../object ../mop ../io ../number ../type ../fun ../trie
   ./table-testing)
 
 (def (simple-tests T)
@@ -58,11 +58,11 @@
 (def T (SimpleTrie Nat String))
 
 ;;; The G functions make the eval work, which ensures the traces have usable function names.
-(def (G x) (hash-get (poo-instance T) x))
-(def (G-set! x y) (hash-put! (poo-instance T) x y))
+(def (G x) (hash-get (object-instance T) x))
+(def (G-set! x y) (hash-put! (object-instance T) x y))
 (def (traceT)
   (for-each (lambda (k) (def v (.ref T k)) (when (procedure? v) (eval `(trace! (G ',k)))))
-            (.all-slots-sorted T)))
+            (.all-slots T)))
 ;;(traceT)
 
 (def-table-test-accessors T)

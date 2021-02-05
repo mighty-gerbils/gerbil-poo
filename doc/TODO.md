@@ -236,6 +236,10 @@ that caching all the time is costly, and that JITing to do it only where it matt
 
 Make sure this works well with constant-folding in the underlying compiler.
 
+A Meta-Unquote Protocol (MUP) could provide at the same time reader/printer information,
+mapping between "virtual" structure (accessor function) and "real" structure (physical layout),
+an object structure description that enables runtime as well as compile-time optimizations.
+
 ## Better Debugging
 
 Detect circular definitions with a suitable variant of hash-ensure-ref,
@@ -252,3 +256,43 @@ Multimethod dispatch: the earlier arguments would take priority over later one f
     Performance: Method inline caching.
 
   * Look what we can save from [TinyCLOS](https://github.com/ultraschemer/gambit-tiny-clos/blob/master/tiny-clos/core.scm) ?
+
+## Notes
+
+We have to start with a gambit: we pay a price for our choice of representation,
+so we can gain the advantage of uniform reasoning and optimizations later. Possibilities:
+- Make everything a lazy value, and directly use the same formulas as in Nix.
+- Make everything a closure, and be more like the original Yale T object system.
+- Make everything a hash-table, and be more like JavaScript objects(?).
+- Make everything a struct, and be more like C++ objects.
+- Add a hidden "meta" field to everything, and be more like Clojure objects.
+
+Since we're a Scheme, we'll opt for everything is a closure.
+How then do we represent magic meta-information?
+- A call with a special magic argument?
+  Works well if e.g. usual first argument is a symbol, but this one isn't.
+- A global weak hash-table keyed by the closures? Rather slow.
+- Some implementation-specific extension field. Not portable, and not available on Gerbil.
+Normal: ← ⇐ Long: ⟵ ⇐
+
+Possible representations for objects of schema A_ (fun from Symbol to Type):
+- (Fun (A_ msg) <- msg:Symbol)
+  Good: very simple. Bad: makes introspection hard, or must be separate,
+  or the function also accepts special magic input parameters.
+- (Fun (PureTable|Table (Fun|Lazy (A_ msg)) <- msg:Symbol))
+  Basically, break down the previous into a table, per slot.
+  Good: "functorially" maps the structure of prototype onto that of desired
+  values.
+- (Fun (Fun|Table|PureTable SlotInfo <- Symbol))
+  An object computes a table from symbol to SlotInfo.
+  Here, SlotInfo would be as follows:
+(SlotInfo A B) = (Record ;; should this "just" be a (Meta A B) object?
+  ;; or maybe we need a lens-like (Meta S T A B) object?
+  instance-value: [(Maybe A)]
+  flags: [Nat] ;; 1: cached? 2: default? 4: ignores-self? 8: ignores-super?
+  direct-proto-fun: [(Fun A <- A D)] ;; meta
+  parents-proto-superfun: [(Fun D <- B)] ;; computed during instantiation
+  direct-default-value: [(Maybe B)])
+
+In practice, using (case ...) make should implementation relatively efficient
+for plenty of keys at once.

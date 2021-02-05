@@ -4,14 +4,13 @@
   :gerbil/gambit/bytes :gerbil/gambit/hash :gerbil/gambit/ports
   :std/format :std/generic :std/iter :std/misc/repr :std/sugar :std/text/json
   :clan/base :clan/hash :clan/io :clan/json
-  :clan/poo/mop
-  ./poo ./mop ./brace)
+  ./object ./mop ./brace)
 
 ;;; Byte I/O
 
 ;; gf to effectfully read a byte from a stream or stream-like object.
 ;; Byte <- In
-(.defgeneric (poo-read-byte in)
+(.defgeneric (object-read-byte in)
   default:
   (λ (in)
     (if (input-port? in) (read-byte in)
@@ -19,7 +18,7 @@
 
 ;; gf to effectfully write a byte to a stream or stream-like object.
 ;; Unit <- Byte Out
-(.defgeneric (poo-write-byte byte out))
+(.defgeneric (object-write-byte byte out))
 
 ;; gf to effectfully read bytes from a stream or stream-like object into a u8vector
 ;; Unit <- In Bytes ?offset: Nat ?length: Nat
@@ -32,7 +31,7 @@
 
 ;; gf to effectfully read bytes from a stream or stream-like object into a new u8vector
 ;; Bytes <- In Nat
-(.defgeneric (poo-read-bytes length in)
+(.defgeneric (object-read-bytes length in)
   default:
   (λ (in length)
     (def bs (make-bytes length))
@@ -43,7 +42,7 @@
 
 ;; gf to effectfully write bytes to a stream or stream-like object from a u8vector
 ;; Unit <- Bytes Out ?offset: Nat ?length: Nat
-(.defgeneric (poo-write-bytes bs out offset: (offset 0) length: (length (- (bytes-length bs) offset)))
+(.defgeneric (object-write-bytes bs out offset: (offset 0) length: (length (- (bytes-length bs) offset)))
   default:
   (λ (out bs offset: (offset 0) length: (length (- (bytes-length bs) offset)))
     (for (i (in-range length))
@@ -52,7 +51,7 @@
 
 ;;; Printing objects as per std/misc/repr
 
-(defmethod (@@method :pr poo)
+(defmethod (@@method :pr object)
   (λ (self (port (current-output-port)) (options (current-representation-options)))
     (cond
      ((.has? self .type print-object) ((.@ self .type print-object) self port options))
@@ -77,7 +76,7 @@
 
 ;;; JSON I/O
 
-(defmethod (@@method :json poo) (lambda (self) (json<- (.@ self .type) self)))
+(defmethod (@@method :json object) (lambda (self) (json<- (.@ self .type) self)))
 
 (def (json-string<- type x)
   (string<-json (json<- type x)))
@@ -133,12 +132,12 @@
 (.defgeneric (<-string type b) slot: .<-string)
 
 
-;;; Gambit printer hook for poo. See https://github.com/vyzo/gerbil/issues/589
+;;; Gambit printer hook for object. See https://github.com/vyzo/gerbil/issues/589
 ;;; See also ##inverse-eval.
-(defmethod (@@method :wr poo)
+(defmethod (@@method :wr object)
   (lambda (self we)
-    (def slots (.all-slots-sorted self))
-    (def h (poo-instance self))
+    (def slots (.all-slots self))
+    (def h (object-instance self))
     (if (eq? (write-style we) 'mark)
       (for-each (lambda (k) (when (and h (hash-key? h k)) (##wr we (hash-get h k)))) slots)
       (let ()
