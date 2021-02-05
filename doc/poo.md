@@ -1,27 +1,33 @@
 # Prototype Object Orientation in Gerbil Scheme
 
 This directory implements POO, a system for Prototype Object Orientation,
-with a pure lazy functional interface.
+with a pure lazy functional interface, as well as multiple-inheritance.
 
 Prototypes are the incremental specification of open recursion schemes
 that you can either instantiate by computing their fixed point
 or extend by composing them together through inheritance.
 They embody the essence of both functional and object-oriented programming.
 
-The semantics of POO is very close to the object system of the
+The semantics of POO is very close the object systems of the
 [Nix Expression Language](https://nixos.wiki/wiki/Nix_Expression_Language)
 (as defined as a library in a few lines in
 [`nixpkgs/lib/fixed-points.nix`](https://github.com/NixOS/nixpkgs/blob/master/lib/fixed-points.nix)),
 itself essentially identical to that builtin to [Jsonnet](https://jsonnet.org/).
-Another influence of note is the [Slate language](https://github.com/briantrice/slate-language).
+Other influences of note include the [Slate language](https://github.com/briantrice/slate-language)
+and of course the Yale T Scheme object system by Jonathan Rees.
+
+However, we also added multiple inheritance and default arguments in the style of CLOS,
+and C3 linearization in the style of Dylan, just like we also did for Nix in
+[pop.nix](https://github.com/muknio/nixpkgs/blob/devel/lib/pop.nix)
+(see [pop.md](https://github.com/muknio/nixpkgs/blob/devel/lib/pop.md)).
 
 Pure lazy functional prototype object systems are ideal to incrementally define such things as:
   * configuration for building, installing, and deploying software on a machine or network of machines
     (as used by Nix, NixOS, DisNix, NixOps,
-    but also by Jsonnet front-ends to terraform or kubernetes),
+    but also by Nix or Jsonnet front-ends to terraform or kubernetes),
   * compile-time representation of objects, types and classes inside a compiler,
   * objects with dynamic combinations of traits that are hard to express in class-based systems.
-
+  * rich user interfaces with interactively defined configurations.
 
 ## Semantics of POO
 
@@ -38,16 +44,27 @@ the value will be computed lazily the first time it is referenced.
 
 A *prototype* is an incremental description of how each slot of an instance
 can be computed from (a) the other slots of the instance,
-and (b) slot computations *inherited* from some super-prototype.
+and (b) slot computations *inherited* from some super-prototypes.
 The inherited slot computations can recursively refer to further inherited slot computations;
 while more slots may refer to each other.
 When *instantiating* a prototype into an instance,
 the resulting instance is the fixed point of all these computations.
 
+Each prototype specifies a list of super-prototypes to directly inherit from.
+These direct super-prototypes may themselves depend on other prototypes.
+The direct and indirect super-prototypes are organized in a DAG — a directed acyclic graph.
+This inheritance graph is reduced to a *precedence list* using a *linearization algorithm*
+that yields a total order compatible with the partial order of the DAG.
+We use the same "C3 linearization algorithm" as all modern languages for its nice properties:
+the precedence list of a prototype always includes as (possibly non-contiguous) sublists
+the precedence lists of each of its superclasses, and its direct superclasses are included
+as early as possible in the list.
+
 A list of prototypes can be combined into a new prototype by *inheritance*.
 _Within the scope of this combination_, each prototype in the list is considered
 a *super-prototype* of the prototypes appearing earlier in the list,
-and a *direct super-prototype* of the prototype appearing immediately before it.
+and a *direct super-prototype* of the prototype appearing before indirect super-prototypes
+immediately before it.
 The earlier prototype is said to *inherit from* the super-prototypes,
 and to *directly inherit from* its direct super-prototype.
 To compute a slot in the combination,
@@ -79,7 +96,7 @@ it is appropriate to speak of *the* instance of that prototype, and
 to manipulate them together into a single *object*:
 when used as part of combinations, the prototype part is used;
 when accessing slots, the prototype is implicitly instantiated and the associated instance is used.
-A single special form `poo` is used to define an object that simultaneously embodies
+A single special form `.o` is used to define an object that simultaneously embodies
 a prototype and its instance.
 
 If you use side-effects, it is good discipline (to be enforced in a future version of POO?)
@@ -379,25 +396,4 @@ There are infinitely many possible improvements. See [`TODO.md`](TODO.md) for a 
 
 ## Implementation Notes
 
-### Current internals
-
-Internally, in the current implementation, an object, or poo, is `Poo` struct, with two slots:
-a list of elementary prototypes and an instance.
-
-Each elementary prototype is a hash-table mapping each defined slot name to a function
-that computes the slot value from two arguments:
-  1. a reference to the object itself,
-  2. the list of super-prototypes.
-
-The instance is a hash-table mapping for each slot name the value computed
-by using the prototypes, or otherwise explicitly set as a side-effectful override.
-
-Note that this model is not capable of supporting a slightly more expressive object model
-where computations can access arbitrary slots of the super-object,
-or a reified version of the super-object itself.
-If such an extension is considered useful, it may be implemented by resurrecting
-a notion of "layers" present in a previous version of the code, wherein each instance
-contains a list of layers, one for each prototype in the list, that maps slot names to values
-for the definitions present in that given prototype.
-The first layer can also serve to cache all slot computations and
-hold values of slots modified by side-effects.
+TODO: document default slot values, mutiple inheritance, etc.

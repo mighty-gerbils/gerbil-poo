@@ -296,3 +296,26 @@ Possible representations for objects of schema A_ (fun from Symbol to Type):
 
 In practice, using (case ...) make should implementation relatively efficient
 for plenty of keys at once.
+
+### Old internals
+
+Internally, in the current implementation, an object, or poo, is `Poo` struct, with two slots:
+a list of elementary prototypes and an instance.
+
+Each elementary prototype is a hash-table mapping each defined slot name to a function
+that computes the slot value from two arguments:
+  1. a reference to the object itself,
+  2. the list of super-prototypes.
+
+The instance is a hash-table mapping for each slot name the value computed
+by using the prototypes, or otherwise explicitly set as a side-effectful override.
+
+Note that this model is not capable of supporting a slightly more expressive object model
+where computations can access arbitrary slots of the super-object,
+or a reified version of the super-object itself.
+If such an extension is considered useful, it may be implemented by resurrecting
+a notion of "layers" present in a previous version of the code, wherein each instance
+contains a list of layers, one for each prototype in the list, that maps slot names to values
+for the definitions present in that given prototype.
+The first layer can also serve to cache all slot computations and
+hold values of slots modified by side-effects.

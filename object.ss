@@ -435,25 +435,31 @@
 ;; carbon copy / clone c...
 ;; : (Object A') <- (Object A) <<TODO: type for overrides from A to A' ...>>
 (def (.cc self . overrides)
-  (def o (make-object supers: (object-supers self) defaults: (object-defaults self)))
-  (def slots (object-slots self))
   (def added-hash (make-hash-table))
-  (def added-r '())
-  (def (add-slot! slot value)
-    (when (hash-key? added-hash slot) (error "Cannot override slot twice" self slot))
-    (hash-put! added-hash slot #t)
-    (def spec ($constant-slot-spec value))
-    (if (find (looking-for slot key: car) slots)
-      (set! slots (aset slots slot spec))
-      (push! (cons slot spec) added-r)))
-  (let loop ((l overrides))
-    (match l
-      ([] (void))
-      ([(? symbol? s) v . r] (add-slot! s v) (loop r))
-      ([(? keyword? k) v . r] (add-slot! (symbolify k) v) (loop r))
-      (else (error "invalid object overrides" overrides))))
-  (set! (object-slots o) (append slots (reverse added-r)))
-  o)
+  (def added
+    (with-list-builder (c)
+      (def (add-slot! slot value)
+        (when (hash-key? added-hash slot) (error "Cannot override slot twice" self slot))
+        (hash-put! added-hash slot ($constant-slot-spec value))
+        (c slot))
+      (let loop ((l overrides))
+        (match l
+          ([] (void))
+          ([(? symbol? s) v . r] (add-slot! s v) (loop r))
+          ([(? keyword? k) v . r] (add-slot! (symbolify k) v) (loop r))
+          (else (error "invalid object overrides" overrides))))))
+  (def slots
+    (with-list-builder (c)
+      (for ((ss (object-slots self)))
+        (def slot (car ss))
+        (cond
+         ((hash-get added-hash slot) => (lambda (spec) (hash-remove! added-hash slot) (c [slot . spec])))
+         (else (c ss))))
+      (for (slot added)
+        (awhen (spec (hash-get added-hash slot))
+          (hash-remove! added-hash slot) (c [slot . spec])))))
+  (make-object slots: slots supers: (object-supers self) defaults: (object-defaults self)))
+
 ;; TODO: a syntax that allows for => / =>.+ overrides as well as setting values.
 ;; TODO: find an efficient way to repeatedly override one field in a pure way without leaking memory,
 ;; in O(log n) rather than O(n)?
