@@ -4,11 +4,19 @@ By François-René Rideau. 2020-11-07.
 https://www.meetup.com/LispNYC/events/vqhmbpybcpbnb/
 https://youtu.be/ckXkIlhUWss
 
+## Abstract
+
 What is the essence of object-oriented programming?
+*Incremental composition of code and data fragments with late binding.*
 
-Incremental composition of code and data fragments with late binding.
+We will explain how this essence can be summarized in these two functions
+that fit in under 100 characters of Scheme code:
+```scheme
+(define (fix p b) (define f (p (λ a (apply f a)) b)) f)
+(define ((mix p q) f s) (p f (q f s)))
+```
 
-We will summarize the theoretical idea in 99 characters of Scheme code.
+We will summarize the theoretical idea in a hundred characters of Scheme code.
 We will explain how the very same design was achieved before
 by [Jsonnet](https://jsonnet.org/) and
 [Nix](https://github.com/NixOS/nixpkgs/blob/master/lib/fixed-points.nix):
@@ -17,7 +25,8 @@ themselves simple composable mixins in a dynamically-typed pure lazy functional 
 
 We will also present [POO](https://github.com/fare/gerbil-poo),
 a practical implementation of Prototype Object-Orientation
-in a few hundreds of lines of [Gerbil Scheme](https://cons.io).
+with plenty of bells an whistles and a nice syntax extension,
+all in a few hundreds of lines of [Gerbil Scheme](https://cons.io).
 We will demonstrate how this design can express Class-based Object-Orientation or Typeclasses
 as simple prototypes for type descriptors (hence the need for dynamic types or reflection),
 and how it enables both parametric polymorphism and ad hoc polymorphism
@@ -30,17 +39,11 @@ to overcome limitations to this implementation, including
 the handling of inheritance hierarchies as DAGs rather than manually linearized lists,
 method composition, typing, as well as many shaping and caching optimizations.
 
-
-```scheme
-(define (new p b) (letrec ((f (p (λ a (apply f a)) b))) f))
-(define ((inhr p q) f s) (p f (q f s)))
-```
-
-
 ## Intro: A bit of History
 
-When they think about "object-oriented programming", most people automatically think of "classes".
-Objects with classes have a long tradition:
+When they think about "object-oriented programming",
+most people automatically think of "classes".
+Indeed Objects with classes have a long tradition:
 SIMULA (1967), Smalltalk (1972),
 [Flavors](https://en.wikipedia.org/wiki/Flavors_(programming_language)) (1982),
 C++ (1985),
@@ -49,12 +52,12 @@ Perl 5 (1994),
 Java (1995),
 Scala (2004).
 
-But you can do objects without classes.
-It's much simpler, and much more powerful:
+But you *can* do objects without classes.
+And it's actually much simpler, and much more powerful:
 you can implement classes very easily on top of prototypes,
-but you cannot implement prototypes on top of classes.
+but most prototypes you cannot implement on top of classes.
 Instead, you can implement prototypes very simply with fixed-points of higher-order functions
---- assuming you have dynamic types and lazy evaluation.
+— assuming you have dynamic types and lazy evaluation.
 
 The most famous and most popular language with prototype objects is... JavaScript (1995)!
 Its not-so-well-designed object system gave prototypes a bad rap
@@ -63,28 +66,31 @@ yet a lot of people rely on some prototype-specific features of the object syste
 if only under the hood of their favorite framework.
 
 Now the history of [prototypes](https://en.wikipedia.org/wiki/Prototype-based_programming)
-goes at least back to 1979 in the tradition of Smalltalk and its descendants:
+is not that much younger, and goes at least back to 1979
+in the tradition of Smalltalk and its descendants:
 [ThingLab](https://github.com/cdglabs/thinglab) (1979),
 [Self](https://selflanguage.org/) (1987) that with funding from Sun put prototypes on a lot of radars,
 [Slate](https://github.com/briantrice/slate-language) (2008).
 
-There have mean many
+Yet there have also been many
 [prototype](https://web.media.mit.edu/~lieber/Lieberary/OOP/Delegation/Delegation.html)
 [object](https://en.wikibooks.org/wiki/Scheme_Programming/Object_Orientation)
 [systems](http://community.schemewiki.org/?object-systems)
 in Scheme over the years:
-[T](https://en.wikipedia.org/wiki/T_(programming_language)) (1981),
+from the foundational [T](https://en.wikipedia.org/wiki/T_(programming_language)) (1981),
+to many copycats such as
 [YASOS](http://people.csail.mit.edu/jaffer/SLIB.html) (1992),
 [Protobj](https://www.neilvandyke.org/racket/protobj/) (2005),
 [Prometheus](https://github.com/jorgenschaefer/prometheus) (2005),
 [TinyTalk](https://launchpad.net/kend) (2008).
 
-Also many prototype object systems in other Lisps:
+There have also been many prototype object systems in other Lisps:
 Object Lisp (1985),
 [ABCL](https://en.wikipedia.org/wiki/Actor-Based_Concurrent_Language) (1986),
-Sheeple (2008).
+Sheeple (2008), CLON, Common-Lisp-Prototype-Object-System (2015),
+and probably others.
 
-And even many other, "blub", languages with prototypes, notably:
+And there are plenty of other "blub" languages with prototypes, too, notably:
 BETA (1983) (you can squint and see its patterns as prototypes),
 Cecil (1992),
 Obliq (1993),
@@ -96,16 +102,16 @@ OpenLaszlo (2001),
 Io (2002),
 Red (2011).
 
-There have been many academic articles about prototype object systems in Computer Science literature:
+There have been many academic articles about prototype object systems in Computer Science literature, too:
 many articles in the 1980s, some in the 1990s, a few since.
-They have their chapter in the book by Abadi & Cardelli (1996).
+They even have their chapter in the book by Abadi & Cardelli (1996).
 A good article is Norman Adams and Jonathan Rees'
 [Object-Oriented Programming in Scheme](http://citeseerx.ist.psu.edu/viewdoc/summary?doi=10.1.1.46.954)
 (1989): it describes a portable Scheme reimplementation of T's prototype object system,
 which is essentially isomorphic to the system I'll be presenting.
 This is the basis for YASOS and TinyTalk (I didn't check Prometheus or Protobj, but they seem similar).
 
-But I'm here to tell you about the *pure* thing.
+Yet I'm here to tell you about the *pure* thing.
 The very essence of prototype object systems, and thus of object-oriented programming itself,
 as reduced to its simplest and purest form, in the fewest lines of code.
 The first modern variant of it stripped of most non-sense is probably
@@ -166,17 +172,18 @@ In a typed language, the two entities record and prototype have sharply differen
 and you may want to clearly distinguish them.
 
 <!–- comment –->
-[comment]: # λ←→∈⊂⊆⊊
+[comment]: # λ←→∈⊂⊆⊊ ⇐⇒
+[comment]: # long: ⟵⟶⇐⇒
 
 ```
 fix = λ f → let x = f x; in x;
 
 prototype [A⊂B] = A ← A B
 
-instantiate[A⊂B] : A <- prototype[A⊂B] <- B
+instantiate[A⊂B] : A <- prototype[A⊂B] B
 instantiate p b = fix (λ a → p a b)
 instantiate p b = self where self = p self b
-instantiate p b = (λ f a → f f a) (λ a → p a b) b
+instantiate p b = (λ f → f f) (λ f → p (f f) b)
 instantiate p b = letrec f = p f b in f
 instantiate p b = letrec f = p (λ a → f a) b in f
 

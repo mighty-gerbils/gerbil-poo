@@ -3,10 +3,194 @@
 This directory implements POO, a system for Prototype Object Orientation,
 with a pure lazy functional interface, as well as multiple-inheritance.
 
-Prototypes are the incremental specification of open recursion schemes
-that you can either instantiate by computing their fixed point
-or extend by composing them together through inheritance.
-They embody the essence of both functional and object-oriented programming.
+## Conceptual Overview of POO
+
+### Prototypes: the Essence of Object Orientation
+
+In POO, an *object*, embodies two related but very different concepts,
+that it is important to distinguish: a *prototype*, and an *instance*.
+
+*Prototypes* are open recursion schemes used to represent the partial,
+incremental specification of computations.
+You can *compose* prototypes together to piece those
+partial specifications into more complete specifications,
+according to a process called *inheritance*.
+
+Once you have reached a specification to your liking
+by composing smaller prototypes into bigger prototypes,
+you can extract the according computation and compute its result
+by *instantiating* the prototype of your choice,
+using a simple *fixed-point* operator, yielding an *instance*.
+
+In a prototype object language, these prototypes,
+their composition and their instantiation, are activities that take place
+*at runtime*, amidst arbitrary computations, and not just *at compile-time*
+with onerous restrictions as is the case in most "OO" languages (see below).
+
+### Instances
+
+_Typically_, an *instance* is shaped as a set of *slots*,
+each binding a *name* to a *value*.
+
+A *prototype* is an incremental description of how each slot of an instance
+can be computed from (a) the other slots of the instance,
+and (b) slot computations *inherited* from some super-prototypes.
+The inherited slot computations can recursively refer to further inherited slot computations;
+while more slots may refer to each other.
+When *instantiating* a prototype into an instance,
+the resulting instance is the fixed point of all these computations.
+
+The slot names are usually strings, symbols (interned strings) in symbolic languages,
+or sometimes identifiers (compile-time entities, often elided at runtime for performance).
+The values are arbitrary, but their may be formal or informal constraints
+for the values associated to a given slot to be restricted to a type associated to the slot.
+
+(Note: in other languages, *slots* may instead be called "fields" or "attributes";
+or, when the associated values are functions, the slots, or their values,
+are often called "methods" or "members" (or "member functions") of the instance.)
+
+Thus, in this common case, the *instances* are some kind of "records" or "dictionaries"
+—indeed often class or typeclass descriptors (see below).
+
+However, in the most general case, the instances of a prototype need not be
+"records", "products", "dictionaries", or "class descriptors",
+but can be values of arbitrary types:
+numbers, functions, pictures, music, processes, documents, configuration files, etc.
+
+Still, having all (or at least common) instances be of some dedicated kind,
+enables a very nice feature in prototype object languages:
+conflating instance and prototype in a single entity, the "object".
+Obviously this is not possible when the instance values are numbers:
+numbers have no memory of the computation that led to them.
+
+### Conflating Instance and Prototype
+
+In a pure functional setting, where there can be no side-effect,
+all instances of a prototype are necessarily equal:
+all slot computations will necessarily will yield the same results,
+no matter how many times they are attempted.
+
+Thus, you can cache the instance with the prototype — or, seen another way,
+you can carry with every instance the prototype from which it was generated
+(and it wasn't explicitly computed by instantiating a prototype, that's
+equivalent to having been instantiated by a prototype that yields a constant).
+Thus, it is meaningful in a pure functional setting (or mostly pure one)
+to manipulate together prototype and instance as a single entity, the *object*;
+and it is both meaningful and practical to do so in a way that
+the two can be separated whenever needed:
+
+  - You can use the object's prototype to further build new prototypes,
+    and the associated instances and objects, at which point you ignore
+    or discard the instance information from the object.
+
+  - You can shallowly copy the object's instance or use and export its
+    computation results, at which point you ignore or discard the prototype
+    information from the object.
+
+  - Or, what is very interesting, you can manipulate the object without
+    having to know or decide in advance when the information is complete
+    or when it isn't, for even "complete" they can be further composed,
+    refined, overridden, inherited from, extended, restricted, decomposed,
+    etc., to build further objects, themselves extensible and manipulatable.
+
+  - This ability to copy the parts of a computation you like, disassemble
+    and reassemble them differently, removing some parts and adding new ones,
+    etc., make prototype object programming extremely useful for rapid
+    configuration changes to interactively react to new ideas and circumstances.
+
+### Inheritance
+
+When you compose prototypes together, the information specified in
+earlier/leftmost/child/sub- prototypes takes *precedence* over
+the information from the latter/rightmost/parent/super- prototypes.
+We also say that the former prototypes *override* the latter,
+and that the values the former compute may *inherit*
+from the values the latter compute, or *delegate* to them.
+(Beware: in Nix, some of the tradition "extension" functions,
+which essentially equivalent to the above, reverse left and right
+in this precedence order).
+
+When combining prototypes together, we call *inheritance* the structure
+resulting from their child/parent sub/super relationships.
+
+#### Single Inheritance
+
+The simplest way to combine prototypes is by "single inheritance":
+each prototype may inherit from one direct super prototype, that
+may inherit from one direct super prototype, etc.
+The inheritance relationship between prototypes is thus a total order.
+The inheritance data structure is a list.
+To instantiate, you compose all the prototypes in the list,
+and take the fixed-point.
+
+Single inheritance is simple to implement, has a few easy optimizations,
+and is often used at first in object systems.
+The first version of POO used single-inheritance, as do Jsonnet
+and the Nix "extension systems" that inspired its design.
+But single inheritance has drawbacks: while you can keep "mixin" prototypes
+that you may carefully insert in your inheritance hierarchies,
+you cannot automatically combine a mixin with those it depends on,
+or, when many mixins depend on super-mixin, multiple copies of that super-mixin
+will be inserted in your prototype list, sometimes out-of-order, in a way
+that one mixin duplicates or overrides the behavior of the other.
+Soon, you end up manually curating complex dependencies between mixins,
+and this management doesn't scale when you start to use libraries.
+
+#### Multiple Inheritance
+
+A more elaborate solution is multiple inheritance, wherein
+a prototype may declare several other prototypes
+as direct "super" prototypes that it depends on.
+The inheritance relationship is a partial order;
+the inheritance structure is a directed acyclic graph (a DAG).
+Users may thus express the fine dependencies between their mixins
+without causing some mixins to be inserted multiple times and/or out of order.
+
+Still, to compose your prototypes, you need a list, a total order,
+such that you can chain your partial computations from left to right.
+Therefore, to instantiate a prototype, you must first *linearize*
+its inheritance DAG into a *precedence list*,
+a total order that completes the DAG, of which the DAG is subset.
+There are many ways to linearize it, but modern languages use
+the C3 linearization algorithm, initially introduced in Dylan,
+for its nice properties: notably, it ensures that the precedence list
+of a super-prototype is always a sub-list (not necessarily contiguously)
+of the precedence list of its sub-prototypes.
+
+### Prototypes Easily Generalize Classes
+
+In "class-based" languages, there are two separate stages of computation,
+each of them limited in expressiveness. In the earlier stage, at compile-time,
+the instances are classes or class-descriptors, and very few computations are
+available beside direct inheritance of class prototypes. The distinction
+between class-as-prototype (partial information about a type) and
+class-as-instance (a data type) is seldom made explicit,
+or the relationship well understood and explained.
+In the latter stage, no composition or instantiation of prototypes is allowed anymore,
+and though some runtime entities may be called "objects" or "instances",
+they are only the elements of the types, with no fixed point involved.
+
+It is trivial to implement classes on top of prototypes:
+just design a simple representation for type descriptors as your instances,
+and the prototypes for the typese descriptors will naturally be classes.
+
+It is practically infeasible to implement prototypes on top of classes:
+all the runtime manipulations you'd like to do are impossible
+with the builtin compile-time-only class mechanism;
+meanwhile, typical type restrictions associated to classes
+will force you to use extremely onerous dynamic-typing-on-top-of-static-typing
+encodings to be able to express the arbitrary computations
+you may want to do with prototypes, at which point they are too cumbersome to
+interoperate with the rest of your program, in addition to being
+an order of magnitude too verbose for their own good.
+
+### The Essence of OOP
+
+Prototypes embody the essence of both functional and object-oriented programming.
+On top of this solid conceptual foundation, we can easily build traditional
+object system features, such as classes, multiple-inheritance, default slot values, etc.
+
+## Historical Background
 
 The semantics of POO is very close the object systems of the
 [Nix Expression Language](https://nixos.wiki/wiki/Nix_Expression_Language)
@@ -16,10 +200,10 @@ itself essentially identical to that builtin to [Jsonnet](https://jsonnet.org/).
 Other influences of note include the [Slate language](https://github.com/briantrice/slate-language)
 and of course the Yale T Scheme object system by Jonathan Rees.
 
-However, we also added multiple inheritance and default arguments in the style of CLOS,
+Moreover, we also added multiple inheritance and default arguments in the style of CLOS,
 and C3 linearization in the style of Dylan, just like we also did for Nix in
 [pop.nix](https://github.com/muknio/nixpkgs/blob/devel/lib/pop.nix)
-(see [pop.md](https://github.com/muknio/nixpkgs/blob/devel/lib/pop.md)).
+(see the explanation in [pop.md](https://github.com/muknio/nixpkgs/blob/devel/lib/pop.md)).
 
 Pure lazy functional prototype object systems are ideal to incrementally define such things as:
   * configuration for building, installing, and deploying software on a machine or network of machines
@@ -28,27 +212,6 @@ Pure lazy functional prototype object systems are ideal to incrementally define 
   * compile-time representation of objects, types and classes inside a compiler,
   * objects with dynamic combinations of traits that are hard to express in class-based systems.
   * rich user interfaces with interactively defined configurations.
-
-## Semantics of POO
-
-### The Essence of Computing with POO
-
-In POO, an object, or *poo*, embodies two related but different concepts,
-that it is important to distinguish: a *prototype*, and an *instance*.
-
-An *instance* is conceptually a mapping
-from *slot names* to values bound to the named slot.
-Slot names are typically symbols or string constants.
-Each value is the result of a computation specified by the *prototype*;
-the value will be computed lazily the first time it is referenced.
-
-A *prototype* is an incremental description of how each slot of an instance
-can be computed from (a) the other slots of the instance,
-and (b) slot computations *inherited* from some super-prototypes.
-The inherited slot computations can recursively refer to further inherited slot computations;
-while more slots may refer to each other.
-When *instantiating* a prototype into an instance,
-the resulting instance is the fixed point of all these computations.
 
 Each prototype specifies a list of super-prototypes to directly inherit from.
 These direct super-prototypes may themselves depend on other prototypes.
@@ -168,22 +331,23 @@ to prevent confusion in case you define a macro the users of which
 might want to use the keyword `::` as the name of a slot.
 In that list:
 
-  * The optional symbol `self` will bound to
-    the object being instantiated when the slot values are computed.
-    Note that this object may be any object that inherits from the object being currently defined,
-    and not necessarily that object itself.
+  * The optional parameter `self` specifies a symbol that will be bound to
+    the *instance* whose values are computed. Note that this instance
+    need not be that of the *prototype* being currently defined, but may be
+    that of any prototype that inherits from the prototype being defined.
 
-  * The optional value `super` will be used as an object
-    or (potentially nested) list of objects
-    that the current object will inherit from.
-    Specify `[]` for an empty list of objects.
+  * The optional parameter `super` specifies a prototype, list of prototypes,
+    or recursively nested lists or pairs of prototypes,
+    that the prototype being currently defined *directly* inherits from.
+    You can specify the empty list `[]` if there are no such super-prototypes.
 
-  * The optional list of slot names that follow will be bound to macros
-    that will access the relevant slots of the object being instantiated,
-    when the slot value is computed. Definitions for these slots
-    are presumably to be provided by other prototypes
-    in the object being instantiated, since those in the current prototype
-    will already be implicitly included in the list of symbols to bind.
+  * The optional following list of parameters are as many of slot names that
+    will be bound to macros to access the relevant slots of the instance being
+    computed when the particular slot value is computed.
+    Definitions for these slots are presumably to be provided by
+    other prototypes in the object being instantiated,
+    since those in the current prototype will already be implicitly included
+    in the list of symbols to bind.
 
 Each entry in `slot-definitions` specifies how to compute a given named slot:
 
