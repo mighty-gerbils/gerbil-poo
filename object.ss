@@ -5,9 +5,10 @@
 ;; See doc/poo.md for documentation
 ;; TODO: see Future Features and the Internals TODO sections in document above.
 
-(export #t)
+(export #t @object? @make-object) ;; Reexport renamed version of core things we shadow
 
 (import
+  (prefix-in (only-in <host-runtime> object? make-object) @) ;; Rename them before we shadow them
   (for-syntax :clan/base :std/iter :std/misc/hash :std/misc/list)
   :std/lazy :std/misc/hash :std/iter :std/misc/alist :std/misc/list
   :std/sort :std/srfi/1 :std/srfi/13 :std/sugar

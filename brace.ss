@@ -5,7 +5,8 @@
 
 (import
   (prefix-in (only-in <MOP> @method) @)
-  :clan/base ./object)
+  :clan/base
+  (only-in ./object .o .o/ctx))
 
 ;; {args ...} -> (@method args ...) -> (.o args ...)
 ;; except that for macro-scope it's -> (.o/ctx #,stx args ...)
