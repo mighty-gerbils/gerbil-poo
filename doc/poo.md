@@ -358,18 +358,18 @@ Each entry in `slot-definitions` specifies how to compute a given named slot:
      ```
 
   2. When the computation always invokes the inherited computation and passes it
-     to a function `function-form`, to be optionally followed
+     to a combining function `function-form`, to be optionally followed
      by extra arguments `extra-function-args` in the function call,
      the entry is:
      ```
      (slot-name => function-form extra-function-args ...)
      ```
 
-  3. As a special case of the above, when the function form is `.+` which mixes
-     *before* the first prototype argument the rest of the prototype arguments,
-     the entry is:
+  3. As a special case of the above, when the function is `.+` which
+     overrides the first prototype argument with the second one
+     (by appending the first to the supers of the second). The entry is:
      ```
-     (slot-name =>.+ overriding-prototypes ...)
+     (slot-name =>.+ overriding-prototype)
      ```
 
   4. In the more general case that the computation may or may not invoke the inherited computation,

@@ -149,9 +149,11 @@
 
 (def (.mix slots: (slots '()) defaults: (defaults '()) . supers)
   (make-object supers: supers slots: slots defaults: defaults))
-(def (.+ base . overrides) (.mix overrides base))
 (def (.extend self defaults: (defaults '()) . slots)
   (make-object slots: slots supers: [self] defaults: defaults))
+(def (.+ base override)
+  (make-object slots: (object-slots override)
+               supers: [(object-supers override)... base] defaults: (object-defaults override)))
 
 ;; : Bool <- (Object _) Symbol
 (def (.slot? self slot)
@@ -172,6 +174,10 @@
                       (object-%precedence-list self))))
         (set! (object-%all-slots self) esl)
         esl)))
+
+;; : Unit <- (Object A) (Fun _ <- s:Symbol (A s))
+(def (.for-each! self fun)
+  (for-each (lambda (slot) (fun slot (.ref self slot))) (.all-slots self)))
 
 ;; : (Listof Symbol) <- (Object _)
 (def (.all-slots/sort object) (sort (.all-slots object) symbol<?))
@@ -227,7 +233,7 @@
   ;;  - (slot-name => function-expr extra-arg-expr ...)  ; invoke parent, pass into function
   ;;  - (slot-name (inherited-computation) value-expr)   ; lazy reference to parent
   ;;  - (slot-name)                                      ; same-named var from surrounding scope
-  ;;  - (slot-name =>.+ object-expr)                        ; combine parent with a mixin
+  ;;  - (slot-name =>.+ object-expr)                     ; override parent with a mixin
   ;;  - (slot-name ?: default-expr)                      ; default for the slot
   ;; Interpretation according to `doc/poo.md` section `POO Definition Syntax`
 
