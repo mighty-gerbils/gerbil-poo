@@ -3,7 +3,7 @@
 (import
   :gerbil/gambit/ports
   :std/format :std/misc/repr :std/sort :std/srfi/13 :std/sugar :std/test
-  :clan/assert :clan/base
+  :clan/assert :clan/base :clan/debug
   ../object ../mop ../number ../type ../brace)
 
 (def mop-test
@@ -44,11 +44,11 @@
             [Amount (.new Amount (quantity 50) (unit 'ETH))]
             [Amount (.o (:: @ (.new Amount (unit 'USD))) (quantity 20))]
             [LocatedAmount (.new LocatedAmount (location 'Binance) (quantity 100))] ;; default unit
+            [LocatedAmount (.o (location 'BitShares) (quantity 50) (unit 'ETH))] ;; missing .type is OK
             ])
       (map (λ-match ([type element] (assert! (not (element? type element)))))
            [[Object 5]
             [Amount (.new Amount (quantity 100))] ;; missing unit
-            [LocatedAmount (.o (location 'BitShares) (quantity 50) (unit 'ETH))] ;; missing .type
             ]))
     (test-case "Lenses"
       (check-equal?

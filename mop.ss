@@ -8,10 +8,10 @@
 (import
   (for-syntax :std/srfi/1 :clan/syntax)
   :clan/syntax
-  :gerbil/gambit/exact :gerbil/gambit/ports
+  :gerbil/gambit/bytes :gerbil/gambit/exact :gerbil/gambit/ports
   :std/error :std/format :std/generic :std/iter :std/lazy
   :std/misc/list :std/misc/repr :std/srfi/1 :std/sugar
-  :clan/base :clan/error :clan/hash :clan/io :clan/list :clan/syntax
+  :clan/base :clan/error :clan/hash :clan/io :clan/json :clan/list :clan/syntax
   ./object ./brace)
 
 ;; * Options
@@ -264,15 +264,14 @@
         (else
          [#'Function [#'@list . iol] []]))))))
 
-(.defgeneric (slot-checker slot-descriptor slot-name x) slot: .slot-checker from: type)
-(.defgeneric (slot-definer slot-descriptor slot-name x) slot: .slot-definer from: type)
+(.defgeneric (slot-checker slot-descriptor slot-name x) slot: .slot.check from: type)
+(.defgeneric (slot-definer slot-descriptor slot-name x) slot: .slot.define from: type)
 
 (define-type (Class. class Type. slots sexp sealed) ;; this is the class descriptor for class descriptor objects.
   .type: Class
   effective-slots:
    (let (slot-base (.@ .type slot-descriptor-class proto))
      (map-object-values (cut .mix <> slot-base) slots))
-  .sexp<-: (lambda (x) (.@ x sexp))
   .element?:
    (λ (x)
      (and (object? x)
@@ -282,7 +281,9 @@
                  (.all-slots effective-slots))
           (or (not sealed) ;; sealed means only defined slots can be present.
               (every (cut .slot? effective-slots <>) (.all-slots x)))))
-  slots: {.type: {type: Type default: class hidden: #t}} ;; should it be optional?
+  slots: ? {}
+  sealed: ? #f
+  ;;slots: {.type: {type: Type default: class hidden: #t}} ;; should it be optional?
   proto:
    (let (p {})
      (for-each (λ (slot-name)
@@ -290,9 +291,39 @@
                  (slot-definer slot slot-name p))
                (.all-slots effective-slots))
      p)
-  sealed: #f)
-
-(def ClassProto Class.)
+  .sexp<-: (lambda (v) `(instance ,sexp
+                     ,@(with-list-builder (c)
+                         (def (add s v) (c (keywordify s)) (c v))
+                         (.for-each! effective-slots
+                                     (lambda (name slot) (.call slot .slot.sexp<- name v add))))))
+  .string<-: (compose string<-json .json<-)
+  .<-string: (compose .<-json json<-string)
+  .json<-: (lambda (v) (Alist
+                   (with-list-builder (c)
+                     (def add (compose c cons))
+                     (.for-each! effective-slots
+                                 (lambda (name slot) (.call slot .slot.json<- name v add))))))
+  .<-json: (lambda (j)
+             (object<-alist supers: proto
+              (with-list-builder (c)
+                (def add (compose c cons))
+                (.for-each! effective-slots
+                            (lambda (name slot) (.call slot .slot.<-json name j add))))))
+  .marshal: (lambda (v port)
+              (.for-each! effective-slots
+                          (lambda (name slot) (.call slot .slot.marshal name port))))
+  .unmarshal: (lambda (port)
+                (object<-alist supers: proto
+                 (with-list-builder (c)
+                   (def add (compose c cons))
+                   (.for-each! effective-slots
+                               (lambda (name slot) (.call slot .slot.unmarshal name port add))))))
+  .bytes<-: (bytes<-<-marshal .marshal)
+  .<-bytes: (<-bytes<-unmarshal .unmarshal)
+  .tuple-list<-: (lambda (x) (map (lambda (s) (.ref x s)) (.all-slots effective-slots)))
+  .<-tuple-list: (lambda (x) (object<-alist (map (lambda (s v) (cons s v)) (.all-slots effective-slots) x)))
+  .tuple<-: (compose list->vector .tuple-list<-)
+  .<-tuple: (compose .<-tuple-list vector->list))
 
 (define-type (Slot @ Class.)
   slots:
@@ -303,7 +334,8 @@
     optional: {type: Bool default: #f}
     hidden: {type: Bool default: #f}}
   proto: {.type: @ optional: #f hidden: #f}
-  .slot-checker:
+  .effectively-optional?: (lambda (x) (or (.@ x optional?) (.has? x default)))
+  .slot.check:
     (λ (@@ slot-name x)
       (with-slots (type constant optional) @@
         (if (.slot? x slot-name)
@@ -312,7 +344,7 @@
               (or (not (.has? @@ type)) (element? type value))
               (or (not (.has? @@ constant)) (equal? constant value))))
           (and (.has? @@ optional) optional))))
-  .slot-definer:
+  .slot.define:
     (λ (@@ slot-name x)
        (with-slots (type constant compute default) @@
          (cond
@@ -320,9 +352,71 @@
           ((.has? @@ compute) (.putslot! x slot-name ($computed-slot-spec compute)))
           ((.has? @@ default) (.putdefault! x slot-name default))
           ((and (.has? @@ type) (.has? type proto))
-           (.putslot! x slot-name ($constant-slot-spec (.@ type proto)))))
-         ;;TODO: (put-assertion! x (λ (self) (assert! (slot-checker slot-name self))))
-         )))
+           (.putslot! x slot-name ($constant-slot-spec (.@ type proto)))))))
+    ;;TODO: (put-assertion! x (λ (self) (assert! (slot-checker slot-name self))))
+  .slot.marshal:
+    (λ (@@ slot-name x port)
+      (with-slots (type constant optional default) @@
+        (unless (.has? @@ constant)
+          (let (default? (.has? @@ default))
+            (cond
+             ((or optional default?)
+              (if (or (not (.slot? x slot-name))
+                      (and default? (equal? (.ref x slot-name) default)))
+                (write-byte 0 port)
+                (begin
+                  (write-byte 1 port)
+                  (.call type .marshal (.ref x slot-name) port))))
+             ((.slot? x slot-name)
+              (.call type .marshal (.ref x slot-name) port))
+             (else (error "Can't marshal missing slot" slot-name x)))))))
+  .slot.unmarshal:
+    (λ (@@ slot-name c port add)
+       (with-slots (type constant optional default) @@
+         (unless (.has? @@ constant)
+           (let (default? (.has? @@ default))
+             (cond
+              ((or optional default?)
+               (match (read-byte port)
+                 (0 (when default? (c slot-name default)))
+                 (1 (add slot-name (.call type .unmarshal port)))))
+              (else (add slot-name (.call type .unmarshal port))))))))
+  .slot.sexp<-:
+    (λ (@@ slot-name x c)
+      (with-slots (type constant optional default) @@
+        (unless (.has? @@ constant)
+          (let (default? (.has? @@ default))
+            (cond
+             ((or optional default?)
+              (if (or (not (.slot? x slot-name))
+                      (and default? (equal? (.ref x slot-name) default)))
+                (c slot-name (.call type .sexp<- (.ref x slot-name)))))
+             ((.slot? x slot-name)
+              (c slot-name (.call type .sexp<- (.ref x slot-name))))
+             (else (error "Can't convert missing slot to sexp" slot-name x)))))))
+  .slot.json<-:
+    (λ (@@ slot-name x c)
+      (with-slots (type constant optional default) @@
+        (unless (.has? @@ constant)
+          (let (default? (.has? @@ default))
+            (cond
+             ((or optional default?)
+              (if (or (not (.slot? x slot-name))
+                      (and default? (equal? (.ref x slot-name) default)))
+                (c slot-name (.call type .json<- (.ref x slot-name)))))
+             ((.slot? x slot-name)
+              (c slot-name (.call type .json<- (.ref x slot-name))))
+             (else (error "Can't convert missing slot to json" slot-name x)))))))
+  .slot.<-json:
+    (λ (@@ slot-name j c)
+       (with-slots (type constant optional default) @@
+         (unless (.has? @@ constant)
+           (let (key (symbol->string slot-name))
+             (cond
+              ((hash-key? j key) (c slot-name (.call type .<-json (hash-ref j key))))
+              ((.has? @@ default) (c slot-name default))
+              (optional (void))
+              (else (error "Missing slot in json" slot-name j))))))))
 (def Slot. (.@ Slot proto))
 
 ;; TODO: functional lenses in (.lens foo) as well as imperative accessors

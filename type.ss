@@ -309,118 +309,18 @@
 
 (def (RecordSlot type . options)
   (object<-alist
-   supers: [{(:: @) optional: ? #f optional: => (lambda (x) (or x (.has? @ default)))}]
    (acons 'type type
           (map (match <> ([k . v] (cons (symbolify k) v))) (alist<-plist options)))))
-
-#;
-(.def (Record. @ [methods.bytes<-marshal Class.] proto)
-  {sexp: ['Record (append-map (match <> ([k . s] [(symbol->keyword k) ['@list (.@ s type sexp)]])) a)...]
-   slots: (object<-alist a)
-   slot-names: (.all-slots slots)
-   types: (map (lambda (s) (.@ (.ref slots s) type)) slot-names)
-   optionals: (map (lambda (s) (.@ (.ref slots s) optional)) slot-names)
-   defaults: (map (lambda (s) (def slot (.ref slots s)) (if (.has? slot default) (.@ slot default) (void)))
-                  slot-names)
-   .sexp<-: (lambda (v) `(instance ,sexp
-                      ,@(append-map (lambda (s t o)
-                                      (when/list (or (not o) (.slot? v s))
-                                        [(keywordify s) (sexp<- t (.ref v s))]))
-                                    slot-names types optionals)))
-   .string<-: (compose string<-json .json<-)
-   .<-string: (compose .<-json json<-string)
-   .json<-: (lambda (v) (Alist
-                    (append-map (lambda (s t o d) (when/list (or (not o)
-                                                            (and (.slot? v s)
-                                                                 (not (equal? (.ref v s) d))))
-                                               [(cons (symbol->string s) (json<- t (.ref v s)))]))
-                         slot-names types optionals defaults)))
-   .<-json: (lambda (j)
-              (object<-alist (append-map (lambda (s t o)
-                                           (def ss (symbol->string s))
-                                           (when/list (or (not o) (hash-key? j ss))
-                                                      [(cons s (<-json t (hash-ref j ss)))]))
-                                         slot-names types optionals)
-                             supers: proto))
-   .marshal: (lambda (v port) (for-each (lambda (s t o)
-                                     (if o
-                                       (let (has? (.slot? v s))
-                                         (marshal Bool (.slot? v s) port)
-                                         (when has? (marshal t (.ref v s) port)))
-                                       (marshal t (.ref v s) port)))
-                                   slot-names types optionals))
-   .unmarshal: (lambda (port)
-                 (object<-alist
-                  (with-list-builder (c)
-                    (for-each (lambda (s t o)
-                                (if o
-                                  (let (has? (unmarshal Bool port))
-                                    (when has? (c (cons s (unmarshal t port)))))
-                                  (c (cons s (unmarshal t port)))))
-                              slot-names types optionals))
-                  supers: proto))
-   .tuple-list<-: (lambda (x) (map (lambda (s) (.ref x (car s))) a))
-   .<-tuple-list: (lambda (x) (object<-alist (map (lambda (s v) (cons (car s) v)) a x)))
-   .tuple<-: (compose list->vector .tuple-list<-)
-   .<-tuple: (compose .<-tuple-list vector->list)})
-
 
 ;; TODO: Generate a proto field that supports initialization-time defaults.
 ;; TODO: Support single inheritance.
 ;; TODO: Support multiple inheritance.
-(def (Record . plist)
-  (def a (map (match <> ([kw type . options] (cons (symbolify kw) (apply RecordSlot type options))))
-              (alist<-plist plist)))
-  {(:: @ [methods.bytes<-marshal Class.] proto)
-   sexp: ['Record (append-map (match <> ([k . s] [(symbol->keyword k) ['@list (.@ s type sexp)]])) a)...]
-   slots: (object<-alist a)
-   slot-names: (map car a)
-   types: (map (lambda (s) (.@ (.ref slots s) type)) slot-names)
-   optionals: (map (lambda (s) (.@ (.ref slots s) optional)) slot-names)
-   defaults: (map (lambda (s) (def slot (.ref slots s)) (if (.has? slot default) (.@ slot default) (void)))
-                  slot-names)
-   .sexp<-: (lambda (v) `(instance ,sexp
-                      ,@(append-map (lambda (s t o)
-                                      (when/list (or (not o) (.slot? v s))
-                                        [(keywordify s) (sexp<- t (.ref v s))]))
-                                    slot-names types optionals)))
-   .string<-: (compose string<-json .json<-)
-   .<-string: (compose .<-json json<-string)
-   .json<-: (lambda (v) (Alist
-                    (append-map (lambda (s t o d) (when/list (or (not o)
-                                                            (and (.slot? v s)
-                                                                 (not (equal? (.ref v s) d))))
-                                               [(cons (symbol->string s) (json<- t (.ref v s)))]))
-                         slot-names types optionals defaults)))
-   .<-json: (lambda (j)
-              (object<-alist (append-map (lambda (s t o)
-                                           (def ss (symbol->string s))
-                                           (when/list (or (not o) (hash-key? j ss))
-                                                      [(cons s (<-json t (hash-ref j ss)))]))
-                                         slot-names types optionals)
-                             supers: proto))
-   .marshal: (lambda (v port) (for-each (lambda (s t o)
-                                     (if o
-                                       (let (has? (.slot? v s))
-                                         (marshal Bool (.slot? v s) port)
-                                         (when has? (marshal t (.ref v s) port)))
-                                       (marshal t (.ref v s) port)))
-                                   slot-names types optionals))
-   .unmarshal: (lambda (port)
-                 (object<-alist
-                  (with-list-builder (c)
-                    (for-each (lambda (s t o)
-                                (if o
-                                  (let (has? (unmarshal Bool port))
-                                    (when has? (c (cons s (unmarshal t port)))))
-                                  (c (cons s (unmarshal t port)))))
-                              slot-names types optionals))
-                  supers: proto))
-   .tuple-list<-: (lambda (x) (map (lambda (s) (.ref x (car s))) a))
-   .<-tuple-list: (lambda (x) (object<-alist (map (lambda (s v) (cons (car s) v)) a x)))
-   .tuple<-: (compose list->vector .tuple-list<-)
-   .<-tuple: (compose .<-tuple-list vector->list)})
-
+(def (Record . args)
+  (def supers (if (keyword? (car args)) [] (pop! args)))
+  {(:: @ (cons supers Class.))
+   slots: =>.+ (map (match <> ([kw type . options]
+                               (cons (symbolify kw) (apply RecordSlot type options))))
+                    (alist<-plist args))})
 
 ;; Sum : {Kw Type} ... -> Type
 ;; Sum types aka tagged unions, each kw is a tag

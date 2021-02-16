@@ -34,4 +34,10 @@
                     '(1 "a" b))
       (check-exception ((validate (Fun Any <- String) f) 2 3) true)
       (check-exception ((validate (Fun Any <- Any Any) f) 2 3) true)
-      (check-exception ((validate (Fun String Number Number <- Any Any) f) 2 3) true))))
+      (check-exception ((validate (Fun String Number Number <- Any Any) f) 2 3) true))
+    (test-case "Record test"
+      (def Bytes2 (BytesN 2))
+      (def Foo (Record x: [(UInt 8)] y: [Bytes32]))
+      ;; TODO: test Record ...
+      (void))
+    ))
