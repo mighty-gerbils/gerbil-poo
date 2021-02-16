@@ -85,7 +85,10 @@
   .<-bytes: (cut validate @ <>)
   .marshal: write-u8vector
   .unmarshal: (cut unmarshal-n-bytes n <>))
-(def (BytesN n) (.cc BytesN. n: n))
+(def BytesN<-n (make-hash-table))
+(def (BytesN n) (hash-ensure-ref BytesN<-n n (lambda () {(:: @ BytesN.) n})))
+(def Bytes32 (BytesN 32))
+(def Bytes64 (BytesN 64))
 
 (define-type (String @ [methods.marshal<-bytes Type.])
   .element?: string?
@@ -305,8 +308,62 @@
   ((_ Key -> Value) {(:: @ Map.) Key: Key Value: Value}))
 
 (def (RecordSlot type . options)
-  (def o (.<-alist (map (match <> ([k . v] (cons (symbolify k) v))) (alist<-plist options))))
-  {(:: @ [o]) (type) optional: (or (and (.has? o optional) (.@ o optional)) (.has? o default))})
+  (object<-alist
+   supers: [{(:: @) optional: ? #f optional: => (lambda (x) (or x (.has? @ default)))}]
+   (acons 'type type
+          (map (match <> ([k . v] (cons (symbolify k) v))) (alist<-plist options)))))
+
+#;
+(.def (Record. @ [methods.bytes<-marshal Class.] proto)
+  {sexp: ['Record (append-map (match <> ([k . s] [(symbol->keyword k) ['@list (.@ s type sexp)]])) a)...]
+   slots: (object<-alist a)
+   slot-names: (.all-slots slots)
+   types: (map (lambda (s) (.@ (.ref slots s) type)) slot-names)
+   optionals: (map (lambda (s) (.@ (.ref slots s) optional)) slot-names)
+   defaults: (map (lambda (s) (def slot (.ref slots s)) (if (.has? slot default) (.@ slot default) (void)))
+                  slot-names)
+   .sexp<-: (lambda (v) `(instance ,sexp
+                      ,@(append-map (lambda (s t o)
+                                      (when/list (or (not o) (.slot? v s))
+                                        [(keywordify s) (sexp<- t (.ref v s))]))
+                                    slot-names types optionals)))
+   .string<-: (compose string<-json .json<-)
+   .<-string: (compose .<-json json<-string)
+   .json<-: (lambda (v) (Alist
+                    (append-map (lambda (s t o d) (when/list (or (not o)
+                                                            (and (.slot? v s)
+                                                                 (not (equal? (.ref v s) d))))
+                                               [(cons (symbol->string s) (json<- t (.ref v s)))]))
+                         slot-names types optionals defaults)))
+   .<-json: (lambda (j)
+              (object<-alist (append-map (lambda (s t o)
+                                           (def ss (symbol->string s))
+                                           (when/list (or (not o) (hash-key? j ss))
+                                                      [(cons s (<-json t (hash-ref j ss)))]))
+                                         slot-names types optionals)
+                             supers: proto))
+   .marshal: (lambda (v port) (for-each (lambda (s t o)
+                                     (if o
+                                       (let (has? (.slot? v s))
+                                         (marshal Bool (.slot? v s) port)
+                                         (when has? (marshal t (.ref v s) port)))
+                                       (marshal t (.ref v s) port)))
+                                   slot-names types optionals))
+   .unmarshal: (lambda (port)
+                 (object<-alist
+                  (with-list-builder (c)
+                    (for-each (lambda (s t o)
+                                (if o
+                                  (let (has? (unmarshal Bool port))
+                                    (when has? (c (cons s (unmarshal t port)))))
+                                  (c (cons s (unmarshal t port)))))
+                              slot-names types optionals))
+                  supers: proto))
+   .tuple-list<-: (lambda (x) (map (lambda (s) (.ref x (car s))) a))
+   .<-tuple-list: (lambda (x) (object<-alist (map (lambda (s v) (cons (car s) v)) a x)))
+   .tuple<-: (compose list->vector .tuple-list<-)
+   .<-tuple: (compose .<-tuple-list vector->list)})
+
 
 ;; TODO: Generate a proto field that supports initialization-time defaults.
 ;; TODO: Support single inheritance.
@@ -316,7 +373,7 @@
               (alist<-plist plist)))
   {(:: @ [methods.bytes<-marshal Class.] proto)
    sexp: ['Record (append-map (match <> ([k . s] [(symbol->keyword k) ['@list (.@ s type sexp)]])) a)...]
-   slots: (.<-alist a)
+   slots: (object<-alist a)
    slot-names: (map car a)
    types: (map (lambda (s) (.@ (.ref slots s) type)) slot-names)
    optionals: (map (lambda (s) (.@ (.ref slots s) optional)) slot-names)
@@ -327,19 +384,21 @@
                                       (when/list (or (not o) (.slot? v s))
                                         [(keywordify s) (sexp<- t (.ref v s))]))
                                     slot-names types optionals)))
-   .json<-: (lambda (v) (list->hash-table
+   .string<-: (compose string<-json .json<-)
+   .<-string: (compose .<-json json<-string)
+   .json<-: (lambda (v) (Alist
                     (append-map (lambda (s t o d) (when/list (or (not o)
                                                             (and (.slot? v s)
                                                                  (not (equal? (.ref v s) d))))
                                                [(cons (symbol->string s) (json<- t (.ref v s)))]))
                          slot-names types optionals defaults)))
    .<-json: (lambda (j)
-              (.mix (.<-alist (append-map (lambda (s t o)
-                                            (def ss (symbol->string s))
-                                            (when/list (or (not o) (hash-key? j ss))
-                                              [(cons s (<-json t (hash-ref j ss)))]))
-                                          slot-names types optionals))
-                    proto))
+              (object<-alist (append-map (lambda (s t o)
+                                           (def ss (symbol->string s))
+                                           (when/list (or (not o) (hash-key? j ss))
+                                                      [(cons s (<-json t (hash-ref j ss)))]))
+                                         slot-names types optionals)
+                             supers: proto))
    .marshal: (lambda (v port) (for-each (lambda (s t o)
                                      (if o
                                        (let (has? (.slot? v s))
@@ -348,17 +407,17 @@
                                        (marshal t (.ref v s) port)))
                                    slot-names types optionals))
    .unmarshal: (lambda (port)
-                 (.mix (.<-alist
-                        (with-list-builder (c)
-                          (for-each (lambda (s t o)
-                                      (if o
-                                        (let (has? (unmarshal Bool port))
-                                          (when has? (c (cons s (unmarshal t port)))))
-                                        (c (cons s (unmarshal t port)))))
-                                    slot-names types optionals)))
-                       proto))
+                 (object<-alist
+                  (with-list-builder (c)
+                    (for-each (lambda (s t o)
+                                (if o
+                                  (let (has? (unmarshal Bool port))
+                                    (when has? (c (cons s (unmarshal t port)))))
+                                  (c (cons s (unmarshal t port)))))
+                              slot-names types optionals))
+                  supers: proto))
    .tuple-list<-: (lambda (x) (map (lambda (s) (.ref x (car s))) a))
-   .<-tuple-list: (lambda (x) (.<-alist (map (lambda (s v) (cons (car s) v)) a x)))
+   .<-tuple-list: (lambda (x) (object<-alist (map (lambda (s v) (cons (car s) v)) a x)))
    .tuple<-: (compose list->vector .tuple-list<-)
    .<-tuple: (compose .<-tuple-list vector->list)})
 
@@ -371,7 +430,7 @@
   (def tag-marsh-t (UInt (integer-length (max 0 (1- (length a))))))
   {(:: @ [methods.bytes<-marshal Type.])
       sexp: ['Sum (append-map (match <> ([k . t] [k (.@ t sexp)])) a)...]
-      variants: (.<-alist a)
+      variants: (object<-alist a)
       variant-names: (map car a)
       types: (map cdr a)
       make: (lambda (tag value) {(tag) (value)})

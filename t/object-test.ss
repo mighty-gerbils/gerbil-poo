@@ -6,7 +6,7 @@
 (import
   :gerbil/gambit/ports
   :std/format :std/sort :std/srfi/13 :std/test
-  :clan/assert :clan/base
+  :clan/assert :clan/base :clan/debug
   ../object ../brace)
 
 (def object-test
@@ -155,9 +155,9 @@
       (.def (p @ o) b: 2)
       (.putslot! o 'c ($constant-slot-spec 3))
       (.putslot! o 'd ($thunk-slot-spec (lambda () (+ 3 4))))
-      (.putslot! o 'e ($self-slot-spec (lambda (self)
+      (.putslot! p 'e ($self-slot-spec (lambda (self)
                                          (map (lambda (slot) (.ref self slot)) '(a b c d)))))
-      (.putslot! o 'a ($self-slot-spec (lambda (self superfun) (+ 1 (superfun)))))
+      (.putslot! p 'a ($computed-slot-spec (lambda (self superfun) (+ 1 (superfun)))))
       (assert-equal! (.@ p e) '(2 2 3 7)))
     (test-case "testing multiple inheritance"
       (def o {o: ? 0 x: => 1+ l: => (cut cons 'o <>)})

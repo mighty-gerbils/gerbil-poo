@@ -434,7 +434,7 @@
   ((_ object slot (:: self) slotspec ...)
    (.def! object slot (:: self []) slotspec ...))
   ((_ object slot (slots ...) slotspec ...)
-   (.def! object slot (:: self slots ...) slotspec ...)))
+   (.def! object slot (:: self [] slots ...) slotspec ...)))
 
 ;; Side-effect the value of a field into an object.
 ;; Assumes the top-object-proto was used.

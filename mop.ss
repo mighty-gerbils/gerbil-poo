@@ -197,14 +197,12 @@
   .element?: (cut monomorphic-object? type <>)
   .sexp<-: (lambda (x) `(.o ,@(append-map (match <> ([s . v] [(keywordify s) (sexp<- type v)])) (.alist x))))
   .json<-: (lambda (x) (list->hash-table (map (match <> ([s . v] (cons s (json<- type v)))) (.alist x))))
-  .<-json: (lambda (j) (.<-alist (map (match <> ([s . v] (cons (symbolify s) (<-json type v)))) (hash->list j)))))
+  .<-json: (lambda (j) (object<-alist (map (match <> ([s . v] (cons (symbolify s) (<-json type v)))) (hash->list j)))))
 
 (def (MonomorphicObject type) {(:: @ MonomorphicObject.) type})
 (def ObjectObject (MonomorphicObject Object))
 (def (map-object-values f object)
-  (make-object slots:
-               (map (lambda (slot) (cons slot ($constant-slot-spec (f (.ref object slot)))))
-                    (.all-slots object))))
+  (object<-alist (map (lambda (slot) (cons slot (f (.ref object slot)))) (.all-slots object))))
 
 ;; TODO: support optional and keyword arguments in the input types, and multiple arities a la case-lambda
 ;; TODO: support contract-checking validation wrapping that works well with tail-calls and continuations,
@@ -284,7 +282,7 @@
                  (.all-slots effective-slots))
           (or (not sealed) ;; sealed means only defined slots can be present.
               (every (cut .slot? effective-slots <>) (.all-slots x)))))
-  slots: {.type: {type: Type default: class hidden: #t}}
+  slots: {.type: {type: Type default: class hidden: #t}} ;; should it be optional?
   proto:
    (let (p {})
      (for-each (λ (slot-name)
@@ -325,6 +323,7 @@
            (.putslot! x slot-name ($constant-slot-spec (.@ type proto)))))
          ;;TODO: (put-assertion! x (λ (self) (assert! (slot-checker slot-name self))))
          )))
+(def Slot. (.@ Slot proto))
 
 ;; TODO: functional lenses in (.lens foo) as well as imperative accessors
 (define-type (Lens @ Class.) ;; Lens 's 'a
