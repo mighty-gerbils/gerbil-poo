@@ -147,6 +147,7 @@
 (def UInt<-length-in-bits (make-hash-table))
 (def (UInt .length-in-bits)
   (hash-ensure-ref UInt<-length-in-bits .length-in-bits (lambda () {(:: @ UInt.) (.length-in-bits)})))
+(define-type UInt256 (UInt 256))
 
 (define-type (JsInt @ [methods.marshal<-fixed-length-bytes Integer] .validate)
   .element?: (λ (x) (and (exact-integer? x) (<= .most-negative x .most-positive)))

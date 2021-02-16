@@ -17,8 +17,8 @@
 ;; TODO: formalize (Object A S D) and the type conditions under which an object is instantiatable?
 (defstruct object ;; = (Object A)
   (supers ;; : (Listof (Object ?))
-   slots ;; : (Listof (Pair Symbol (SlotSpec ?))) ; direct slot methods in order
-   defaults ;; : (Listof (Pair Symbol ?)) ; direct slot defaults in order
+   slots ;; : (Listof (Pair Symbol (SlotSpec ?))) ; direct slot methods in reverse order
+   defaults ;; : (Listof (Pair Symbol ?)) ; direct slot defaults in reverse order
    %instance ;; : (Table (A_ k) <- k:Sym) ; hash table from slot keys to slot values
    %precedence-list ;; : (Listof (Object ?)) ; linearization of the supers DAG
    %slot-funs ;; : (Table (Fun (A_ k)) <- k:Symbol) ; functions to compute slots
@@ -134,18 +134,23 @@
                 (with-catch false (cut .@ self no-applicable-method))))
   (if nam (nam self slot) (raise (NoApplicableMethod self slot))))
 
+;; : (Object A) <- (IndexedList ? ((Pair s (A s)) <- s:Symbol)) \
+;;     supers: ? (ConsTreeOf (Object ?)) defaults: ? (Table ? Symbol)
 (def (object<-alist a supers: (supers '()) defaults: (defaults '()))
-  (make-object slots: (map (match <> ([k . v] (cons k ($constant-slot-spec v)))) a)
+  (make-object slots: (for/collect (([k . v] a)) (cons k ($constant-slot-spec v)))
                supers: supers defaults: defaults))
+
 (def (object<-hash h supers: (supers '()) defaults: (defaults '()))
   (object<-alist (hash->list/sort h symbol<?) supers: supers defaults: defaults))
+
 (def (object<-fun f keys: (keys '()) supers: (supers '()) defaults: (defaults '()))
   (make-object slots: (map (lambda (k) (cons k ($thunk-slot-spec (cut f k)))) keys)
                supers: supers defaults: defaults))
+
 (def (.mix slots: (slots '()) defaults: (defaults '()) . supers)
   (make-object supers: supers slots: slots defaults: defaults))
 (def (.+ base . overrides) (.mix overrides base))
-(def (extend-object self defaults: (defaults '()) . slots)
+(def (.extend self defaults: (defaults '()) . slots)
   (make-object slots: slots supers: [self] defaults: defaults))
 
 ;; : Bool <- (Object _) Symbol
@@ -182,6 +187,10 @@
 ;; Force the lazy computation of all slots in an object
 ;; : (Object A) <- (Object A)
 (def (force-object self) (for-each (cut .ref self <>) (.all-slots self)) self)
+
+;; : (Table (A s) <- s:Symbol) <- (Object A)
+(def (hash<-object self)
+  (object-%instance (force-object self)))
 
 ;; For (? test :: proc => pattern),
 ;;   test = (o?/slots ks)
@@ -404,7 +413,6 @@
 
 ;; : Unit <- (Object A) s:Symbol (SlotSpec A s)
 (def (.putslot! self slot slot-spec)
-  (uninstantiate-object! self)
   (modify! (object-slots self)
            (lambda (slot-specs)
              (if (find (looking-for slot key: car) slot-specs)
@@ -412,7 +420,6 @@
                (append slot-specs [[slot . slot-spec]]))))) ;; add the spec at the end
 
 (def (.putdefault! self slot default)
-  (uninstantiate-object! self)
   (modify! (object-defaults self)
            (lambda (defaults)
              (if (find (looking-for slot key: car) defaults)
@@ -421,9 +428,13 @@
 
 (defrules .setslot! () ((_ object. slot slot-spec) (.putslot! object. 'slot slot-spec)))
 
-(defrules .def! () ;; TODO: check prototype mutability status first. Also, invalidate subobjects???
+(defrules .def! ()
+  ((_ object slot (:: self _ slots ...) slotspec ...)
+   (.putslot! object 'slot (object/slot-spec self (slot slots ...) slot slotspec ...)))
+  ((_ object slot (:: self) slotspec ...)
+   (.def! object slot (:: self []) slotspec ...))
   ((_ object slot (slots ...) slotspec ...)
-   (.putslot! object 'slot (object/slot-spec object (slot slots ...) slot slotspec ...))))
+   (.def! object slot (:: self slots ...) slotspec ...)))
 
 ;; Side-effect the value of a field into an object.
 ;; Assumes the top-object-proto was used.
@@ -432,10 +443,6 @@
   (hash-put! (object-instance self) slot value))
 
 (defrules .set! () ((_ object. slot value) (.put! object. 'slot value)))
-
-;; : (Object A) <- IndexedList ? ((Pair s (A s)) <- s:Symbol)
-(def (.<-alist alist)
-  (make-object slots: (for/collect (([k . v] alist)) (cons k ($constant-slot-spec v)))))
 
 ;; carbon copy / clone c...
 ;; : (Object A') <- (Object A) <<TODO: type for overrides from A to A' ...>>

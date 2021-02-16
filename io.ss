@@ -82,7 +82,20 @@
 
 ;;; JSON I/O
 
-(defmethod (@@method :json object) (lambda (self) (json<- (.@ self .type) self)))
+(defmethod (@@method :write-json object)
+  (lambda (self port)
+    (cond
+     ((.has? self .type .write-json) ((.@ self .type .write-json) self port))
+     ((.has? self .type .json<-) (write-json ((.@ self .type .json<-) self) port))
+     ((.has? self sexp) (write-json (object->string (.@ self sexp)) port))
+     (else (write-json-alist (.alist self) port)))))
+(defmethod (@@method :json object)
+  (lambda (self)
+    (cond
+     ;;((.has? self .type .write-json) self) ;; TODO: Uncomment after vyzo/gerbil#595 goes through
+     ((.has? self .type .json<-) ((.@ self .type .json<-) self))
+     ((.has? self sexp) (object->string (.@ self sexp)))
+     (else (hash<-object self)))))
 
 (def (json-string<- type x)
   (string<-json (json<- type x)))
