@@ -265,8 +265,8 @@ a prototype and its instance.
 If you use side-effects, it is good discipline (to be enforced in a future version of POO?)
 that any prototype used as super-prototype should be immutable
 by the time any such combination is instantiated.
-To instantiate a prototype `poo` multiple times for the purpose of side-effects,
-"just" create a new instance with `(.mix poo)`.
+To instantiate a prototype `object` multiple times for the purpose of side-effects,
+"just" create a new instance with `(.mix object)`.
 
 ### Further common concepts
 
@@ -365,7 +365,14 @@ Each entry in `slot-definitions` specifies how to compute a given named slot:
      (slot-name => function-form extra-function-args ...)
      ```
 
-  3. In the more general case that the computation may or may not invoke the inherited computation,
+  3. As a special case of the above, when the function form is `.+` which mixes
+     *before* the first prototype argument the rest of the prototype arguments,
+     the entry is:
+     ```
+     (slot-name =>.+ overriding-prototypes ...)
+     ```
+
+  4. In the more general case that the computation may or may not invoke the inherited computation,
      depending on some condition, then a user-specified symbol will be bound to
      a special form invoking that inherited computation, and the computation `form`
      may use that special form; then the entry is:
@@ -373,7 +380,7 @@ Each entry in `slot-definitions` specifies how to compute a given named slot:
      (slot-name (inherited-computation) form)
      ```
 
-  4. As a short-hand for a common case, a slot may be defined to take the value
+  5. As a short-hand for a common case, a slot may be defined to take the value
      of a same-named variable in the surrounding lexical scope. The entry is simply:
      ```
      (slot-name)
@@ -383,13 +390,25 @@ Each entry in `slot-definitions` specifies how to compute a given named slot:
      slot-name
      ```
 
-  5. As an alternative to a simple `(slot-name spec)`, `(slot-name => spec)` or `(slot-name =>.+ spec)`,
+  6. You can also define a default value for a slot.
+     This value cannot depend on either `self` or `super` arguments;
+     instead it serves as base for the recursion, the ultimate `super` argument,
+     that will override inherited defaults or be overriden by further defaults.
+     The default is computed as the most-overriding of all of them, and *then*
+     the usual methods are called. The entry for that is as follows:
+     ```
+     (slot-name ? default-value)
+     ```
+
+  7. As an alternative to a simple `(slot-name form)`, `(slot-name => form)`
+     `(slot-name =>.+ form)`, or `(slot-name ? default-value)`,
      you can write as a keyword `slot-name:` followed by the `spec`
      with the optional `=>` or `=>.+` before it.
      ```
-     slot-name: spec
-     slot-name: => spec
-     slot-name: =>.+ spec
+     slot-name: form
+     slot-name: => form
+     slot-name: =>.+ form
+     slot-name: ? default-value
      ```
 
 As a short-hand, a new variable may be defined and bound to a prototype object with the form:
@@ -411,33 +430,94 @@ where you previously would have used `{x ...}` or `(@method x ...)`.
 To combine any number of objects or recursive list of objects using inheritance,
 use the function `.mix`:
 ```
-(.mix poo1 [poo2 [poo3 poo4] poo5] poo6 [] poo7)
+(.mix object1 [object2 [object3 object4] object5] object6 [] object7)
 ```
 
 To refer to a slot in an object, use the function `.ref`:
 ```
-(.ref poo 'x)
+(.ref object 'x)
 ```
 
 To access a slot named by a constant symbol, use the macro `.get` as short-hand:
 ```
-(.get poo x)
+(.get object x)
 ```
 The macro also works with any constant object for a name;
 if multiple names are specified, the names are used in sequence
 to recursively access slots of nested objects:
 ```
-(.get poo x y z)
+(.get object x y z)
 ```
 
-You can recognize whether an object is POO with `poo?`
+You can recognize whether a value is a POO object with `object?`
 ```
-(assert-equal! (poo? (.o (x 1) (y 2))) #t)
-(assert-equal! (poo? 42) #f)
+(assert-equal! (object? (.o (x 1) (y 2))) #t)
+(assert-equal! (object? 42) #f)
 ```
 
-Two special forms allow for side-effects, breaking the pure functional interface — use with caution.
-The `.def` form adds a slot definition after the fact to an existing object prototype,
+(The predicate for Gerbil's builtin object type is reexported as `@object?`
+and its constructor as `@make-object`.)
+
+A few special forms allow for side-effects.
+They break the usual pure functional interface, so use with caution.
+
+1. The `.put!` special form side-effects the value of a slot in an object's *instance*,
+   without modifying its *prototype*.
+   You can even create slots that have no definition in the prototype:
+   ```
+   (.def o a: 1)
+   (assert-equal! (.@ o a) 1)
+   (.put! o 'a 2)
+   (.put! o 'b 3)
+   (assert-equal! (.@ o a) 2)
+   (assert-equal! (.@ o b) 3)
+   (def o2 (.mix o))
+   (assert-equal! (.@ o2 a) 1)
+   ```
+
+2. The `.set!` is like `put!` with a constant, implicitly quoted, slot name:
+   ```
+   (.def o a: 1)
+   (assert-equal! (.@ o a) 1)
+   (.set! o a 2)
+   (assert-equal! (.@ o a) 2)
+   ```
+
+3. The `.putslot!` special form will modify a method definition in the prototype.
+   Note that if the object or other objects inheriting from it have already been
+   instantiated, this change will not affect these existing instances, and that
+   you may have to explicitly call `uninstantiate-object!` on them to flush their
+   instances — which will also forget any modification from `put!`.
+   Also note that in the current implementation, the cost of this function is linear
+   in the number of slots directly defined in the prototype
+   (as opposed to defined in one of the prototype's supers).
+   The arguments are `.putslot!` are the object,
+   the slot name, and a spec, which can be one of:
+   - `($constant-slot-spec value)` for a constant value;
+   - `($thunk-slot-spec thunk)` for a zero-argument function that
+     computes the value;
+   - `($self-slot-spec fun)` for a one-argument function that
+     computes the value from the instance `self`;
+   - `($computed-slot-spec fun)` for a two-argument function that
+     computes the value from the instance `self` and
+     a function `superfun` that computes the inherited slot value.
+   ```
+   (.def o a: 1)
+   (.def (p @ o) b: 2)
+   (.putslot! o 'c ($constant-slot-spec 3))
+   (.putslot! o 'd ($thunk-slot-spec (lambda () (+ 3 4))))
+   (.putslot! o 'e ($self-slot-spec (lambda (self)
+       (map (lambda (slot) (.ref self slot)) '(a b c d)))))
+   (.putslot! o 'a ($self-slot-spec (lambda (self superfun) (+ 1 (superfun)))))
+   (assert-equal! (.@ p e) '(2 2 3 7))
+   ```
+
+4. The `.def!` special form
+
+5. The `.putdefault!`
+
+
+1. The `.def!` form adds a slot definition after the fact to an existing object prototype,
 without changing the instance; it will only affect instances using the prototype
 if they haven't used the previous definition yet.
 ```
@@ -552,7 +632,7 @@ A slot defined by conditionally using the inherited computation:
 
 ### Further examples
 
-There are more examples are in the file [`poo-test.ss`](tests/poo-test.ss).
+There are more examples are in the file [`object-test.ss`](tests/object-test.ss).
 
 ## Future Features
 
