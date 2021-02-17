@@ -74,9 +74,7 @@
 
 ;;(def (and-combination new-value old-value) (and (new-value dont-call-next-method) (old-value)))
 
-(defrules .method ()
-  ((_ object slot) (.get object .type slot))
-  ((_ object slot args ...) ((.method object .type slot) args ...)))
+(defrule (.call.method object slot args ...) ((.get object .type slot) object args ...))
 
 (.defgeneric (element? type x)
    ;;default: false
@@ -295,29 +293,29 @@
                      ,@(with-list-builder (c)
                          (def (add s v) (c (keywordify s)) (c v))
                          (.for-each! effective-slots
-                                     (lambda (name slot) (.call slot .slot.sexp<- name v add))))))
+                                     (lambda (name slot) (.call.method slot .slot.sexp<- name v add))))))
   .string<-: (compose string<-json .json<-)
   .<-string: (compose .<-json json<-string)
   .json<-: (lambda (v) (Alist
                    (with-list-builder (c)
-                     (def add (compose c cons))
+                     (def (add s v) (c (cons (symbol->string s) v)))
                      (.for-each! effective-slots
-                                 (lambda (name slot) (.call slot .slot.json<- name v add))))))
+                                 (lambda (name slot) (.call.method slot .slot.json<- name v add))))))
   .<-json: (lambda (j)
              (object<-alist supers: proto
               (with-list-builder (c)
                 (def add (compose c cons))
                 (.for-each! effective-slots
-                            (lambda (name slot) (.call slot .slot.<-json name j add))))))
+                            (lambda (name slot) (.call.method slot .slot.<-json name j add))))))
   .marshal: (lambda (v port)
               (.for-each! effective-slots
-                          (lambda (name slot) (.call slot .slot.marshal name port))))
+                          (lambda (name slot) (.call.method slot .slot.marshal name v port))))
   .unmarshal: (lambda (port)
                 (object<-alist supers: proto
                  (with-list-builder (c)
                    (def add (compose c cons))
                    (.for-each! effective-slots
-                               (lambda (name slot) (.call slot .slot.unmarshal name port add))))))
+                               (lambda (name slot) (.call.method slot .slot.unmarshal name port add))))))
   .bytes<-: (bytes<-<-marshal .marshal)
   .<-bytes: (<-bytes<-unmarshal .unmarshal)
   .tuple-list<-: (lambda (x) (map (lambda (s) (.ref x s)) (.all-slots effective-slots)))
@@ -371,14 +369,14 @@
               (.call type .marshal (.ref x slot-name) port))
              (else (error "Can't marshal missing slot" slot-name x)))))))
   .slot.unmarshal:
-    (λ (@@ slot-name c port add)
+    (λ (@@ slot-name port add)
        (with-slots (type constant optional default) @@
          (unless (.has? @@ constant)
            (let (default? (.has? @@ default))
              (cond
               ((or optional default?)
                (match (read-byte port)
-                 (0 (when default? (c slot-name default)))
+                 (0 (when default? (add slot-name default)))
                  (1 (add slot-name (.call type .unmarshal port)))))
               (else (add slot-name (.call type .unmarshal port))))))))
   .slot.sexp<-:
@@ -401,8 +399,8 @@
           (let (default? (.has? @@ default))
             (cond
              ((or optional default?)
-              (if (or (not (.slot? x slot-name))
-                      (and default? (equal? (.ref x slot-name) default)))
+              (when (and (.slot? x slot-name)
+                         (not (and default? (equal? (.ref x slot-name) default))))
                 (c slot-name (.call type .json<- (.ref x slot-name)))))
              ((.slot? x slot-name)
               (c slot-name (.call type .json<- (.ref x slot-name))))

@@ -318,9 +318,10 @@
 (def (Record . args)
   (def supers (if (keyword? (car args)) [] (pop! args)))
   {(:: @ (cons supers Class.))
-   slots: =>.+ (map (match <> ([kw type . options]
-                               (cons (symbolify kw) (apply RecordSlot type options))))
-                    (alist<-plist args))})
+   slots: =>.+ (object<-alist
+                (map (match <> ([kw type . options]
+                                (cons (symbolify kw) (apply RecordSlot type options))))
+                     (alist<-plist args)))})
 
 ;; Sum : {Kw Type} ... -> Type
 ;; Sum types aka tagged unions, each kw is a tag
