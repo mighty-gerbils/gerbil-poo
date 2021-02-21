@@ -386,8 +386,8 @@
           (let (default? (.has? @@ default))
             (cond
              ((or optional default?)
-              (if (or (not (.slot? x slot-name))
-                      (and default? (equal? (.ref x slot-name) default)))
+              (when (and (.slot? x slot-name)
+                         (not (and default? (equal? (.ref x slot-name) default))))
                 (c slot-name (.call type .sexp<- (.ref x slot-name)))))
              ((.slot? x slot-name)
               (c slot-name (.call type .sexp<- (.ref x slot-name))))
