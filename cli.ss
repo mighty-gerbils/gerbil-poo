@@ -1,18 +1,32 @@
 (export #t)
 
-(import :std/getopt :clan/cli ./object ./brace)
+(import
+  :std/generic :std/getopt :clan/cli :clan/list :clan/multicall
+  ./object ./brace)
+
+(defmethod (getopt-spec (x object))
+  (flatten-pair-tree
+   (cond
+    ((.has? x .type .getopt-spec) ((.@ x .type .getopt-spec) x))
+    ((.has? x getopt-spec) (.@ x getopt-spec))
+    (else (error "No getopt-spec" x)))))
+
+(defmethod (call-with-processed-command-line (x object) (command-line <t>) (function <t>))
+  (def process-opts
+    (cond
+     ((.has? x .type .process-opts) ((.@ x .type .process-opts) x))
+     ((.has? x process-opts) (.@ x process-opts))
+     (else (error "No getopt-spec" x))))
+  (def gopt (apply getopt (getopt-spec x)))
+  (def h (getopt-parse gopt command-line))
+  (pair-tree-for-each! process-opts (cut <> h))
+  (call-with-getopt-parse gopt h function))
 
 (def options/base {(getopt-spec ? []) (process-opts ? [])})
 
 (def (make-options getopt-spec_ process-opts_ (super options/base))
   {(:: @ super)
-   getopt-spec: => (cut append (reverse getopt-spec_) <>)
-   process-opts: => (cut append (reverse process-opts_) <>)})
+   getopt-spec: => (cut cons <> getopt-spec_)
+   process-opts: => (cut cons <> process-opts_)})
 
 (def options/backtrace (make-options getopt-spec/backtrace process-opts/backtrace))
-
-(def (process-options options arguments)
-  (def gopt (apply getopt (.@ options getopt-spec)))
-  (def opt (getopt-parse gopt arguments))
-  (for-each (cut <> opt) (reverse (.@ options process-opts)))
-  opt)

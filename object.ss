@@ -10,7 +10,7 @@
 (import
   (prefix-in (only-in <host-runtime> object? make-object) @) ;; Rename them before we shadow them
   (for-syntax :clan/base :std/iter :std/misc/hash :std/misc/list)
-  :std/lazy :std/misc/hash :std/iter :std/misc/alist :std/misc/list
+  :std/generic :std/misc/hash :std/iter :std/misc/alist :std/misc/list
   :std/sort :std/srfi/1 :std/srfi/13 :std/sugar
   :clan/base :clan/hash :clan/list :clan/syntax :clan/with-id)
 
@@ -29,7 +29,7 @@
       supers: (supers '()) ;; : (Listof Objects) ;; Actually, can be a pair-tree of Object's and nulls.
       slots: (slots '()) ;; : (Listof (Pair Symbol (SlotSpec ? ?)))
       defaults: (defaults '())) ;; : (Listof (Pair Symbol ?))
-    (set! (object-supers self) (flatten-pairs supers))
+    (set! (object-supers self) (flatten-pair-tree supers))
     (set! (object-slots self) slots)
     (set! (object-defaults self) defaults)
     (set! (object-%instance self) #f)
@@ -335,9 +335,8 @@
    (object/slot-spec self slots slot => .+ args ...))
   ((_ self slots slot (next-method) form)
    ($computed-slot-spec (lambda (self superfun)
-     (let (inherited-value (lazy (superfun)))
-       (let-syntax ((next-method (syntax-rules () ((_) (force inherited-value)))))
-         (%with-slots slots self form))))))
+     (defonce (next-method) (superfun))
+     (%with-slots slots self form))))
   ((_ self slots slot)
    ($constant-slot-spec slot)))
 
