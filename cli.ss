@@ -1,7 +1,8 @@
 (export #t)
 
 (import
-  :std/generic :std/getopt :clan/cli :clan/list :clan/multicall
+  :std/generic :std/getopt :std/sugar
+  :clan/cli :clan/hash :clan/list :clan/multicall :clan/path-config
   ./object ./brace)
 
 (defmethod (getopt-spec (x object))
@@ -30,3 +31,9 @@
    process-opts: => (cut cons <> process-opts_)})
 
 (def options/backtrace (make-options getopt-spec/backtrace process-opts/backtrace))
+
+(def options/path-config-root
+  (make-options [(option 'path-config-root "--path-config-root"
+                         help: "Directory under which to configure all runtime paths")]
+                [(lambda (opt) (awhen (it (hash-removed opt 'path-config-root))
+                            (set-path-config-root! it)))]))
