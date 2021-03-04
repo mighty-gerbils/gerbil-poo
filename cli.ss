@@ -25,7 +25,7 @@
 
 (def options/base {(getopt-spec ? []) (process-opts ? [])})
 
-(def (make-options getopt-spec_ process-opts_ (super options/base))
+(def (make-options getopt-spec_ (process-opts_ []) (super options/base))
   {(:: @ super)
    getopt-spec: => (cut cons <> getopt-spec_)
    process-opts: => (cut cons <> process-opts_)})
