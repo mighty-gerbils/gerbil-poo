@@ -146,7 +146,7 @@
   (for-each (lambda (l) (display-object l port) (newline port))
             (reverse (append c (current-error-context)))))
 
-(defstruct (<Error> exception) (tag args context) transparent: #t)
+(defstruct (<Error> Exception) (tag args context) transparent: #t)
 (def (Error tag (context '()) . args) (raise (<Error> tag args context)))
 (def (type-error (context '()) . args) (apply Error type-error: context args))
 (defmethod (@@method display-exception <Error>)
