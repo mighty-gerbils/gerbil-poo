@@ -1,6 +1,7 @@
 (export #t)
 
 (import
+  :gerbil/gambit/ports
   :std/generic :std/getopt :std/sugar
   :clan/cli :clan/hash :clan/list :clan/multicall :clan/path-config
   ./object ./brace)
@@ -23,7 +24,7 @@
   (pair-tree-for-each! process-opts (cut <> h))
   (call-with-getopt-parse gopt h function))
 
-(def options/base {(getopt-spec ? []) (process-opts ? [])})
+(def options/base {getopt-spec: ? [] process-opts: ? []})
 
 (def (make-options getopt-spec_ (process-opts_ []) (super options/base))
   {(:: @ super)
@@ -37,3 +38,13 @@
                          help: "Directory under which to configure all runtime paths")]
                 [(lambda (opt) (awhen (it (hash-removed opt 'path-config-root))
                             (set-path-config-root! it)))]))
+
+(def options/help
+  {(:: @ [])
+   getopt-spec: => (cut cons <> (flag 'help "--help" help: "Show help"))
+   process-opts: => (cut cons <>
+                         (lambda (opt) (when (hash-get opt 'help)
+                                    (let (gopt (apply getopt (flatten-pair-tree getopt-spec)))
+                                      (getopt-display-help gopt (current-program-string))
+                                      (force-output)
+                                      (exit 0)))))})
