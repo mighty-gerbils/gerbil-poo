@@ -53,19 +53,32 @@
 
 (defmethod (@@method :pr object)
   (λ (self (port (current-output-port)) (options (current-representation-options)))
+    (def (d . l) (for-each (cut display <> port) l))
     (cond
      ((and (object-%instance self) (not (object-%slot-funs self)))
-      (let ()
-        (def (d . l) (for-each (cut display <> port) l))
-        (d "#" (object->serial-number self) "#;{(inconsistent object)")
-        (for-each (lambda (slot) (d " " slot)) (map car (append (object-slots self) (object-defaults self))))
-        (d "}")))
+      (d "#" (object->serial-number self) "#;{(inconsistent object)")
+      (for-each (lambda (slot) (d " " slot)) (map car (append (object-slots self) (object-defaults self))))
+      (d "}"))
      ((.has? self .type print-object) ((.@ self .type print-object) self port options))
      ((.has? self .type .sexp<-) (write ((.@ self .type .sexp<-) self) port))
      ((.has? self .type) (print-class-object self port options))
      ((.has? self .pr) (.call self .pr port options))
      ((.has? self sexp) (write (.@ self sexp) port))
-     (else (print-unrepresentable-object self port options)))))
+     ;; TODO: have a better fallback
+     (else
+      (let ()
+        (def first? #t)
+        (def slots (.all-slots self))
+        (def h (or (object-%instance self) (hash)))
+        (d "#" (object->serial-number self) " #;{")
+        (for-each (lambda (k)
+                    (if first? (set! first? #f) (d " "))
+                    (d (symbol->string k) ": ")
+                    (if (and h (hash-key? h k))
+                      (pr (hash-get h k) port options)
+                      (d "…")))
+                  slots))
+      (d "}")))))
 
 (def (print-class-object
       x (port (current-output-port)) (options (current-representation-options)))

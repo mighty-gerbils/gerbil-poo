@@ -244,7 +244,7 @@
 (define-type (TypeValuePair @ Type.)
   .element?: (match <> ([t . v] (and (element? Type t) (element? t v))) (_ #f))
   .validate: (lambda (x (ctx '()))
-               (def c [[validating: x] . ctx])
+               (def c [[validating: [@] x] . ctx])
                (match x ([t . v] (validate Type t ctx) (validate t x ctx))
                       (_ (type-error ctx "not a type-value pair" x))))
   .sexp<-: (match <> ([t . v] `(cons ,(.@ t sexp) ,(sexp<- t v))))
@@ -335,6 +335,15 @@
       variant-names: (map car a)
       types: (map cdr a)
       make: (lambda (tag value) {(tag) (value)})
+      .validate:
+      (lambda (x (ctx '()))
+        (def c [[validating: [@] x] . ctx])
+        (match x
+          ({tag value}
+           (unless (.slot? variants tag) (type-error c "invalid tag" tag))
+           (validate (.ref variants tag) value c)
+           x)
+          (_ (type-error c "not a tag-value variant"))))
       .element?:
       (lambda (v)
         (match v

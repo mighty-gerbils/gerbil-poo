@@ -152,8 +152,7 @@
 (defmethod (@@method display-exception <Error>)
   (lambda (self port)
     (display-context (<Error>-context self) port)
-    (display-object (cons (<Error>-tag self) (<Error>-args self)) port)
-    (newline port))
+    (display-object [(<Error>-tag self) " " (<Error>-args self)... "\n"] port))
   rebind: #t)
 
 ;; TODO: teach .defgeneric about optional arguments.
