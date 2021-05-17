@@ -152,7 +152,8 @@ Therefore, to instantiate a prototype, you must first *linearize*
 its inheritance DAG into a *precedence list*,
 a total order that completes the DAG, of which the DAG is subset.
 There are many ways to linearize it, but modern languages use
-the C3 linearization algorithm, initially introduced in Dylan,
+the [C3 linearization algorithm](https://en.wikipedia.org/wiki/C3_linearization),
+initially introduced in Dylan,
 for its nice properties: notably, it ensures that the precedence list
 of a super-prototype is always a sub-list (not necessarily contiguously)
 of the precedence list of its sub-prototypes.

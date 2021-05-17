@@ -137,9 +137,17 @@
 ;;; Converting to/from bytes
 ;; Unlike with marshaling, these bytes do NOT have to be self-delimited in case length is variable.
 
+;; The bytes<- and its corresponding .bytes<- methods return bytes (a byte vector)
+;; that need not be self-delimiting, as contrasted to the marshal method that must output
+;; a self-delimiting sequence of bytes. There is usually no difference for a fixed-size data types,
+;; but there may be a difference for variable-size types, wherein bytes<- may omit size information
+;; that marshal must include.
 ;; : Bytes <- 'a:Type 'a
 (.defgeneric (bytes<- type x) slot: .bytes<-)
 
+;; The <-bytes function and its .<-bytes methods take bytes as output by the bytes<- function,
+;; and return an object of the given type that will be equal to the originally encoded object,
+;; according to whichever equality predicate makes sense for the data type.
 ;; : 'a <- 'a:Type Bytes
 (.defgeneric (<-bytes type b) slot: .<-bytes)
 
