@@ -176,14 +176,15 @@
       (assert-equal! (.@ o x) 2))
 
     (test-case "testing slot definitions: (slot-name =>.+ overriding-prototype)"
-      (def p {x: {y: 1}})
+      (def p {x: {y: 1 z: 5}})
       (def o {(:: @ p) x: =>.+ {y: 2} })
-      (assert-equal! (.@ (.@ o x) y) 2))
+      (assert-equal! (.@ (.@ o x) y) 2)
+      (assert-equal! (.@ (.@ o x) z) 5))
 
     (test-case "testing slot definitions: (slot-name (inherited-computation) form)"
       (def (f) 1)
-      (def (id a) a)
-      (def o {x: f id})
+      (defrules use-f () (use-f (f)))
+      (def o {x: f use-f})
       (assert-equal! ((.@ o x)) 1))
 
     (test-case "testing slot definitions: slot-name / (slot-name) -- lexical scope for objects"
