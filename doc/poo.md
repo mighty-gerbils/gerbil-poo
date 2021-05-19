@@ -372,6 +372,15 @@ Each entry in `slot-definitions` specifies how to compute a given named slot:
      ```
      (slot-name =>.+ overriding-prototype)
      ```
+     
+     A simple example, where we override the original prototype argument `{y: 1}`,
+     to `{y: 2}`.
+     ```
+     (def p {x: {y: 1 z: 5}})
+     (def o {(:: @ p) x: =>.+ {y: 2} })
+     (assert-equal! (.@ (.@ o x) y) 2)
+     (assert-equal! (.@ (.@ o x) z) 5)
+     ```
 
   4. In the more general case that the computation may or may not invoke the inherited computation,
      depending on some condition, then a user-specified symbol will be bound to
@@ -379,6 +388,15 @@ Each entry in `slot-definitions` specifies how to compute a given named slot:
      may use that special form; then the entry is:
      ```
      (slot-name (inherited-computation) form)
+     ```
+     
+     A simple example, where we have a computation `f` which evaluates to 1,
+     a special form `use-f` which expands to use computation `f`.
+     ```
+     (def (f) 1)
+     (defrules use-f () (use-f (f)))
+     (def o {x: f use-f})
+     (assert-equal! ((.@ o x)) 1)
      ```
 
   5. As a short-hand for a common case, a slot may be defined to take the value
