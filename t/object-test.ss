@@ -159,6 +159,49 @@
                                          (map (lambda (slot) (.ref self slot)) '(a b c d)))))
       (.putslot! p 'a ($computed-slot-spec (lambda (self superfun) (+ 1 (superfun)))))
       (assert-equal! (.@ p e) '(2 2 3 7)))
+    (test-case "testing .+"
+      (def o  (.+ {x: 1 y: 2} {z: 3}))
+      (def o2 {x: 1 y: 2 z: 3})
+      (assert-equal! (.@ o z) (.@ o2 z)))
+
+    (test-case "testing slot definitions: (slot-name form)"
+      (def o {x: 1 y: 2})
+      (assert-equal! (.@ o x) 1)
+      (assert-equal! (.@ o y) 2))
+
+    (test-case "testing slot definitions: (slot-name => function-form extra-function-args ...)"
+      (def p {x: 1})
+      (def o {(:: @ p) x: => 1+ y: 3})
+      (assert-equal! (.@ o y) 3)
+      (assert-equal! (.@ o x) 2))
+
+    (test-case "testing slot definitions: (slot-name =>.+ overriding-prototype)"
+      (def p {x: {y: 1}})
+      (def o {(:: @ p) x: =>.+ {y: 2} })
+      (assert-equal! (.@ (.@ o x) y) 2))
+
+    (test-case "testing slot definitions: (slot-name (inherited-computation) form)"
+      (def (f) 1)
+      (def (id a) a)
+      (def o {x: f id})
+      (assert-equal! ((.@ o x)) 1))
+
+    (test-case "testing slot definitions: slot-name / (slot-name) -- lexical scope for objects"
+      (def x 1)
+      (def o {x})
+      (assert-equal! (.@ o x) 1))
+
+    (test-case "testing slot definitions: (slot-name ? default-value)"
+      (def o {x: 1})
+      (def o2 {(:: @ o) x: ? 2 y: ? 3})
+      (assert-equal! (.@ o2 x) 1)
+      (assert-equal! (.@ o2 y) 3))
+
+    (test-case "testing single inheritance"
+      (def o {x: 1})
+      (def o2 {(:: @ o)})
+      (assert-equal! (.@ o x) 1))
+
     (test-case "testing multiple inheritance"
       (def o {o: ? 0 x: => 1+ l: => (cut cons 'o <>)})
       (def a {(:: @ o) o: ? 1 y: 3 l: => (cut cons 'a <>)})
