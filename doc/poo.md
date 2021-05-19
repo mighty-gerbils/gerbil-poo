@@ -32,6 +32,10 @@ with onerous restrictions as is the case in most "OO" languages (see below).
 _Typically_, an *instance* is shaped as a set of *slots*,
 each binding a *name* to a *value*.
 
+(Note: in other languages, *slots* may instead be called "fields" or "attributes";
+or, when the associated values are functions, the slots, or their values,
+are often called "methods" or "members" (or "member functions") of the instance.)
+
 A *prototype* is an incremental description of how each slot of an instance
 can be computed from (a) the other slots of the instance,
 and (b) slot computations *inherited* from some super-prototypes.
@@ -44,10 +48,6 @@ The slot names are usually strings, symbols (interned strings) in symbolic langu
 or sometimes identifiers (compile-time entities, often elided at runtime for performance).
 The values are arbitrary, but their may be formal or informal constraints
 for the values associated to a given slot to be restricted to a type associated to the slot.
-
-(Note: in other languages, *slots* may instead be called "fields" or "attributes";
-or, when the associated values are functions, the slots, or their values,
-are often called "methods" or "members" (or "member functions") of the instance.)
 
 Thus, in this common case, the *instances* are some kind of "records" or "dictionaries"
 —indeed often class or typeclass descriptors (see below).
