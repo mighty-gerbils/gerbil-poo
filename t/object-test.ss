@@ -7,6 +7,7 @@
   :gerbil/gambit/ports
   :std/format :std/sort :std/srfi/13 :std/test
   :clan/assert :clan/base :clan/debug
+  :std/sugar
   ../object ../brace)
 
 (def object-test
@@ -202,6 +203,15 @@
       (def o {x: 1})
       (def o2 {(:: @ o)})
       (assert-equal! (.@ o x) 1))
+
+    (test-case "testing POO Definition Syntax: extra-slots"
+      (def o {(:: @ [] y)
+        x: y}) ;; what is y?
+      (defrule (make-o-with val)
+        {(:: @ [o]) y: val}) ;; it is bound to `val` when we call make-o-with
+      (def i (make-o-with 1)) ;; as is the case here with i.
+      (check-equal? (.@ i x) 1)
+      (check-equal? (.@ i y) 1))
 
     (test-case "testing multiple inheritance"
       (def o {o: ? 0 x: => 1+ l: => (cut cons 'o <>)})

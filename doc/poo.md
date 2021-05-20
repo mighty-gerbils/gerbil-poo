@@ -350,6 +350,17 @@ In that list:
     since those in the current prototype will already be implicitly included
     in the list of symbols to bind.
 
+    As an example, we have a `slot-name` x, which is bound in the macro `make-o-with`:
+    ```lisp
+    (def o {(:: @ [] y)
+      x: y}) ;; what is y?
+    (defrule (make-o-with val)
+      {(:: @ [o]) y: val}) ;; it is bound to `val` when we call make-o-with
+    (def i (make-o-with 1)) ;; as is the case here with i.
+    (check-equal? (.@ i x) 1)
+    (check-equal? (.@ i y) 1)
+    ```
+
 Each entry in `slot-definitions` specifies how to compute a given named slot:
 
   1. When the computation `form` wholly ignores the inherited computation, and *overrides* it,
