@@ -206,10 +206,10 @@
 
     (test-case "testing POO Definition Syntax: extra-slots"
       (def o {(:: @ [] y)
-        x: y}) ;; what is y?
+        x: y})
       (defrule (make-o-with val)
-        {(:: @ [o]) y: val}) ;; it is bound to `val` when we call make-o-with
-      (def i (make-o-with 1)) ;; as is the case here with i.
+        {(:: @ [o]) y: val})
+      (def i (make-o-with 1))
       (check-equal? (.@ i x) 1)
       (check-equal? (.@ i y) 1))
 

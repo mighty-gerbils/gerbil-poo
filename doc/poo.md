@@ -350,16 +350,20 @@ In that list:
     since those in the current prototype will already be implicitly included
     in the list of symbols to bind.
 
-    As an example, we have a `slot-name` x, which is bound in the macro `make-o-with`:
     ```lisp
     (def o {(:: @ [] y)
-      x: y}) ;; what is y?
+      x: y})
     (defrule (make-o-with val)
-      {(:: @ [o]) y: val}) ;; it is bound to `val` when we call make-o-with
-    (def i (make-o-with 1)) ;; as is the case here with i.
+      {(:: @ [o]) y: val})
+    (def i (make-o-with 1))
     (check-equal? (.@ i x) 1)
     (check-equal? (.@ i y) 1)
     ```
+    
+    In the above example, `y` is a lazy access to another slot named `y`.
+    If you try to compute `(.@ o x)` it will fail saying that the slot is unbound.
+    If you compose `o` with another prototype that defines `y` and doesn't override `x`,
+    then `x` will be bound to the same value as `y`.
 
 Each entry in `slot-definitions` specifies how to compute a given named slot:
 
