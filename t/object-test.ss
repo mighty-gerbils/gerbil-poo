@@ -218,4 +218,10 @@
       (def a {(:: @ o) o: ? 1 y: 3 l: => (cut cons 'a <>)})
       (def b {(:: @ o) o: ? 2 x: => 1+ l: => (cut cons 'b <>)})
       (def f {(:: @ [a b]) l: ? '(f) x: ? 4})
-      (check-equal? (.alist f) '((x . 6) (l a b o f) (o . 1) (y . 3))))))
+      (check-equal? (.alist f) '((x . 6) (l a b o f) (o . 1) (y . 3))))
+
+    (test-case "testing slot-name scoping"
+      (def x 1)
+      (def o {x: x})
+      (check-equal? (.@ o x) x))
+    ))
