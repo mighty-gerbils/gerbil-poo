@@ -78,6 +78,12 @@
 (.def (BytesN. @ [methods.bytes Type.] n)
   sexp: `(BytesN ,n)
   .element?: (λ (x) (and (bytes? x) (= (bytes-length x) n)))
+  .validate: (λ (x (context '()))
+               (unless (bytes? x) (type-error context Type @ [value: x]))
+               (unless (= (bytes-length x) n)
+                 (type-error context Type @ [value: x]
+                   (format "\n  length mismatch: expected ~a, given ~a" n (bytes-length x))))
+               x)
   .sexp<-: (.@ Bytes .sexp<-)
   .length-in-bytes: n
   .zero: (make-bytes n)
