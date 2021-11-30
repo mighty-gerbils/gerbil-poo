@@ -2,7 +2,10 @@
 
 (import
   :gerbil/gambit/bytes :gerbil/gambit/hash :gerbil/gambit/ports
-  :std/format :std/generic :std/iter :std/misc/repr :std/sugar :std/assert :std/text/json
+  :std/assert :std/format :std/generic :std/iter
+  :std/misc/repr
+  :std/sugar
+  :std/text/json
   :clan/base :clan/hash :clan/io :clan/json
   ./object ./mop ./brace)
 

@@ -9,8 +9,10 @@
   (for-syntax :std/srfi/1 :clan/syntax)
   :clan/syntax
   :gerbil/gambit/bytes :gerbil/gambit/exact :gerbil/gambit/ports
-  :std/error :std/format :std/generic :std/iter :std/lazy
-  :std/misc/list :std/misc/repr :std/srfi/1 :std/sugar :std/assert
+  :std/assert :std/error :std/format :std/generic :std/iter :std/lazy
+  :std/misc/list :std/misc/repr
+  :std/srfi/1
+  :std/sugar
   :clan/base :clan/error :clan/hash :clan/io :clan/json :clan/list :clan/syntax
   ./object ./brace)
 
