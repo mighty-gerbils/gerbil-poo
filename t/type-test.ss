@@ -3,7 +3,7 @@
 
 (import
   :gerbil/gambit/ports
-  :std/format :std/sort :std/pregexp :std/srfi/13 :std/sugar :std/test
+  :std/format :std/sort :std/pregexp :std/srfi/13 :std/sugar :std/assert :std/test
   :clan/assert :clan/base
   ../object ../mop ../number ../type)
 

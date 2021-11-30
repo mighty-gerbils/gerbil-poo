@@ -2,7 +2,7 @@
 
 (import
   :gerbil/gambit/ports
-  :std/format :std/misc/repr :std/sort :std/srfi/13 :std/sugar :std/test
+  :std/format :std/misc/repr :std/sort :std/srfi/13 :std/sugar :std/assert :std/test
   :clan/assert :clan/base :clan/debug
   ../object ../mop ../number ../type ../brace)
 
