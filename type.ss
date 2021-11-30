@@ -5,8 +5,11 @@
 
 (import
   :gerbil/gambit/bits :gerbil/gambit/bytes :gerbil/gambit/ports
-  :std/format :std/iter :std/lazy :std/misc/hash :std/misc/list
-  :std/srfi/1 :std/srfi/43 :std/sugar :std/text/hex :std/text/json
+  :std/assert :std/format :std/iter :std/lazy
+  :std/misc/hash :std/misc/list
+  :std/srfi/1 :std/srfi/43
+  :std/sugar
+  :std/text/hex :std/text/json
   :clan/assert :clan/base :clan/hash :clan/io :clan/json :clan/list :clan/maybe :clan/number
   :clan/syntax :clan/with-id
   ./object ./mop ./brace ./io ./number)

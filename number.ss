@@ -7,7 +7,10 @@
 
 (import
   :gerbil/gambit/bits :gerbil/gambit/bytes :gerbil/gambit/exact :gerbil/gambit/ports :scheme/base
-  :std/iter :std/misc/bytes :std/misc/hash :std/srfi/1 :std/sugar
+  :std/assert :std/iter
+  :std/misc/bytes :std/misc/hash
+  :std/srfi/1
+  :std/sugar
   :clan/base :clan/io :clan/number
   ./object ./mop ./brace ./io)
 
