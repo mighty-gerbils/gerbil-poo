@@ -46,6 +46,13 @@ e.g. single-inheritance, static strong typing with a given system, etc.
 Allow handling of undefined methods with a mechanism akin to
 CLOS's `no-applicable-method` or smalltalk's `doesNotUnderstand`.
 
+Use that mechanism to implement "lazy delegation" like
+[Fisher's and Shivers' Ziggurat](https://www.ccs.neu.edu/home/shivers/papers/ziggurat-jfp.pdf),
+by inheriting from `(fallback-to ,lazy-expr)` or something,
+which implements the `no-applicable-method` protocol by
+having it delegate messages to some `.fallback-handler` field lazily initialized
+with the provided expression.
+
 ### MOP for method-combination
 
 Allow for compositional definition of method-combination, and more generally of non-record objects:
