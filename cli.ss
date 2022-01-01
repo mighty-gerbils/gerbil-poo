@@ -40,8 +40,8 @@
                             (set-path-config-root! it)))]))
 
 (def options/help
-  {(:: @ [])
-   getopt-spec: => (cut cons <> (flag 'help "--help" help: "Show help"))
+  {(:: @ [options/base])
+   getopt-spec: => (cut cons <> (flag 'help "-h" "--help" help: "Show help")) ;; or should it be -? or both?
    process-opts: => (cut cons <>
                          (lambda (opt) (when (hash-get opt 'help)
                                     (let (gopt (apply getopt (flatten-pair-tree getopt-spec)))
