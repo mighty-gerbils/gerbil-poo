@@ -58,7 +58,7 @@
   (λ (self (port (current-output-port)) (options (current-representation-options)))
     (def (d . l) (for-each (cut display <> port) l))
     (cond
-     ((and (object-%instance self) (not (object-%slot-funs self)))
+     ((and (object-%instance self) (not (object-%slots self)))
       (d "#" (object->serial-number self) "#;{(inconsistent object)")
       (for-each (lambda (slot) (d " " slot)) (map car (append (object-slots self) (object-defaults self))))
       (d "}"))
@@ -179,10 +179,10 @@
 ;;; See also ##inverse-eval.
 (defmethod (@@method :wr object)
   (lambda (self we)
-    (def inconsistent? (and (object-%instance self) (not (object-%slot-funs self))))
+    (def inconsistent? (and (object-%instance self) (not (object-%precedence-list self))))
     (unless inconsistent?
       (ignore-errors (instantiate-object! self)))
-    (set! inconsistent? (and (object-%instance self) (not (object-%slot-funs self))))
+    (set! inconsistent? (and (object-%instance self) (not (object-%precedence-list self))))
     (defvalues (slots h)
       (if inconsistent?
         (values (map car (append (object-slots self) (object-defaults self))) (hash))

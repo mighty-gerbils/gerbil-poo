@@ -19,9 +19,10 @@
   (supers ;; : (Listof (Object ?))
    slots ;; : (Listof (Pair Symbol (SlotSpec ?))) ; direct slot methods in reverse order
    defaults ;; : (Listof (Pair Symbol ?)) ; direct slot defaults in reverse order
+   %slots ;; : (Table (SlotSpec ?) <- Symbol)) ; direct slot methods as table
+   %defaults ;; : (Table ? <- Symbol)) ; direct slot defaults as table
    %instance ;; : (Table (A_ k) <- k:Sym) ; hash table from slot keys to slot values
    %precedence-list ;; : (Listof (Object ?)) ; linearization of the supers DAG
-   %slot-funs ;; : (Table (Fun (A_ k)) <- k:Symbol) ; functions to compute slots
    %all-slots) ;; : (Listof Symbol) ; definition order for all slot keys
   constructor: :init!)
 (defmethod {:init! object}
@@ -32,9 +33,10 @@
     (set! (object-supers self) (flatten-pair-tree supers))
     (set! (object-slots self) slots)
     (set! (object-defaults self) defaults)
+    (set! (object-%slots self) (list->hash-table slots))
+    (set! (object-%defaults self) (list->hash-table defaults))
     (set! (object-%instance self) #f)
     (set! (object-%precedence-list self) #f)
-    (set! (object-%slot-funs self) #f)
     (set! (object-%all-slots self) #f)))
 
 (def (instantiate-object! self)
@@ -42,15 +44,15 @@
     (unless (object-%instance self)
       (set! (object-%instance self) (make-hash-table))
       (compute-precedence-list! self)
-      (compute-slot-funs! self)
-      #;(check-assertions! self)) ;; TODO: allow for instantiation-time assertions
+      ;; TODO: Call an initialize-object! method with a default default of NOP?
+      ;; TODO: Have said method itself call a check-initial-invariants! method?
+      #;((.ref self 'initialize-object!)))
     (error "Not an object" self)))
 
 (def (uninstantiate-object! self)
   (when (object-%instance self)
     (set! (object-%instance self) #f)
     (set! (object-%precedence-list self) #f)
-    (set! (object-%slot-funs self) #f)
     (set! (object-%all-slots self) #f)))
 
 (defstruct (InvalidObject Exception) (slots) transparent: #t)
@@ -71,54 +73,45 @@
       (set! (object-%precedence-list self) precedence-list)
       precedence-list))))
 
-(def (compute-slot-funs! self)
-  (def h (make-hash-table))
-  (def supers (reverse (object-%precedence-list self)))
-  ;; Handle defaults
-  (for (super supers)
-    (for (([slot . value] (object-defaults super)))
-      (hash-put! h slot (constantly value))))
-  ;; Handle methods
-  (for (super supers)
-    (for (([slot . spec] (object-slots super)))
-      (hash-ensure-modify! h slot
-                           (lambda () (cut no-applicable-method self slot))
-                           (cut apply-slot-spec self spec <>))))
-  (set! (object-%slot-funs self) h))
-
-;; Given a list of list of keys, in precedence order,
-;; return a list of keys from containing from left to right
-;; all the keys from tail to head of the precedence list, skipping repetitions.
-(def (merge-super-slots super-slots)
-  (def h (make-hash-table))
-  (with-list-builder (c)
-    (for-each (lambda (l)
-    (for-each (lambda (k)
-      (unless (hash-key? h k)
-        (hash-put! h k #t) (c k)))
-    l)) (reverse super-slots))))
-
 (defstruct $slot-spec () transparent: #t) ;; = (SlotSpec A k)
 (defstruct ($constant-slot-spec $slot-spec) (value) transparent: #t) ;; constant value
 (defstruct ($thunk-slot-spec $slot-spec) (thunk) transparent: #t) ;; thunk
 (defstruct ($self-slot-spec $slot-spec) (fun) transparent: #t) ;; fun to be passed self as argument, not super
 (defstruct ($computed-slot-spec $slot-spec) (fun) transparent: #t) ;; fun to be passed self and superfun as arguments
 
-(def (apply-slot-spec self spec superfun)
+(def (compute-slot-spec self spec superfun)
   (match spec
-    (($constant-slot-spec val) (constantly val))
-    (($thunk-slot-spec fun) fun)
-    (($self-slot-spec fun) (cut fun self))
-    (($computed-slot-spec fun) (cut fun self superfun))))
+    (($constant-slot-spec val) val)
+    (($thunk-slot-spec fun) (fun))
+    (($self-slot-spec fun) (fun self))
+    (($computed-slot-spec fun) (fun self superfun))
+    (#f (superfun))))
 
 (def (object-instance self)
   (instantiate-object! self)
   (object-%instance self))
 
-(def (.ref self slot)
+(def (compute-slot self slot precedence-list default)
+  (match precedence-list
+    ([super . more]
+     (let (spec (hash-get (object-%slots super) slot))
+       (if spec
+         (compute-slot-spec spec self (cut compute-slot self slot more default))
+         (compute-slot self slot more default))))
+    ([] (default))))
+
+(def (compute-slot-default self slot (default #f))
+  (let loop ((supers (object-%precedence-list self)))
+    (match supers
+      ([super . more] (hash-ref/default (object-defaults super) slot (cut loop more)))
+      ([] (if default
+            (default)
+            (no-applicable-method self slot))))))
+
+(def (.ref self slot (default #f))
   (hash-ensure-ref (object-instance self) slot
-                   (lambda () ((hash-ref/default (object-%slot-funs self) slot
-                                            (cut cut no-applicable-method self slot))))))
+                   (lambda () (compute-slot self slot (object-%precedence-list self)
+                                       (cut compute-slot-default self slot default)))))
 
 ;; Get an existing cached slot value from an object
 (def (.ref/cached self slot (default false))
@@ -158,7 +151,7 @@
 ;; : Bool <- (Object _) Symbol
 (def (.slot? self slot)
   (instantiate-object! self)
-  (hash-key? (object-%slot-funs self) slot))
+  (and (member slot (object-%all-slots self)) #t))
 
 (defrules .has? ()
   ((_ x) #t)
@@ -169,9 +162,11 @@
 (def (.all-slots self)
   (instantiate-object! self)
   (or (object-%all-slots self)
-      (let (esl (merge-super-slots
-                 (map (lambda (super) (map car (append (object-slots super) (object-defaults super))))
-                      (object-%precedence-list self))))
+      (let (esl (with-deduplicated-list-builder equal? (c)
+                  (for-each! (object-%precedence-list self)
+                             (λ (super)
+                               (for-each! (object-slots super) (compose c car))
+                               (for-each! (object-defaults super) (compose c car))))))
         (set! (object-%all-slots self) esl)
         esl)))
 
