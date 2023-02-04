@@ -13,9 +13,4 @@ Gerbil-POO is distributed under the Apache License, version 2.0. See the file [L
 If you'd like to build your own object system, with its own optimized meta-object protocol
 to implement objects efficiently, come join the team!
 
-Here are a few projects you might be interested in:
-
-* Implement the "usual" optimizations that e.g. SBCL uses for CLOS.
-* [A good type system for prototype inheritance](https://github.com/fare/projects/issues/3)
-* [A compositional MOP for Prototype Inheritance](https://github.com/fare/projects/issues/7)
-* [Efficient, Incremental, Generic, Isomorphism-aware, Correct Data Structures](https://github.com/fare/projects/issues/10)
+See the [doc/TODO.md](doc/TODO.md) document for projects.

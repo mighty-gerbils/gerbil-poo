@@ -4,9 +4,9 @@ In the future, we may add the following features and optimizations.
 
 ## Meta-Object Protocol
 
-Redefine POO in a more compositional way,
-with a Meta-Object Protocol in the spirit of the CLOS MOP.
-https://github.com/fare/projects/issues/7
+Redefine POO using
+[a compositional MOP for Prototype Inheritance](https://github.com/fare/projects/issues/7),
+i.e. a Meta-Object Protocol in the spirit of the CLOS MOP.
 
 ### Sources of Inspiration
 
@@ -118,7 +118,7 @@ as well as additional type-specific accessors or extension points, encoding info
 
 The "prototype" is itself an object, that specifies more than simply a function (see above).
 
-IF semantically the instance type is a table from resolved-identifiers to values,
+*If* semantically the instance type is a table from resolved-identifiers to values,
 rather than symbol to values,
 then maybe the "prototype" field is such a value with
 a special identifier `prototype` defined in the MOP.
@@ -183,18 +183,7 @@ though it might be simpler start to experiment with meta-object protocols).
 
   * A better implementation of Jsonnet and/or Nix in Gerbil, based on POO (?)
 
-  * Design and implement a type system that works well with POO.
-    https://github.com/fare/projects/issues/3
-    This type system probably would have some notion of subtyping, such that
-    a function prototype has type `(forall a (forall b < a (b <- (b <- a) <- a)))`.
-
-## Multiple inheritance
-
-Implement a proper inheritence DAG with a list of super-prototypes from which a
-prototype-precedence list is deduced, rather than require the user to supply the precedence list.
-See my explanation about [POP.nix](https://github.com/muknio/nixpkgs/blob/devel/lib/pop.md).
-
-Adopt the C3 linearization algorithm. It seems to be the right thing.
+  * Identify and implement the "usual" optimizations that e.g. SBCL uses for CLOS.
 
 ## Data representation
 
@@ -264,6 +253,15 @@ Multimethod dispatch: the earlier arguments would take priority over later one f
 
   * Look what we can save from [TinyCLOS](https://github.com/ultraschemer/gambit-tiny-clos/blob/master/tiny-clos/core.scm) ?
 
+##
+
+  * Design and implement a type system that works well with POO.
+    https://github.com/fare/projects/issues/3
+    This type system probably would have some notion of subtyping, such that
+    a function prototype has type `(forall a (forall b < a (b <- (b <- a) <- a)))`.
+* [A good type system for prototype inheritance](https://github.com/fare/projects/issues/3)
+
+
 ## Notes
 
 We have to start with a gambit: we pay a price for our choice of representation,
@@ -326,3 +324,18 @@ contains a list of layers, one for each prototype in the list, that maps slot na
 for the definitions present in that given prototype.
 The first layer can also serve to cache all slot computations and
 hold values of slots modified by side-effects.
+
+## Generic Data Structure Library
+
+On top of Gerbil-POO, build an
+[Efficient, Incremental, Generic, Isomorphism-aware, Correct Data Structures](https://github.com/fare/projects/issues/10)
+
+## Property-based testing
+
+Use type descriptors as the basis for a property-based testing library,
+in the style of
+[QuickCheck (Haskell)](https://www.cs.tufts.edu/~nr/cs257/archive/john-hughes/quick.pdf),
+[rackcheck (Racket)](https://docs.racket-lang.org/rackcheck/index.html),
+[guile-quickcheck (Guile)](https://ngyro.com/software/guile-quickcheck.html),
+[test-generative (Chicken)](https://wiki.call-cc.org/eggref/5/test-generative),
+[check-it (Common Lisp)](https://github.com/DalekBaldwin/check-it)...
