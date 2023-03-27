@@ -162,9 +162,9 @@
   .marshal: (lambda (x port) (marshal .Bytes (.bytes<- x) port))
   .unmarshal: (lambda (port) (.<-bytes (unmarshal .Bytes port))))
 
-(define-type (methods.marshal<-fixed-length-bytes @ [] .<-bytes .bytes<- length-in-bytes)
+(define-type (methods.marshal<-fixed-length-bytes @ [] .<-bytes .bytes<- .length-in-bytes)
   .marshal: (lambda (x port) (write-bytes (.bytes<- x) port))
-  .unmarshal: (lambda (port) (.<-bytes (unmarshal-n-bytes length-in-bytes port))))
+  .unmarshal: (lambda (port) (.<-bytes (unmarshal-n-bytes .length-in-bytes port))))
 
 ;;; Converting to/from string
 

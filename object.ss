@@ -477,7 +477,6 @@
           (hash-remove! added-hash slot) (c [slot . spec])))))
   (make-object slots: slots supers: (object-supers self) defaults: (object-defaults self)))
 
-;; TODO: a syntax that allows for => / =>.+ overrides as well as setting values.
 ;; TODO: find an efficient way to repeatedly override one field in a pure way without leaking memory,
 ;; in O(log n) rather than O(n)?
 ;; TODO: maybe have explicitly distinct variants of stateful vs pure object?

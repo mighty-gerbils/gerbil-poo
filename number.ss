@@ -15,7 +15,7 @@
   ./object ./mop ./brace ./io)
 
 ;; TODO: basic interface for arithmetics, with proper type signatures.
-(define-type (Number @ Type.)
+(define-type (Number @ Type. .validate)
   .element?: number?
   .sexp<-: identity
   .add: +
@@ -24,7 +24,7 @@
   .div: /
   .zero: 0
   .one: 1
-  .<-string: (lambda (x) (validate @ (string->number x)))
+  .<-string: (lambda (x) (.validate (string->number x)))
   .string<-: number->string
   .=?: (cut = <> <>))
 
@@ -47,10 +47,14 @@
   .max: max
   .min: min)
 
-(define-type (Integer @ [methods.bytes<-marshal Real] .string<- .<-string)
+(define-type (Integer @ [Real] .string<- .<-string)
   .element?: exact-integer?
   .json<-: (lambda (x) (if (<= (integer-length x) 53) x (.string<- x)))
   .<-json: (lambda (x) (if (exact-integer? x) x (.<-string x)))
+  .marshal: write-varint
+  .unmarshal: read-varint
+  .bytes<-: bytes<-sint ;; note: encoding shorter (and thus different) from the marshalling
+  .<-bytes: sint<-bytes
   .div: floor-quotient
   .mod: modulo
   .logand: bitwise-and
@@ -59,8 +63,6 @@
   .lognot: bitwise-not ;; more bitwise operations, see Gambit
   .shift-left: arithmetic-shift
   .shift-right: (λ (x n) (arithmetic-shift x (- n)))
-  .marshal: write-varint
-  .unmarshal: read-varint
   ;; extract-bit-field test-bit-field? integer-length integer-length<? ...
   .succ: 1+
   .pred: 1-)
@@ -68,23 +70,26 @@
 (define-type (Nat @ Integer)
   .marshal: write-varnat
   .unmarshal: read-varnat
+  .bytes<-: bytes<-nat ;; note: encoding shorter (and thus different) from the marshalling
+  .<-bytes: nat<-bytes
   .sub: (lambda (x y) (if (>= x y) (- x y) (error "Overflow" - x y)))
   .pred: (lambda (x) (if (zero? x) (error "Overflow" .pred x) (1- x)))
   .non-negative?: true)
 
-(.def (IntegerRange. @ Integer minimum maximum)
-  sexp: `(IntegerRange ,@(if minimum `(min: ,minimum) '())
-                       ,@(if max `(max: ,maximum) '()))
+;; IntegerRange between .minint and .maxint included
+(.def (IntegerRange. @ Integer .minint .maxint)
+  sexp: `(IntegerRange ,@(if .minint `(min: ,.minint) '())
+                       ,@(if .maxint `(max: ,.maxint) '()))
   .element?:
-   (match (vector minimum maximum)
+   (match (vector .minint .maxint)
      ((vector #f #f) exact-integer?)
-     ((vector _ #f) (λ (x) (and (exact-integer? x) (<= minimum x))))
-     ((vector #f _) (λ (x) (and (exact-integer? x) (<= x maximum))))
-     ((vector _ _) (λ (x) (and (exact-integer? x) (<= minimum x maximum))))))
-(def (IntegerRange min: (minimum #f) max: (maximum #f))
-  (assert! (or (not minimum) (exact-integer? minimum)))
-  (assert! (or (not maximum) (exact-integer? maximum)))
-  {(:: @ IntegerRange.) (minimum) (maximum)})
+     ((vector _ #f) (λ (x) (and (exact-integer? x) (<= .minint x))))
+     ((vector #f _) (λ (x) (and (exact-integer? x) (<= x .maxint))))
+     ((vector _ _) (λ (x) (and (exact-integer? x) (<= .minint x .maxint))))))
+(def (IntegerRange min: (.minint #f) max: (.maxint #f))
+  (assert! (or (not .minint) (exact-integer? .minint)))
+  (assert! (or (not .maxint) (exact-integer? .maxint)))
+  {(:: @ IntegerRange.) (.minint) (.maxint)})
 
 (def (unary-pre-op-check op check info x)
   (if (check x) (op x)
@@ -108,17 +113,17 @@
       (error "attempted operation but the arguments are out of range"
         (car info) (cdr info) x y)))
 
-(.def (Z/. @ Integer n .validate)
+;; Interface for Z/nZ
+(.def (Z/. @ [methods.marshal<-fixed-length-bytes Nat] n .validate)
   sexp: `(Z/ ,n)
   .element?: (nat-under? n)
   .length-in-bits: (integer-length .maxint)
   .length-in-bytes: (n-bytes<-n-bits .length-in-bits)
   .bytes<-: (cut bytes<-nat <> .length-in-bytes)
   .<-bytes: (compose .validate nat<-bytes)
-  .marshal: (λ (n out) (write-integer-bytes n .length-in-bytes out))
-  .unmarshal: (λ (in) (read-integer-bytes .length-in-bytes in))
   .normalize: (λ (x) (modulo x n))
   .maxint: (- n 1)
+  .minint: 0
   .add-carry?: (λ (x y) (<= n (+ x y)))
   .add-negative-overflow?: false
   .sub-carry?: false
@@ -146,11 +151,36 @@
   .element?: (lambda (x) (and (nat? x) (<= (integer-length x) .length-in-bits)))
   .bytes<-: (cut bytes<-nat <> .length-in-bytes)
   .<-bytes: nat<-bytes
-  .normalize: (λ (x) (bitwise-and x .maxint)))
+  .normalize: (cut normalize-uint <> .length-in-bits)) ;; maybe faster? (λ (x) (bitwise-and x .maxint))
 (def UInt<-length-in-bits (make-hash-table))
 (def (UInt .length-in-bits)
   (hash-ensure-ref UInt<-length-in-bits .length-in-bits (lambda () {(:: @ UInt.) (.length-in-bits)})))
 (define-type UInt256 (UInt 256))
+
+(.def (Int. @ Z/. .length-in-bits .length-in-bytes)
+  sexp: `(Int ,.length-in-bits)
+  n: (arithmetic-shift 1 .length-in-bits)
+  .maxint: (1- (arithmetic-shift 1 (1- .length-in-bits)))
+  .minint: (- (arithmetic-shift 1 (1- .length-in-bits)))
+  .element?: (lambda (x) (and (exact-integer? x) (< (integer-length x) .length-in-bits)))
+  .bytes<-: (cut bytes<-sint <> .length-in-bytes)
+  .<-bytes: (cut sint<-bytes <> .length-in-bytes)
+  .normalize: (cut normalize-sint <> .length-in-bits)
+  ;; Addition overflow occurs iff we add two operands of same sign and get result of opposite sign
+  .add-overflow?: (λ (x y) (let (n (+ x y)) (not (= n (.normalize n))))) ;; TODO: simplify
+  ;; Subtraction overflow occurs iff we subtract two operands of opposite sign and
+  ;; get result of sign opposite the first operand, same as second operand.
+  .sub-overflow?: (λ (x y) (let (n (- x y)) (not (= n (.normalize n))))) ;; TODO: simplify
+  .add: (λ (x y) (.normalize (+ x y)))
+  .sub: (λ (x y) (.normalize (- x y)))
+  .mul: (λ (x y) (.normalize (* x y)))
+  .succ: (λ (x) (if (= x .maxint) .minint (1+ x)))
+  .pred: (λ (x) (if (= x .minint) .maxint (1- x))))
+
+(def Int<-length-in-bits (make-hash-table))
+(def (Int .length-in-bits)
+  (hash-ensure-ref Int<-length-in-bits .length-in-bits (lambda () {(:: @ Int.) (.length-in-bits)})))
+(define-type Int256 (Int 256))
 
 (define-type (JsInt @ [methods.marshal<-fixed-length-bytes Integer] .validate)
   .element?: (λ (x) (and (exact-integer? x) (<= .most-negative x .most-positive)))

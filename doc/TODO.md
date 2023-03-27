@@ -335,6 +335,7 @@ On top of Gerbil-POO, build an
 Use type descriptors as the basis for a property-based testing library,
 in the style of
 [QuickCheck (Haskell)](https://www.cs.tufts.edu/~nr/cs257/archive/john-hughes/quick.pdf),
+[QuickCheck (Racket)](https://docs.racket-lang.org/quickcheck/index.html),
 [rackcheck (Racket)](https://docs.racket-lang.org/rackcheck/index.html),
 [guile-quickcheck (Guile)](https://ngyro.com/software/guile-quickcheck.html),
 [test-generative (Chicken)](https://wiki.call-cc.org/eggref/5/test-generative),
