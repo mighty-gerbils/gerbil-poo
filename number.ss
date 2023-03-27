@@ -76,20 +76,20 @@
   .pred: (lambda (x) (if (zero? x) (error "Overflow" .pred x) (1- x)))
   .non-negative?: true)
 
-;; IntegerRange between .minint and .maxint included
-(.def (IntegerRange. @ Integer .minint .maxint)
-  sexp: `(IntegerRange ,@(if .minint `(min: ,.minint) '())
-                       ,@(if .maxint `(max: ,.maxint) '()))
+;; IntegerRange between .most-negative and .most-positive included
+(.def (IntegerRange. @ Integer .most-negative .most-positive)
+  sexp: `(IntegerRange ,@(if .most-negative `(min: ,.most-negative) '())
+                       ,@(if .most-positive `(max: ,.most-positive) '()))
   .element?:
-   (match (vector .minint .maxint)
+   (match (vector .most-negative .most-positive)
      ((vector #f #f) exact-integer?)
-     ((vector _ #f) (λ (x) (and (exact-integer? x) (<= .minint x))))
-     ((vector #f _) (λ (x) (and (exact-integer? x) (<= x .maxint))))
-     ((vector _ _) (λ (x) (and (exact-integer? x) (<= .minint x .maxint))))))
-(def (IntegerRange min: (.minint #f) max: (.maxint #f))
-  (assert! (or (not .minint) (exact-integer? .minint)))
-  (assert! (or (not .maxint) (exact-integer? .maxint)))
-  {(:: @ IntegerRange.) (.minint) (.maxint)})
+     ((vector _ #f) (λ (x) (and (exact-integer? x) (<= .most-negative x))))
+     ((vector #f _) (λ (x) (and (exact-integer? x) (<= x .most-positive))))
+     ((vector _ _) (λ (x) (and (exact-integer? x) (<= .most-negative x .most-positive))))))
+(def (IntegerRange min: (.most-negative #f) max: (.most-positive #f))
+  (assert! (or (not .most-negative) (exact-integer? .most-negative)))
+  (assert! (or (not .most-positive) (exact-integer? .most-positive)))
+  {(:: @ IntegerRange.) (.most-negative) (.most-positive)})
 
 (def (unary-pre-op-check op check info x)
   (if (check x) (op x)
@@ -117,22 +117,22 @@
 (.def (Z/. @ [methods.marshal<-fixed-length-bytes Nat] n .validate)
   sexp: `(Z/ ,n)
   .element?: (nat-under? n)
-  .length-in-bits: (integer-length .maxint)
+  .length-in-bits: (integer-length .most-positive)
   .length-in-bytes: (n-bytes<-n-bits .length-in-bits)
   .bytes<-: (cut bytes<-nat <> .length-in-bytes)
   .<-bytes: (compose .validate nat<-bytes)
   .normalize: (λ (x) (modulo x n))
-  .maxint: (- n 1)
-  .minint: 0
+  .most-positive: (- n 1)
+  .most-negative: 0
   .add-carry?: (λ (x y) (<= n (+ x y)))
   .add-negative-overflow?: false
   .sub-carry?: false
   .sub-negative-overflow?: (λ (x y) (< x y))
-  .add: (λ (x y) (def z (+ x y)) (if (<= z .maxint) z (- z n)))
+  .add: (λ (x y) (def z (+ x y)) (if (<= z .most-positive) z (- z n)))
   .sub: (λ (x y) (def z (- x y)) (if (<= 0 z) z (+ z n)))
   .mul: (λ (x y) (.normalize (* x y)))
-  .succ: (λ (x) (if (= x .maxint) 0 (1+ x)))
-  .pred: (λ (x) (if (zero? x) .maxint (1- x)))
+  .succ: (λ (x) (if (= x .most-positive) 0 (1+ x)))
+  .pred: (λ (x) (if (zero? x) .most-positive (1- x)))
   ;; function taking two entries a, b.
   ;; -- If a = b then returns 0;
   ;; -- If a > b then returns 1
@@ -145,23 +145,22 @@
   .min: min)
 (def (Z/ n) {(:: @ Z/.) (n)})
 
-(.def (UInt. @ Z/. .length-in-bits .length-in-bytes .maxint)
+(.def (UInt. @ Z/. .length-in-bits .length-in-bytes .most-positive)
   sexp: `(UInt ,.length-in-bits)
   n: (arithmetic-shift 1 .length-in-bits)
   .element?: (lambda (x) (and (nat? x) (<= (integer-length x) .length-in-bits)))
   .bytes<-: (cut bytes<-nat <> .length-in-bytes)
   .<-bytes: nat<-bytes
-  .normalize: (cut normalize-uint <> .length-in-bits)) ;; maybe faster? (λ (x) (bitwise-and x .maxint))
+  .normalize: (cut normalize-uint <> .length-in-bits)) ;; maybe faster? (λ (x) (bitwise-and x .most-positive))
 (def UInt<-length-in-bits (make-hash-table))
 (def (UInt .length-in-bits)
   (hash-ensure-ref UInt<-length-in-bits .length-in-bits (lambda () {(:: @ UInt.) (.length-in-bits)})))
-(define-type UInt256 (UInt 256))
 
 (.def (Int. @ Z/. .length-in-bits .length-in-bytes)
   sexp: `(Int ,.length-in-bits)
   n: (arithmetic-shift 1 .length-in-bits)
-  .maxint: (1- (arithmetic-shift 1 (1- .length-in-bits)))
-  .minint: (- (arithmetic-shift 1 (1- .length-in-bits)))
+  .most-positive: (1- (arithmetic-shift 1 (1- .length-in-bits)))
+  .most-negative: (- (arithmetic-shift 1 (1- .length-in-bits)))
   .element?: (lambda (x) (and (exact-integer? x) (< (integer-length x) .length-in-bits)))
   .bytes<-: (cut bytes<-sint <> .length-in-bytes)
   .<-bytes: (cut sint<-bytes <> .length-in-bytes)
@@ -174,25 +173,13 @@
   .add: (λ (x y) (.normalize (+ x y)))
   .sub: (λ (x y) (.normalize (- x y)))
   .mul: (λ (x y) (.normalize (* x y)))
-  .succ: (λ (x) (if (= x .maxint) .minint (1+ x)))
-  .pred: (λ (x) (if (= x .minint) .maxint (1- x))))
+  .succ: (λ (x) (if (= x .most-positive) .most-negative (1+ x)))
+  .pred: (λ (x) (if (= x .most-negative) .most-positive (1- x))))
 
 (def Int<-length-in-bits (make-hash-table))
 (def (Int .length-in-bits)
   (hash-ensure-ref Int<-length-in-bits .length-in-bits (lambda () {(:: @ Int.) (.length-in-bits)})))
-(define-type Int256 (Int 256))
-
-(define-type (JsInt @ [methods.marshal<-fixed-length-bytes Integer] .validate)
-  .element?: (λ (x) (and (exact-integer? x) (<= .most-negative x .most-positive)))
-  .most-positive: (1- (expt 2 53))
-  .most-negative: (- (expt 2 53)) ;; make it an even SInt53
-  .length-in-bytes: 7
-  .json<-: identity
-  .<-json: .validate
-  .bytes<-: (λ (n) (def bytes (make-bytes 7))
-               (u8vector-sint-set! bytes 0 n big 7)
-               bytes)
-  .<-bytes: (λ (bytes) (.validate (u8vector-sint-ref bytes 0 big 7))))
+(define-type (JsInt @ (Int 54))) ; From -2**53 to 2**53-1 included.
 
 (def (bytes<-double d)
   (def bytes (make-bytes 8))
@@ -202,7 +189,7 @@
 (def (double<-bytes bytes)
   (u8vector-double-ref bytes 0 big))
 
-(define-type (Float @ [methods.marshal<-bytes Real] .validate)
+(define-type (Float @ [methods.marshal<-fixed-length-bytes Real] .validate)
   .element?: flonum?
   .length-in-bytes: 8
   .json<-: identity
