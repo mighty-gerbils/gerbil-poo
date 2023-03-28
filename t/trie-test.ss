@@ -1,13 +1,9 @@
 (export #t)
 
 (import
-  :gerbil/gambit/bits :gerbil/gambit/random :gerbil/gambit/ports
-  :std/format :std/iter :std/misc/list :std/misc/queue
-  :std/sort :std/srfi/1 :std/srfi/13 :std/sugar :std/test
-  :clan/assert :clan/base :clan/debug :clan/hash :clan/list :clan/number :clan/option :clan/roman
-  :clan/with-id
-  :clan/testing
-  ../object ../mop ../io ../number ../type ../fun ../trie
+  :std/sugar :std/test
+  :clan/base :clan/testing
+  ../object ../mop ../number ../type ../trie
   ./table-testing)
 
 (def (simple-tests T)

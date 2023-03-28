@@ -1,13 +1,12 @@
 (export #t)
 
 (import
-  :gerbil/gambit/bits :gerbil/gambit/random :gerbil/gambit/ports
   :std/format :std/iter :std/misc/list :std/misc/queue :std/misc/shuffle
-  :std/sort :std/srfi/1 :std/srfi/13 :std/sugar :std/test
-  :clan/assert :clan/base :clan/debug :clan/hash :clan/list
+  :std/sort :std/srfi/1 :std/sugar :std/test
+  :clan/assert :clan/base :clan/debug
   :clan/number :clan/option :clan/timestamp :clan/roman :clan/with-id
   :clan/testing
-  ../object ../mop ../io ../number ../type ../fun ../table ../rationaldict)
+  ../object ../mop)
 
 ;; TODO: systematically write function properties and make more property-based tests?
 ;; TODO: support multimethods / externally defined methods / monkey patching / whatever
