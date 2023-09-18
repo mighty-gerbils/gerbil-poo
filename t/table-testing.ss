@@ -4,7 +4,7 @@
   :std/format :std/iter :std/misc/list :std/misc/queue :std/misc/shuffle
   :std/sort :std/srfi/1 :std/sugar :std/test
   :clan/assert :clan/base :clan/debug
-  :clan/number :clan/option :clan/timestamp :clan/roman :clan/with-id
+  :clan/number :clan/option :clan/timestamp :clan/roman
   :clan/testing
   ../object ../mop)
 

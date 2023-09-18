@@ -6,13 +6,13 @@
 (export #t)
 
 (import
-  (for-syntax :std/srfi/1 :clan/syntax)
+  (for-syntax :std/srfi/1 :clan/syntax :std/stxutil)
   :clan/syntax
   :gerbil/gambit/bytes :gerbil/gambit/exact :gerbil/gambit/ports
   :std/assert :std/error :std/format :std/generic :std/iter :std/lazy
-  :std/misc/list :std/misc/repr
+  :std/misc/list :std/misc/repr :std/misc/walist
   :std/srfi/1
-  :std/sugar
+  :std/stxutil :std/sugar :std/values
   :clan/base :clan/error :clan/hash :clan/io :clan/json :clan/list :clan/syntax
   ./object ./brace)
 
@@ -148,7 +148,7 @@
   (for-each (lambda (l) (display-object l port) (newline port))
             (reverse (append c (current-error-context)))))
 
-(defstruct (<Error> Exception) (tag args context) transparent: #t)
+(defstruct (<Error> <Exception>) (tag args context) transparent: #t)
 (def (Error tag (context '()) . args) (raise (<Error> tag args context)))
 (def (type-error (context '()) . args) (apply Error type-error: context args))
 (defmethod (@@method display-exception <Error>)
@@ -297,7 +297,7 @@
                                      (lambda (name slot) (.call.method slot .slot.sexp<- name v add))))))
   .string<-: (compose string<-json .json<-)
   .<-string: (compose .<-json json<-string)
-  .json<-: (lambda (v) (Alist
+  .json<-: (lambda (v) (walist
                    (with-list-builder (c)
                      (def (add s v) (c (cons (symbol->string s) v)))
                      (.for-each! effective-slots

@@ -8,10 +8,10 @@
   :std/assert :std/format :std/iter :std/lazy
   :std/misc/hash :std/misc/list
   :std/srfi/1 :std/srfi/43
-  :std/sugar
+  :std/stxutil :std/sugar
   :std/text/hex :std/text/json
   :clan/assert :clan/base :clan/hash :clan/io :clan/json :clan/list :clan/maybe :clan/number
-  :clan/syntax :clan/with-id
+  :clan/syntax
   ./object ./mop ./brace ./io ./number)
 
 ;; vector-map-in-order : [Index A B ... -> C] [Vectorof A] [Vectorof B] ... -> [Vectorof C]

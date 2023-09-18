@@ -4,6 +4,7 @@
   :gerbil/gambit/bytes :gerbil/gambit/hash :gerbil/gambit/ports
   :std/assert :std/format :std/generic :std/iter
   :std/misc/repr
+  :std/misc/walist
   :std/sugar
   :std/text/json
   :clan/base :clan/hash :clan/io :clan/json
@@ -104,7 +105,7 @@
      ((.has? self .type .write-json) ((.@ self .type .write-json) self port))
      ((.has? self .type .json<-) (write-json ((.@ self .type .json<-) self) port))
      ((.has? self sexp) (write-json (object->string (.@ self sexp)) port))
-     (else (write-json-alist (.alist self) port)))))
+     (else (write-json (walist (.alist self)) port)))))
 (defmethod (@@method :json object)
   (lambda (self)
     (cond

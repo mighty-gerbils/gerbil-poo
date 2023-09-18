@@ -6,7 +6,7 @@
 
 (import
   :gerbil/gambit/bits :gerbil/gambit/bytes
-  :std/error :std/format :std/iter :std/sugar
+  :std/error :std/format :std/iter :std/sugar :std/values
   :clan/base :clan/option :clan/number
   ./object ./mop ./brace ./number ./type ./fun ./io ./table)
 

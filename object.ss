@@ -5,14 +5,15 @@
 ;; See doc/poo.md for documentation
 ;; TODO: see Future Features and the Internals TODO sections in document above.
 
-(export #t @object? @make-object) ;; Reexport renamed version of core things we shadow
+;; Reexport renamed version of core things we shadow
+(export #t @object? @make-object)
 
 (import
   (prefix-in (only-in <host-runtime> object? make-object) @) ;; Rename them before we shadow them
-  (for-syntax :clan/base :std/iter :std/misc/hash :std/misc/list)
+  (for-syntax :clan/base :std/iter :std/misc/hash :std/misc/list :std/stxutil)
   :std/generic :std/misc/hash :std/iter :std/misc/alist :std/misc/list
-  :std/sort :std/srfi/1 :std/srfi/13 :std/sugar
-  :clan/base :clan/hash :clan/list :clan/syntax :clan/with-id)
+  :std/sort :std/srfi/1 :std/srfi/13 :std/stxutil :std/sugar
+  :clan/base :clan/hash :clan/list :clan/syntax)
 
 ;; TODO: formalize (Object A S D) and the type conditions under which an object is instantiatable?
 (defstruct object ;; = (Object A)
@@ -53,7 +54,7 @@
     (set! (object-%slot-funs self) #f)
     (set! (object-%all-slots self) #f)))
 
-(defstruct (InvalidObject Exception) (slots) transparent: #t)
+(defclass (InvalidObject <Exception>) (slots) transparent: #t)
 (def (invalid-object-summary self)
   (InvalidObject (map car (append (object-slots self) (object-defaults self)))))
 
@@ -124,7 +125,7 @@
 (def (.ref/cached self slot (default false))
   (hash-ref/default (object-instance self) slot default))
 
-(defstruct (NoApplicableMethod Exception) (self slot) transparent: #t)
+(defclass (NoApplicableMethod <Exception>) (self slot) transparent: #t)
 
 ;; Prototype to put at the end of the list, to handle
 ;; undefined-prototype-behavior a bit better.
@@ -132,7 +133,7 @@
 (def (no-applicable-method self slot)
   (def nam (and (not (eq? slot 'no-applicable-method))
                 (with-catch false (cut .@ self no-applicable-method))))
-  (if nam (nam self slot) (raise (NoApplicableMethod self slot))))
+  (if nam (nam self slot) (raise (NoApplicableMethod self: self slot: slot))))
 
 ;; : (Object A) <- (IndexedList ? ((Pair s (A s)) <- s:Symbol)) \
 ;;     supers: ? (ConsTreeOf (Object ?)) defaults: ? (Table ? Symbol)

@@ -3,7 +3,7 @@
 (export #t)
 
 (import
-  :std/iter :std/misc/list :std/misc/alist
+  :std/iter :std/misc/list :std/values
   :clan/base :clan/list :clan/option
   :clan/pure/dict/rationaldict
   ./object ./brace ./io ./mop ./number ./type ./table)
