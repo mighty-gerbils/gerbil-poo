@@ -2,11 +2,12 @@
   type-test)
 
 (import
-  :gerbil/gambit/ports
+  :gerbil/gambit
+  :std/misc/repr
   :std/assert :std/format :std/pregexp :std/sort
   :std/srfi/13
   :std/sugar :std/test
-  :clan/assert :clan/base
+  :clan/assert :clan/base :clan/exception
   ../object ../mop ../number ../type)
 
 (defrule (check-rep parse unparse rep obj)
@@ -33,19 +34,19 @@
                        (lambda (e)
                          (pregexp-match
                           "type-error \\(BytesN 2\\) \\[value: 'not-even-bytes]"
-                          (error-message e))))
+                          (string<-exception e))))
       ;; too small
       (check-exception (validate Bytes2 #u8(3))
                        (lambda (e)
                          (pregexp-match
                           "type-error \\(BytesN 2\\) \\[value: #u8\\(3\\)\\]\n *length mismatch: expected 2, given 1"
-                          (error-message e))))
+                          (string<-exception e))))
       ;; too big
       (check-exception (validate Bytes2 #u8(3 5 8))
                        (lambda (e)
                          (pregexp-match
                           "type-error \\(BytesN 2\\) \\[value: #u8\\(3 5 8\\)\\]\n *length mismatch: expected 2, given 3"
-                          (error-message e))))
+                          (string<-exception e))))
       (check-rep (.@ Bytes2 .<-json) (.@ Bytes2 .json<-) "080d" #u8(8 13))
       (check-rep (.@ Bytes2 .<-bytes) (.@ Bytes2 .bytes<-) #u8(34 55) #u8(34 55)))
     (test-case "tuple test"

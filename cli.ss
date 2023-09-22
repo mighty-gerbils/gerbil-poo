@@ -1,7 +1,7 @@
 (export #t)
 
 (import
-  :gerbil/gambit/ports
+  :gerbil/gambit
   :std/generic :std/getopt :std/sugar
   :clan/cli :clan/hash :clan/list :clan/multicall :clan/path-config
   ./object ./brace)

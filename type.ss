@@ -6,13 +6,13 @@
 (import
   :gerbil/gambit/bits :gerbil/gambit/bytes :gerbil/gambit/ports
   :std/assert :std/format :std/iter :std/lazy
-  :std/misc/hash :std/misc/list
+  :std/misc/bytes :std/misc/hash :std/misc/list :std/misc/number
   :std/srfi/1 :std/srfi/43
   :std/stxutil :std/sugar
   :std/text/hex :std/text/json
-  :clan/assert :clan/base :clan/hash :clan/io :clan/json :clan/list :clan/maybe :clan/number
+  :clan/assert :clan/base :clan/hash :clan/io :clan/json :clan/list :clan/maybe
   :clan/syntax
-  ./object ./mop ./brace ./io ./number)
+  ./object ./mop ./number ./brace ./io)
 
 ;; vector-map-in-order : [Index A B ... -> C] [Vectorof A] [Vectorof B] ... -> [Vectorof C]
 ;; The applictions of `f` are in order, unlike `vector-map`, but like `vector-for-each`
@@ -77,7 +77,7 @@
   .Length: Nat
   .zero: #u8()
   .marshal: (lambda (x port) (marshal .Length (bytes-length x) port) (write-u8vector x port))
-  .unmarshal: (lambda (port) (def n (unmarshal .Length port)) (unmarshal-n-bytes n port)))
+  .unmarshal: (lambda (port) (def n (unmarshal .Length port)) (unmarshal-n-u8 n port)))
 (.def (BytesN. @ [methods.bytes Type.] n)
   sexp: `(BytesN ,n)
   .element?: (λ (x) (and (bytes? x) (= (bytes-length x) n)))
@@ -93,7 +93,7 @@
   .<-string: (λ (x) (validate @ (hex-decode x)))
   .<-bytes: (cut validate @ <>)
   .marshal: write-u8vector
-  .unmarshal: (cut unmarshal-n-bytes n <>))
+  .unmarshal: (cut unmarshal-n-u8 n <>))
 (def BytesN<-n (make-hash-table))
 (def (BytesN n) (hash-ensure-ref BytesN<-n n (lambda () {(:: @ BytesN.) n})))
 (def Bytes32 (BytesN 32))
@@ -146,7 +146,7 @@
   .element?: (λ (x) (any (cut element? <> x) types))
   ;; WE ASSUME THE JSON'S ARE DISJOINT, AS ARE THE VALUES (BUT WE DISCRIMINATE WHEN MARSHALLING)
   .discriminant-length-in-bits: (integer-length (1- (length types)))
-  .discriminant-length-in-bytes: (n-bytes<-n-bits .discriminant-length-in-bits)
+  .discriminant-length-in-bytes: (n-bits->n-u8 .discriminant-length-in-bits)
   .discriminant<-: (lambda (v) (let/cc return (vector-for-each (lambda (i t) (when (element? t v) (return i))) types@) #f))
   .sexp<-: (lambda (v) (sexp<- (vector-ref types@ (.discriminant<- v)) v))
   .json<-: (lambda (v) (def disc (.discriminant<- v))
@@ -156,10 +156,10 @@
   (lambda (v) (let/cc return (for-each (lambda (t) (return (<-json t v))) types) #f))
   .marshal: (lambda (v port)
               (def disc (.discriminant<- v))
-              (write-integer-bytes disc .discriminant-length-in-bytes port)
+              (write-nat-u8vector disc .discriminant-length-in-bytes port)
               (marshal (vector-ref types@ disc) v port))
   .unmarshal: (lambda (port)
-                (def disc (read-integer-bytes .discriminant-length-in-bytes port))
+                (def disc (read-nat-u8vector .discriminant-length-in-bytes port))
                 (unmarshal (vector-ref types@ disc) port)))
 (def (Or . types) {(:: @ Or.) (types)})
 
@@ -207,13 +207,13 @@
   .vals@: (list->vector vals)
   .json@: (list->vector (map json-normalize vals))
   .length-in-bits: (integer-length (1- (vector-length .vals@)))
-  .length-in-bytes: (n-bytes<-n-bits .length-in-bits)
+  .length-in-bytes: (n-bits->n-u8 .length-in-bits)
   .<-nat: (cut vector-ref .vals@ <>)
   .nat<-: (lambda (v) (vector-index (cut equal? <> v) .vals@))
   .json<-: (lambda (v) (vector-ref .json@ (.nat<- v)))
   .<-json: (lambda (j) (vector-index (cut equal? <> j) .json@))
-  .bytes<-: (compose (cut bytes<-nat <> .length-in-bytes) .nat<-)
-  .<-bytes: (compose .<-nat nat<-bytes)
+  .bytes<-: (compose (cut nat->u8vector <> .length-in-bytes) .nat<-)
+  .<-bytes: (compose .<-nat u8vector->nat)
   .marshal: => (lambda (super) (if (zero? .length-in-bytes) void super))
   .unmarshal: => (lambda (super) (cond
                              ((< 0 .length-in-bytes) super)
@@ -274,8 +274,8 @@
   .<-pair: (lambda (numerator denominator) (/ numerator denominator))
   .marshal: (lambda (x port) (marshal .Pair (.pair<- x) port))
   .unmarshal: (compose .<-pair (.@ .Pair .unmarshal))
-  .bytes<-: (bytes<-<-marshal .marshal)
-  .<-bytes: (<-bytes<-unmarshal .unmarshal)
+  .bytes<-: (u8vector<-<-marshal .marshal)
+  .<-bytes: (<-u8vector<-unmarshal .unmarshal)
   .json<-: (compose (.@ .Pair .json<-) .<-pair)
   .<-json: (compose .<-pair (.@ .Pair .<-json)))
 

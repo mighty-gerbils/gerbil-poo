@@ -6,12 +6,13 @@
 (export #t)
 
 (import
-  :gerbil/gambit/bits :gerbil/gambit/bytes :gerbil/gambit/exact :gerbil/gambit/ports :scheme/base
+  :gerbil/gambit
+  :std/srfi/141
   :std/assert :std/iter
-  :std/misc/bytes :std/misc/hash
+  :std/misc/bytes :std/misc/hash :std/misc/number
   :std/srfi/1
   :std/sugar
-  :clan/base :clan/io :clan/number
+  :clan/base :clan/io
   ./object ./mop ./brace ./io)
 
 ;; TODO: basic interface for arithmetics, with proper type signatures.
@@ -53,8 +54,8 @@
   .<-json: (lambda (x) (if (exact-integer? x) x (.<-string x)))
   .marshal: write-varint
   .unmarshal: read-varint
-  .bytes<-: bytes<-sint ;; note: encoding shorter (and thus different) from the marshalling
-  .<-bytes: sint<-bytes
+  .bytes<-: integer->u8vector ;; note: encoding shorter (and thus different) from the marshalling
+  .<-bytes: u8vector->integer
   .div: floor-quotient
   .mod: modulo
   .logand: bitwise-and
@@ -70,8 +71,8 @@
 (define-type (Nat @ Integer)
   .marshal: write-varnat
   .unmarshal: read-varnat
-  .bytes<-: bytes<-nat ;; note: encoding shorter (and thus different) from the marshalling
-  .<-bytes: nat<-bytes
+  .bytes<-: nat->u8vector ;; note: encoding shorter (and thus different) from the marshalling
+  .<-bytes: u8vector->nat
   .sub: (lambda (x y) (if (>= x y) (- x y) (error "Overflow" - x y)))
   .pred: (lambda (x) (if (zero? x) (error "Overflow" .pred x) (1- x)))
   .non-negative?: true)
@@ -116,11 +117,11 @@
 ;; Interface for Z/nZ
 (.def (Z/. @ [methods.marshal<-fixed-length-bytes Nat] n .validate)
   sexp: `(Z/ ,n)
-  .element?: (nat-under? n)
+  .element?: (cut nat-below? <> n)
   .length-in-bits: (integer-length .most-positive)
-  .length-in-bytes: (n-bytes<-n-bits .length-in-bits)
-  .bytes<-: (cut bytes<-nat <> .length-in-bytes)
-  .<-bytes: (compose .validate nat<-bytes)
+  .length-in-bytes: (n-bits->n-u8 .length-in-bits)
+  .bytes<-: (cut nat->u8vector <> .length-in-bytes)
+  .<-bytes: (compose .validate u8vector->nat)
   .normalize: (λ (x) (modulo x n))
   .most-positive: (- n 1)
   .most-negative: 0
@@ -149,9 +150,9 @@
   sexp: `(UInt ,.length-in-bits)
   n: (arithmetic-shift 1 .length-in-bits)
   .element?: (lambda (x) (and (nat? x) (<= (integer-length x) .length-in-bits)))
-  .bytes<-: (cut bytes<-nat <> .length-in-bytes)
-  .<-bytes: nat<-bytes
-  .normalize: (cut normalize-uint <> .length-in-bits)) ;; maybe faster? (λ (x) (bitwise-and x .most-positive))
+  .bytes<-: (cut nat->u8vector <> .length-in-bytes)
+  .<-bytes: u8vector->nat
+  .normalize: (cut normalize-nat <> .length-in-bits)) ;; maybe faster? (λ (x) (bitwise-and x .most-positive))
 (def UInt<-length-in-bits (make-hash-table))
 (def (UInt .length-in-bits)
   (hash-ensure-ref UInt<-length-in-bits .length-in-bits (lambda () {(:: @ UInt.) (.length-in-bits)})))
@@ -163,9 +164,9 @@
   .most-positive: (1- (arithmetic-shift 1 (1- .length-in-bits)))
   .most-negative: (- (arithmetic-shift 1 (1- .length-in-bits)))
   .element?: (lambda (x) (and (exact-integer? x) (< (integer-length x) .length-in-bits)))
-  .bytes<-: (cut bytes<-sint <> .length-in-bytes)
-  .<-bytes: (cut sint<-bytes <> .length-in-bytes)
-  .normalize: (cut normalize-sint <> .length-in-bits)
+  .bytes<-: (cut integer->u8vector <> .length-in-bytes)
+  .<-bytes: (cut u8vector->integer <> .length-in-bytes)
+  .normalize: (cut normalize-integer <> .length-in-bits)
   ;; Addition overflow occurs iff we add two operands of same sign and get result of opposite sign
   .add-overflow?: (λ (x y) (let (n (+ x y)) (not (= n (.normalize n))))) ;; TODO: simplify
   ;; Subtraction overflow occurs iff we subtract two operands of opposite sign and

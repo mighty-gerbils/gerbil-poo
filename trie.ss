@@ -5,9 +5,9 @@
 (export #t)
 
 (import
-  :gerbil/gambit/bits :gerbil/gambit/bytes
-  :std/error :std/format :std/iter :std/sugar :std/values
-  :clan/base :clan/option :clan/number
+  :gerbil/gambit
+  :std/error :std/format :std/iter :std/misc/number :std/sugar :std/values
+  :clan/base :clan/option
   ./object ./mop ./brace ./number ./type ./fun ./io ./table)
 
 #;(import :clan/debug :clan/exception :gerbil/gambit/threads :gerbil/gambit/continuations)
@@ -733,7 +733,7 @@
              (branch-node-height (- h same-length)) ;; height of the branch node if different
              (branch-height (1- branch-node-height)) ;; height of the two new branches
              (old-branch-length (- branch-height child-height))
-             (old-branch (if (plus? old-branch-length)
+             (old-branch (if (positive? old-branch-length)
                            (.skip branch-height (1- old-branch-length)
                                   (extract-bit-field old-branch-length 0 bits) child)
                            child))
@@ -925,7 +925,7 @@
                ((Skip h l b c) (loop [[(.skip-key h l b k) . c] . kts])))))))
       (set! (iterator-e it) ne)
       r)
-    (when (plus? from) (let-values (((_ _ r) (.split (1- from) t))) (set! t r)))
+    (when (positive? from) (let-values (((_ _ r) (.split (1- from) t))) (set! t r)))
     (make-iterator [[0 . t]] next)))
 
 (define-type (TrieSet. @ Set<-Table.)

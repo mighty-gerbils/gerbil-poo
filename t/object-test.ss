@@ -4,7 +4,7 @@
 ;; NB: For debugging, use (import :std/interactive)
 
 (import
-  :gerbil/gambit/ports
+  :gerbil/gambit
   :std/format :std/sort :std/srfi/13 :std/test
   :clan/assert :clan/base :clan/debug
   :std/sugar

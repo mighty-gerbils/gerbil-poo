@@ -11,7 +11,7 @@
 (import
   (prefix-in (only-in <host-runtime> object? make-object) @) ;; Rename them before we shadow them
   (for-syntax :clan/base :std/iter :std/misc/hash :std/misc/list :std/stxutil)
-  :std/generic :std/misc/hash :std/iter :std/misc/alist :std/misc/list
+  :std/error :std/generic :std/misc/hash :std/iter :std/misc/alist :std/misc/list
   :std/sort :std/srfi/1 :std/srfi/13 :std/stxutil :std/sugar
   :clan/base :clan/hash :clan/list :clan/syntax)
 
@@ -54,9 +54,9 @@
     (set! (object-%slot-funs self) #f)
     (set! (object-%all-slots self) #f)))
 
-(defclass (InvalidObject <Exception>) (slots) transparent: #t)
+(defclass (InvalidObject Exception) (slots) transparent: #t)
 (def (invalid-object-summary self)
-  (InvalidObject (map car (append (object-slots self) (object-defaults self)))))
+  (InvalidObject slots: (map car (append (object-slots self) (object-defaults self)))))
 
 (def (compute-precedence-list! self (heads '()))
   (cond
@@ -125,7 +125,7 @@
 (def (.ref/cached self slot (default false))
   (hash-ref/default (object-instance self) slot default))
 
-(defclass (NoApplicableMethod <Exception>) (self slot) transparent: #t)
+(defclass (NoApplicableMethod Exception) (self slot) transparent: #t)
 
 ;; Prototype to put at the end of the list, to handle
 ;; undefined-prototype-behavior a bit better.

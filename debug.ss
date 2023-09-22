@@ -1,6 +1,6 @@
 (export #t)
 (import
-  :gerbil/gambit/ports
+  :gerbil/gambit
   :std/format :std/sugar
   :clan/base :clan/debug
   ./object ./mop ./io ./type ./brace)

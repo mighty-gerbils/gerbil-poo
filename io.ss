@@ -1,7 +1,7 @@
 (export #t)
 
 (import
-  :gerbil/gambit/bytes :gerbil/gambit/hash :gerbil/gambit/ports
+  :gerbil/gambit
   :std/assert :std/format :std/generic :std/iter
   :std/misc/repr
   :std/misc/walist
@@ -156,8 +156,8 @@
 (.defgeneric (<-bytes type b) slot: .<-bytes)
 
 (define-type (methods.bytes<-marshal @ [] .marshal .unmarshal)
-  .bytes<-: (bytes<-<-marshal .marshal)
-  .<-bytes: (<-bytes<-unmarshal .unmarshal))
+  .bytes<-: (u8vector<-<-marshal .marshal)
+  .<-bytes: (<-u8vector<-unmarshal .unmarshal))
 
 (define-type (methods.marshal<-bytes @ [] .<-bytes .bytes<- .Bytes)
   .marshal: (lambda (x port) (marshal .Bytes (.bytes<- x) port))
@@ -165,7 +165,7 @@
 
 (define-type (methods.marshal<-fixed-length-bytes @ [] .<-bytes .bytes<- .length-in-bytes)
   .marshal: (lambda (x port) (write-bytes (.bytes<- x) port))
-  .unmarshal: (lambda (port) (.<-bytes (unmarshal-n-bytes .length-in-bytes port))))
+  .unmarshal: (lambda (port) (.<-bytes (unmarshal-n-u8 .length-in-bytes port))))
 
 ;;; Converting to/from string
 

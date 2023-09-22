@@ -1,7 +1,7 @@
 (export mop-test)
 
 (import
-  :gerbil/gambit/ports
+  :gerbil/gambit
   :std/assert :std/format
   :std/misc/repr
   :std/sort

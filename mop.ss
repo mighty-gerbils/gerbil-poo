@@ -8,7 +8,7 @@
 (import
   (for-syntax :std/srfi/1 :clan/syntax :std/stxutil)
   :clan/syntax
-  :gerbil/gambit/bytes :gerbil/gambit/exact :gerbil/gambit/ports
+  :gerbil/gambit
   :std/assert :std/error :std/format :std/generic :std/iter :std/lazy
   :std/misc/list :std/misc/repr :std/misc/walist
   :std/srfi/1
@@ -148,9 +148,10 @@
   (for-each (lambda (l) (display-object l port) (newline port))
             (reverse (append c (current-error-context)))))
 
-(defstruct (<Error> <Exception>) (tag args context) transparent: #t)
-(def (Error tag (context '()) . args) (raise (<Error> tag args context)))
-(def (type-error (context '()) . args) (apply Error type-error: context args))
+(defclass (<Error> Exception) (tag args context) transparent: #t)
+(def (raise-<Error> tag (context '()) . args)
+  (raise (<Error> tag: tag args: args context: context)))
+(def (type-error (context '()) . args) (apply raise-<Error> type-error: context args))
 (defmethod (@@method display-exception <Error>)
   (lambda (self port)
     (display-context (<Error>-context self) port)
@@ -169,8 +170,8 @@
   .bytes<-: (compose string->bytes .string<-)
   .<-bytes: (compose .<-string bytes->string)
   .json<-: .string<- .<-json: .<-string
-  .marshal: (lambda (x port) (marshal-sized16-bytes (.bytes<- x) port))
-  .unmarshal: (lambda (port) (.<-bytes (unmarshal-sized16-bytes port)))
+  .marshal: (lambda (x port) (marshal-sized16-u8vector (.bytes<- x) port))
+  .unmarshal: (lambda (port) (.<-bytes (unmarshal-sized16-u8vector port)))
   .=?: equal?)
 
 (define-type (Object @ Type.)
@@ -184,8 +185,8 @@
   .<-json: (cut validate @ <>)
   .bytes<-: (lambda (x) (if x #u8(1) #u8(0)))
   .<-bytes: (λ (b) (< 0 (u8vector-ref b 0)))
-  .marshal: (marshal<-bytes<- .bytes<-)
-  .unmarshal: (unmarshal<-<-bytes .<-bytes .length-in-bytes))
+  .marshal: (marshal<-u8vector<- .bytes<-)
+  .unmarshal: (unmarshal<-<-u8vector .<-bytes .length-in-bytes))
 
 (def (object-values x) (map (cut .ref x <>) (.all-slots x)))
 (def (monomorphic-object? type x)
@@ -317,8 +318,8 @@
                    (def add (compose c cons))
                    (.for-each! effective-slots
                                (lambda (name slot) (.call.method slot .slot.unmarshal name port add))))))
-  .bytes<-: (bytes<-<-marshal .marshal)
-  .<-bytes: (<-bytes<-unmarshal .unmarshal)
+  .bytes<-: (u8vector<-<-marshal .marshal)
+  .<-bytes: (<-u8vector<-unmarshal .unmarshal)
   .tuple-list<-: (lambda (x) (map (lambda (s) (.ref x s)) (.all-slots effective-slots)))
   .<-tuple-list: (lambda (x) (object<-alist (map (lambda (s v) (cons s v)) (.all-slots effective-slots) x)))
   .tuple<-: (compose list->vector .tuple-list<-)

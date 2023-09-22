@@ -1,10 +1,10 @@
 (export #t)
 
 (import
-  :std/format :std/iter :std/misc/list :std/misc/queue :std/misc/shuffle
+  :std/format :std/iter :std/misc/list :std/misc/number :std/misc/queue :std/misc/shuffle
   :std/sort :std/srfi/1 :std/sugar :std/test
   :clan/assert :clan/base :clan/debug
-  :clan/number :clan/option :clan/timestamp :clan/roman
+  :clan/option :clan/timestamp :clan/roman
   :clan/testing
   ../object ../mop)
 
@@ -206,7 +206,7 @@
           (def cx (if x (F .count x) 0))
           (def cy (if y (F .count y) 0))
           (assert-equal! (+ cx cy) (F .count m))
-          (assert-equal! (or (and (plus? cx) (plus? cy))
+          (assert-equal! (or (and (positive? cx) (positive? cy))
                             (and (= cx 1) (not y))
                             (and (not x) (not y)))
                         #t)
@@ -242,7 +242,7 @@
                          (s (F .count m))
                          (l (F .divide/list m))
                          (sl (map (.@ T .count) l)))
-                    (assert-equal! (every plus? sl) #t)
+                    (assert-equal! (every positive? sl) #t)
                     (assert-equal! (foldl + 0 sl) s)
                     (cond
                      ((< 1 s) (for-each (cut enqueue! q <>) l))
