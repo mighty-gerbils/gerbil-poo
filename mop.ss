@@ -363,9 +363,9 @@
              ((or optional default?)
               (if (or (not (.slot? x slot-name))
                       (and default? (equal? (.ref x slot-name) default)))
-                (write-byte 0 port)
+                (write-u8 0 port)
                 (begin
-                  (write-byte 1 port)
+                  (write-u8 1 port)
                   (.call type .marshal (.ref x slot-name) port))))
              ((.slot? x slot-name)
               (.call type .marshal (.ref x slot-name) port))
@@ -377,7 +377,7 @@
            (let (default? (.has? @@ default))
              (cond
               ((or optional default?)
-               (match (read-byte port)
+               (match (read-u8 port)
                  (0 (when default? (add slot-name default)))
                  (1 (add slot-name (.call type .unmarshal port)))))
               (else (add slot-name (.call type .unmarshal port))))))))

@@ -4,7 +4,7 @@
 (export #t)
 
 (import
-  :gerbil/gambit/bits :gerbil/gambit/bytes :gerbil/gambit/ports
+  :gerbil/gambit
   :std/assert :std/format :std/iter :std/lazy
   :std/misc/bytes :std/misc/hash :std/misc/list :std/misc/number
   :std/srfi/1 :std/srfi/43
@@ -73,23 +73,23 @@
   .<-json: .<-string)
 (define-type (Bytes @ [methods.bytes Type.])
   .sexp<-: (lambda (x) `(hex-decode ,(hex-encode x)))
-  .element?: bytes?
+  .element?: u8vector?
   .Length: Nat
   .zero: #u8()
-  .marshal: (lambda (x port) (marshal .Length (bytes-length x) port) (write-u8vector x port))
+  .marshal: (lambda (x port) (marshal .Length (u8vector-length x) port) (write-u8vector x port))
   .unmarshal: (lambda (port) (def n (unmarshal .Length port)) (unmarshal-n-u8 n port)))
 (.def (BytesN. @ [methods.bytes Type.] n)
   sexp: `(BytesN ,n)
-  .element?: (λ (x) (and (bytes? x) (= (bytes-length x) n)))
+  .element?: (λ (x) (and (u8vector? x) (= (u8vector-length x) n)))
   .validate: (λ (x (context '()))
-               (unless (bytes? x) (type-error context Type @ [value: x]))
-               (unless (= (bytes-length x) n)
+               (unless (u8vector? x) (type-error context Type @ [value: x]))
+               (unless (= (u8vector-length x) n)
                  (type-error context Type @ [value: x]
-                   (format "\n  length mismatch: expected ~a, given ~a" n (bytes-length x))))
+                   (format "\n  length mismatch: expected ~a, given ~a" n (u8vector-length x))))
                x)
   .sexp<-: (.@ Bytes .sexp<-)
   .length-in-bytes: n
-  .zero: (make-bytes n)
+  .zero: (make-u8vector n)
   .<-string: (λ (x) (validate @ (hex-decode x)))
   .<-bytes: (cut validate @ <>)
   .marshal: write-u8vector
@@ -285,9 +285,9 @@
   .sexp<-: (lambda (v) (if (void? v) '(void) (sexp<- type v)))
   .json<-: (lambda (v) (if (void? v) v ((.@ type .json<-) v)))
   .<-json: (lambda (j) (if (void? j) j ((.@ type .<-json) j)))
-  .marshal: (λ (x port) (cond ((void? x) (write-byte 0 port))
-                              (else (write-byte 1 port) (marshal type x port))))
-  .unmarshal: (λ (port) (if (zero? (read-byte port)) (void) (unmarshal type port))))
+  .marshal: (λ (x port) (cond ((void? x) (write-u8 0 port))
+                              (else (write-u8 1 port) (marshal type x port))))
+  .unmarshal: (λ (port) (if (zero? (read-u8 port)) (void) (unmarshal type port))))
 (def (Maybe type) {(:: @ Maybe.) (type)})
 
 (.def (OrFalse. @ [methods.bytes<-marshal Type.] type)
@@ -296,9 +296,9 @@
   .sexp<-: (lambda (v) (and v (sexp<- type v)))
   .json<-: (lambda (v) (and v ((.@ type .json<-) v)))
   .<-json: (lambda (j) (and j ((.@ type .<-json) j)))
-  .marshal: (λ (x port) (cond (x (write-byte 1 port) (marshal type x port))
-                              (else (write-byte 0 port))))
-  .unmarshal: (λ (port) (and (not (zero? (read-byte port))) (unmarshal type port))))
+  .marshal: (λ (x port) (cond (x (write-u8 1 port) (marshal type x port))
+                              (else (write-u8 0 port))))
+  .unmarshal: (λ (port) (and (not (zero? (read-u8 port))) (unmarshal type port))))
 (def (OrFalse type) {(:: @ OrFalse.) (type)})
 
 (.def (Map. @ [methods.string&bytes&marshal<-json Type.] Key Value)

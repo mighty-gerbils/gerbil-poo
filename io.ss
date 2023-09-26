@@ -17,8 +17,8 @@
 (.defgeneric (object-read-byte in)
   default:
   (λ (in)
-    (if (input-port? in) (read-byte in)
-        (error "Trying to read-byte from unsupported object" in))))
+    (if (input-port? in) (read-u8 in)
+        (error "Trying to read-u8 from unsupported object" in))))
 
 ;; gf to effectfully write a byte to a stream or stream-like object.
 ;; Unit <- Byte Out
@@ -26,31 +26,31 @@
 
 ;; gf to effectfully read bytes from a stream or stream-like object into a u8vector
 ;; Unit <- In Bytes ?offset: Nat ?length: Nat
-(.defgeneric (read-bytes-into bs in offset: (offset 0) length: (length (- (bytes-length bs) offset)))
+(.defgeneric (read-bytes-into bs in offset: (offset 0) length: (length (- (u8vector-length bs) offset)))
   default:
   (λ (in l)
     (for (i (in-range length))
-      (let ((b (read-byte in))) ;; TODO: handle EOF, return number of bytes read???
-        (bytes-set! bs (+ i offset) b)))))
+      (let ((b (read-u8 in))) ;; TODO: handle EOF, return number of bytes read???
+        (u8vector-set! bs (+ i offset) b)))))
 
 ;; gf to effectfully read bytes from a stream or stream-like object into a new u8vector
 ;; Bytes <- In Nat
 (.defgeneric (object-read-bytes length in)
   default:
   (λ (in length)
-    (def bs (make-bytes length))
+    (def bs (make-u8vector length))
     (if (input-port? in)
-      (let ((n (read-bytes bs in))) (assert! (= n length)))
+      (let ((n (read-u8vector bs in))) (assert! (= n length)))
       (read-bytes-into bs in length: length))
     bs))
 
 ;; gf to effectfully write bytes to a stream or stream-like object from a u8vector
 ;; Unit <- Bytes Out ?offset: Nat ?length: Nat
-(.defgeneric (object-write-bytes bs out offset: (offset 0) length: (length (- (bytes-length bs) offset)))
+(.defgeneric (object-write-bytes bs out offset: (offset 0) length: (length (- (u8vector-length bs) offset)))
   default:
-  (λ (out bs offset: (offset 0) length: (length (- (bytes-length bs) offset)))
+  (λ (out bs offset: (offset 0) length: (length (- (u8vector-length bs) offset)))
     (for (i (in-range length))
-      (write-byte (bytes-ref bs (+ i offset)) out))))
+      (write-u8 (u8vector-ref bs (+ i offset)) out))))
 
 
 ;;; Printing objects as per std/misc/repr
@@ -164,7 +164,7 @@
   .unmarshal: (lambda (port) (.<-bytes (unmarshal .Bytes port))))
 
 (define-type (methods.marshal<-fixed-length-bytes @ [] .<-bytes .bytes<- .length-in-bytes)
-  .marshal: (lambda (x port) (write-bytes (.bytes<- x) port))
+  .marshal: (lambda (x port) (write-u8vector (.bytes<- x) port))
   .unmarshal: (lambda (port) (.<-bytes (unmarshal-n-u8 .length-in-bytes port))))
 
 ;;; Converting to/from string

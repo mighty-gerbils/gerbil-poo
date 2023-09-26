@@ -184,7 +184,7 @@
 (define-type (JsInt @ (Int 54))) ; From -2**53 to 2**53-1 included.
 
 (def (bytes<-double d)
-  (def bytes (make-bytes 8))
+  (def bytes (make-u8vector 8))
   (u8vector-double-set! bytes 0 d big)
   bytes)
 
