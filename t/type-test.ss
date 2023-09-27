@@ -3,12 +3,21 @@
 
 (import
   :gerbil/gambit
-  :std/misc/repr
-  :std/assert :std/format :std/pregexp :std/sort
+  :std/assert
+  :std/format
+  :std/misc/repr   :std/misc/ports
+  :std/pregexp
+  :std/sort
   :std/srfi/13
-  :std/sugar :std/test
-  :clan/assert :clan/base :clan/exception
-  ../object ../mop ../number ../type)
+  :std/sugar
+  :std/test
+  :clan/assert
+  :clan/base
+  :clan/exception
+  ../object
+  ../mop
+  ../number
+  ../type)
 
 (defrule (check-rep parse unparse rep obj)
   (begin ;;let ((rep rep) (obj obj))
@@ -32,9 +41,8 @@
       (check-equal? (validate Bytes2 #u8(3 5)) #u8(3 5))
       (check-exception (validate Bytes2 'not-even-bytes)
                        (lambda (e)
-                         (pregexp-match
-                          "type-error \\(BytesN 2\\) \\[value: 'not-even-bytes]"
-                          (string<-exception e))))
+                         (equal? (string<-exception e)
+                                 "type-error (BytesN 2) [value: not-even-bytes]\n")))
       ;; too small
       (check-exception (validate Bytes2 #u8(3))
                        (lambda (e)
