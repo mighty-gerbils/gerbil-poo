@@ -161,12 +161,11 @@
   Costep: {(:: @C Type.) ;;(Struct height: Height key: Key)
     sexp: `(.@ ,(.@ @ sexp) Costep)
     .validate:
-    (lambda (x ctx)
-      (def c [[validate: x] . ctx])
+    (lambda (x)
       (match x
         (($Costep height key)
          (unless (member height '(-1 #f))
-           (validate Height height c))
+           (validate Height height))
          (validate Key key)))
       x)}
 
@@ -179,22 +178,21 @@
     ;; validate wrt the parameter type?
     ;; : Bool <- Any
     .validate:
-    (lambda (path ctx)
+    (lambda (path)
       (let-match (($Path (and costep ($Costep height key)) steps) path)
-        (def ctx2 [[validate: path] . ctx])
-        (validate Costep costep ctx2)
+        (validate Costep costep)
         (let c ((height height) (steps steps))
           (match steps
             ([] #t)
             ([step . steps]
              (match step
                ((BranchStep a)
-                (validate A a ctx2)
+                (validate A a)
                 (c (1+ height) steps))
                ((SkipStep bits-height)
-                (validate Height bits-height ctx2)
+                (validate Height bits-height)
                 (let (new-height (+ height bits-height 1))
-                  (validate Height new-height ctx2)
+                  (validate Height new-height)
                   (c new-height steps))))))))
       path)
 
@@ -285,28 +283,27 @@
 
   ;; : Bool <- Any
   .validate:
-  (lambda (t (ctx '()))
+  (lambda (t)
+    (def (err reason) (raise-type-error @ reason t))
     (match (.unwrap t)
       ((Empty) t) ;; NB: In a normalized trie, Empty only happens at the toplevel:
       ;; Otherwise, a Branch with an Empty child is normalized to a Skip
       ((Leaf value) (validate Value value) t)
       ((Branch height left right)
-       (let (c [[validate: @ t] . ctx])
-         (validate Height height c)
-         (.validate left c)
-         (or (= (1- height) (.trie-height left)) (type-error c wrong-left-height:))
-         (.validate right c)
-         (or (= (1- height) (.trie-height right)) (type-error c wrong-right-height:)))
+       (validate Height height)
+       (.validate left)
+       (unless (= (1- height) (.trie-height left)) (err wrong-left-height:))
+       (.validate right)
+       (unless (= (1- height) (.trie-height right)) (err wrong-right-height:))
        t)
       ((Skip height bits-height bits child)
-       (let (c [[validate: @ t] . ctx])
-         (validate Height height c)
-         (validate Height bits-height c)
-         (or (<= bits-height height) (type-error c bad-bits-height:))
-         (or (<= 0 bits) (type-error c negative-bits:))
-         (or (<= (integer-length bits) (1+ bits-height)) (type-error c bits-too-big:))
-         (.validate child c)
-         (or (= (- height bits-height 1) (.trie-height child)) (type-error c child-height-mismatch:)))
+       (validate Height height)
+       (validate Height bits-height)
+       (unless (<= bits-height height) (err bad-bits-height:))
+       (unless (<= 0 bits) (err negative-bits:))
+       (unless (<= (integer-length bits) (1+ bits-height)) (err bits-too-big:))
+       (.validate child)
+       (unless (= (- height bits-height 1) (.trie-height child)) (err child-height-mismatch:))
        t)))
 
   ;; : (Fun Value <- @ Key (Fun Value <-))

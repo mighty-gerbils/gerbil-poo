@@ -27,10 +27,9 @@
        .foldr) ;; : (Fun o <- (Fun o <- Key Value o) o @)
 
   .validate:
-  (if (eq? Value Any) (lambda (x (ctx '())) x)
-      (lambda (x (ctx '()))
-        (def c [[validate: x] . ctx])
-        (.for-each (lambda (_k v) (validate Value v c)) x) ;; should we test keys, too?
+  (if (eq? Value Any) identity
+      (lambda (x)
+        (.for-each (lambda (_k v) (validate Value v)) x) ;; should we test keys, too?
         x))
 
   ;; : (Fun Bool <- @)

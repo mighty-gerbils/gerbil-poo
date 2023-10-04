@@ -39,22 +39,11 @@
             [MyRange 201]]))
     (test-case "BytesN test"
       (check-equal? (validate Bytes2 #u8(3 5)) #u8(3 5))
-      (check-exception (validate Bytes2 'not-even-bytes)
-                       (lambda (e)
-                         (equal? (string<-exception e)
-                                 "type-error (BytesN 2) [value: not-even-bytes]\n")))
+      (check-exception (validate Bytes2 'not-even-bytes) TypeError?)
       ;; too small
-      (check-exception (validate Bytes2 #u8(3))
-                       (lambda (e)
-                         (pregexp-match
-                          "type-error \\(BytesN 2\\) \\[value: #u8\\(3\\)\\]\n *length mismatch: expected 2, given 1"
-                          (string<-exception e))))
+      (check-exception (validate Bytes2 #u8(3)) TypeError?)
       ;; too big
-      (check-exception (validate Bytes2 #u8(3 5 8))
-                       (lambda (e)
-                         (pregexp-match
-                          "type-error \\(BytesN 2\\) \\[value: #u8\\(3 5 8\\)\\]\n *length mismatch: expected 2, given 3"
-                          (string<-exception e))))
+      (check-exception (validate Bytes2 #u8(3 5 8)) TypeError?)
       (check-rep (.@ Bytes2 .<-json) (.@ Bytes2 .json<-) "080d" #u8(8 13))
       (check-rep (.@ Bytes2 .<-bytes) (.@ Bytes2 .bytes<-) #u8(34 55) #u8(34 55)))
     (test-case "tuple test"

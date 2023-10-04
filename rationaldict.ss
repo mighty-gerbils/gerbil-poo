@@ -12,9 +12,9 @@
    Key: Rational
    Value: Any
    .validate: => (λ (super)
-                   (lambda (x (ctx '()))
-                     (unless (rationaldict? x) (type-error [[validate: x] . ctx] "Not an rationaldict"))
-                     (super x ctx)))
+                   (lambda (x)
+                     (unless (rationaldict? x) (raise-type-error "Not an rationaldict" x))
+                     (super x)))
    ;; TODO: also use rationaldict-min-key, rationaldict-max-key, rationaldict-update ?
    .empty: empty-rationaldict
    .empty?: rationaldict-empty?

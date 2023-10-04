@@ -81,11 +81,10 @@
 (.def (BytesN. @ [methods.bytes Type.] n)
   sexp: `(BytesN ,n)
   .element?: (λ (x) (and (u8vector? x) (= (u8vector-length x) n)))
-  .validate: (λ (x (context '()))
-               (unless (u8vector? x) (type-error context Type @ [value: x]))
+  .validate: (λ (x)
+               (unless (u8vector? x) (raise-type-error @ x))
                (unless (= (u8vector-length x) n)
-                 (type-error context Type @ [value: x]
-                   (format "\n  length mismatch: expected ~a, given ~a" n (u8vector-length x))))
+                 (raise-type-error @ x [length-mismatch: expected: n given: (u8vector-length x)]))
                x)
   .sexp<-: (.@ Bytes .sexp<-)
   .length-in-bytes: n
@@ -252,10 +251,9 @@
 
 (define-type (TypeValuePair @ Type.)
   .element?: (match <> ([t . v] (and (element? Type t) (element? t v))) (_ #f))
-  .validate: (lambda (x (ctx '()))
-               (def c [[validating: [@] x] . ctx])
-               (match x ([t . v] (validate Type t ctx) (validate t x ctx))
-                      (_ (type-error ctx "not a type-value pair" x))))
+  .validate: (lambda (x)
+               (match x ([t . v] (validate Type t) (validate t x))
+                      (_ (raise-type-error @ x "not a type-value pair"))))
   .sexp<-: (match <> ([t . v] `(cons ,(.@ t sexp) ,(sexp<- t v))))
   .json<-: (match <> ([t . v] [(sexp<- Type t) (json<- t v)])) ;; supposes a simple enough type
   .<-json: invalid ;; maybe we should somehow register types that are valid for I/O into a table?
@@ -345,14 +343,13 @@
       types: (map cdr a)
       make: (lambda (tag value) {(tag) (value)})
       .validate:
-      (lambda (x (ctx '()))
-        (def c [[validating: [@] x] . ctx])
+      (lambda (x)
         (match x
           ({tag value}
-           (unless (.slot? variants tag) (type-error c "invalid tag" tag))
-           (validate (.ref variants tag) value c)
+           (unless (.slot? variants tag) (raise-type-error @ x ["invalid tag" tag]))
+           (validate (.ref variants tag) value)
            x)
-          (_ (type-error c "not a tag-value variant"))))
+          (_ (raise-type-error @ x "not a tag-value variant"))))
       .element?:
       (lambda (v)
         (match v

@@ -2,12 +2,19 @@
 
 (import
   :gerbil/gambit
-  :std/assert :std/format :std/generic :std/iter
+  :std/assert
+  :std/format
+  :std/generic
+  :std/iter
   :std/misc/repr
   :std/misc/walist
   :std/sugar
+  :std/stxutil
   :std/text/json
-  :clan/base :clan/hash :clan/io :clan/json
+  :clan/base
+  :clan/hash
+  :clan/io
+  :clan/json
   ./object ./mop ./brace)
 
 ;;; Byte I/O
@@ -63,10 +70,10 @@
       (d "#" (object->serial-number self) "#;{(inconsistent object)")
       (for-each (lambda (slot) (d " " slot)) (map car (append (object-slots self) (object-defaults self))))
       (d "}"))
-     ((.has? self .type print-object) ((.@ self .type print-object) self port options))
+     ((.has? self .type .print-representation) ((.@ self .type .print-representation) self port options))
      ((.has? self .type .sexp<-) (write ((.@ self .type .sexp<-) self) port))
      ((.has? self .type) (print-class-object self port options))
-     ((.has? self .pr) (.call self .pr port options))
+     ((.has? self print-representation) (.call self print-representation port options))
      ((.has? self sexp) (write (.@ self sexp) port))
      ;; TODO: have a better fallback
      (else
@@ -180,35 +187,84 @@
 ;;; See also ##inverse-eval.
 (defmethod (@@method :wr object)
   (lambda (self we)
-    (def inconsistent? (and (object-%instance self) (not (object-%slot-funs self))))
-    (unless inconsistent?
-      (ignore-errors (instantiate-object! self)))
-    (set! inconsistent? (and (object-%instance self) (not (object-%slot-funs self))))
+    (ignore-errors (instantiate-object! self))
+    (def inconsistent? (not (object-%slot-funs self)))
     (defvalues (slots h)
       (if inconsistent?
         (values (map car (append (object-slots self) (object-defaults self))) (hash))
         (values (.all-slots self) (object-%instance self))))
-    (if (eq? (write-style we) 'mark)
-      (for-each (lambda (k) (when (and h (hash-key? h k)) (##wr we (hash-get h k)))) slots)
-      (let ()
-        (def (src x) (##wr we x))
-        (def first? #t)
-        (##wr-str we (format "#~d " (object->serial-number self)))
-        (##wr-str we "#;")
-        (def (wr-fields)
-          (##wr-str we "{")
-          (for-each (lambda (k)
-                      (if first? (set! first? #f) (##wr-str we " "))
-                      (##wr-str we (string-append (symbol->string k) ": "))
-                      (if (and h (hash-key? h k)) (##wr we (hash-get h k)) (##wr-str we "…")))
-                    slots)
-          (##wr-str we "}"))
-        (cond
-         (inconsistent? (##wr-str we "(inconsistent object ") (wr-fields) (##wr-str we ")"))
-         ;;((.has? self .type print-object) ((.@ self .type print-object) self port options))
-         ((.has? self .type .sexp<-) (src ((.@ self .type .sexp<-) self)))
-         ;;((.has? self .type) (print-class-object self port options))
-         ;;((.has? self .pr) (.call self .pr port options))
-         ((.has? self sexp) (src (.@ self sexp)))
-         ((.has? self .sexp) (src (.@ self .sexp)))
-         (else (wr-fields)))))))
+    (def style (write-style we))
+    (def mark? (eq? style 'mark))
+    (def (s x) (unless mark? (##wr-str we x)))
+    (def (w x) (##wr we x))
+    (def (comma)
+      (case style
+        ((mark display) (void))
+        ((write write-shared pretty-print) (s ","))))
+    (def (sn)
+      (s "#") (w (object->serial-number self)) (s " #;"))
+    (def (wr-fields)
+      (def first #t)
+      (for-each (lambda (k)
+                  (unless mark?
+                    (if first
+                      (begin
+                        (set! first #f)
+                        (s "{")
+                        (when inconsistent?
+                          (s "(inconsistent object) ")))
+                      (s " "))
+                    (w (string->keyword (symbol->string k)))
+                    (s " "))
+                  (if (and h (hash-key? h k))
+                    (w (hash-get h k))
+                    (s "…")))
+                slots)
+      (s "}"))
+    (cond
+     ((.has? self .type .write-object)
+      ((.@ self .type .write-object) we self))
+     ((.has? self .type .sexp<-)
+      (comma) (w ((.@ self .type .sexp<-) self)))
+     ;;((.has? self .type) (print-class-object self (macro-writeenv-port we) (current-representation-options)))
+     ((.has? self write-object) (.call self write-object we))
+     ((.has? self sexp) (comma) (w (.@ self sexp)))
+     ((.has? self .sexp) (comma) (w (.@ self .sexp)))
+     (else (sn) (wr-fields)))))
+
+(defstruct TV (type value) ;; Typed Value
+  transparent: #t)
+(defmethod (@@method :wr TV)
+  (lambda (self writeenv)
+    (def style (write-style writeenv))
+    (def mark? (eq? style 'mark))
+    (def (s x) (unless mark? (##wr-str writeenv x)))
+    (def (w x) (##wr writeenv x))
+    (with ((TV type value) self)
+      (cond
+       ((.has? type write-object)
+        (case style
+          ((mark write write-shared pretty-print) (s "(TV ") (w type)))
+        (.call type write-object writeenv value)
+        (case style
+          ((write write-shared pretty-print) (s ")"))))
+       ((.has? type .sexp<-)
+        (case style
+          ((mark) (w type))
+          ((write write-shared pretty-print)
+           (s "(TV ") (w type) (s " ,"))) ;; do something in case the sexp start with @ ?
+        (w (.call type .sexp<- value))
+        (case style
+          ((write write-shared pretty-print) (s ")"))))
+       ((.has? type .json<-)
+        (case style
+          ((mark) (w type))
+          ((display) (w type) (s ":") (s (json-string<- type value)))
+          ((write write-shared pretty-print)
+           (s "(TV<-json ") (w type) (s " ") ;; do something in case the sexp start with @ ?
+           (w (json-string<- type value)) (s ")"))))
+       (else
+        (s "#<TV ") (w type) (s " ") (w value) (s ">"))))))
+
+(def (TV<-json type json-string)
+  (TV type (<-json-string type json-string)))

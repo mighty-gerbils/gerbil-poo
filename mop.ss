@@ -6,8 +6,11 @@
 (export #t)
 
 (import
-  (for-syntax :std/srfi/1 :clan/syntax :std/stxutil)
-  :clan/syntax
+  (for-syntax
+   :std/srfi/1
+   :clan/syntax
+   :std/stxutil)
+  (only-in :std/error deferror-class defraise/context)
   :gerbil/gambit
   :std/assert :std/error :std/format :std/generic :std/iter :std/lazy
   :std/misc/list :std/misc/repr :std/misc/walist
@@ -120,9 +123,9 @@
   ;; NB: either `validate` or `element?` can be primary, with the other method deduced from it.
   ;; But if you fail to override either, it's bottomless mutual recursion calling them.
   .element?: ;; : Bool <- Any ;; is this an element of this type?
-  (lambda (x) (try (.validate x '()) #t (catch (_) #f)))
+  (lambda (x) (try (.validate x) #t (catch (_) #f)))
   .validate: ;; : @ <- Any ?(List Any) ;; identity for an @, throws a type-error if input isn't a @
-  (lambda (x (context '())) (if (.element? x) x (type-error context Type @ [value: x]))))
+  (lambda (x) (if (.element? x) x (raise-type-error (TV Type @) x))))
 
 (def (display-object l (port (current-output-port)))
   (let d ((space? #f))
@@ -144,23 +147,13 @@
   (newline port)
   (force-output port))
 
-(def (display-context c (port (current-output-port)))
-  (for-each (lambda (l) (display-object l port) (newline port))
-            (reverse (append c (current-error-context)))))
-
-(defclass (<Error> Exception) (tag args context) transparent: #t)
-(def (raise-<Error> tag (context '()) . args)
-  (raise (<Error> tag: tag args: args context: context)))
-(def (type-error (context '()) . args) (apply raise-<Error> type-error: context args))
-(defmethod (@@method display-exception <Error>)
-  (lambda (self port)
-    (display-context (<Error>-context self) port)
-    (display-object [(<Error>-tag self) " " (<Error>-args self)... "\n"] port))
-  rebind: #t)
+(deferror-class TypeError ())
+(defraise/context (raise-type-error where irritants ...)
+  (TypeError "type error" irritants: [irritants ...]))
 
 ;; TODO: teach .defgeneric about optional arguments.
 ;; TODO: use macro that leaves source info by default, returns a function when passed as argument.
-(def (validate type x (context '())) (.call type .validate x context))
+(def (validate type x) (.call type .validate x))
 
 ;; Any accepts any Scheme object, but only does best effort at printing, invalid reading
 (define-type (Any @ [Type.])
@@ -213,19 +206,18 @@
 (.def (Function. @ Type. outputs inputs)
   sexp: `(Function (@list ,@(map (cut .@ <> sexp) outputs)) (@list ,@(map (cut .@ <> sexp) inputs)))
   .element?: procedure? ;; we can't dynamically test that a function has the correct signature :-(
-  .validate: (lambda (f (ctx '()))
-               (unless (procedure? f) (type-error ctx Type @ Any f))
-               (def (validate-row context kind types elems k)
+  .validate: (lambda (f)
+               (unless (procedure? f) (raise-type-error Type @ Any f))
+               (def (validate-row kind types elems k)
                  (unless (= (length elems) (length types))
-                   (type-error context invalid-number-of: kind))
-                 (k (map (lambda (type elem i)
-                           (validate type elem [[position: i] . ctx]))
-                         types elems (iota (length types)))))
+                   (raise-type-error @ f invalid-number-of: kind))
+                 (k (map (lambda (type elem) (validate type elem))
+                         types elems)))
                (nest
-                (lambda ins) (let (ctx2 [[calling: f type: (cons Type @) inputs: ins] . ctx]))
-                (validate-row ctx2 inputs: inputs ins) (lambda (vins))
+                (lambda ins)
+                (validate-row inputs: inputs ins) (lambda (vins))
                 (call/values (lambda () (apply f vins))) (lambda outs)
-                (validate-row [[outputs: outs] . ctx2] outputs: outputs outs list->values)))
+                (validate-row outputs: outputs outs list->values)))
   arity: (length inputs))
 
 (def (Function outputs inputs)

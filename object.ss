@@ -10,10 +10,20 @@
 
 (import
   (prefix-in (only-in <host-runtime> object? make-object) @) ;; Rename them before we shadow them
-  (for-syntax :clan/base :std/iter :std/misc/hash :std/misc/list :std/stxutil)
-  :std/error :std/generic :std/misc/hash :std/iter :std/misc/alist :std/misc/list
-  :std/sort :std/srfi/1 :std/srfi/13 :std/stxutil :std/sugar
-  :clan/base :clan/hash :clan/list :clan/syntax)
+  (for-syntax (only-in :clan/base !>)
+              (only-in :std/iter for/collect)
+              (only-in :std/misc/list push!)
+              (only-in :std/misc/list-builder with-list-builder))
+  (only-in :std/error Exception)
+  (only-in :std/misc/hash hash->list/sort hash-ref/default hash-ensure-ref hash-ensure-modify!)
+  (only-in :std/iter for for/collect)
+  (only-in :std/misc/list-builder with-list-builder)
+  (only-in :std/misc/list aset)
+  (only-in :std/sort sort)
+  (only-in :std/stxutil symbolify)
+  (only-in :std/sugar awhen defrule with-id with-id/expr)
+  (only-in :clan/base modify! looking-for λ symbol<? constantly rcurry let-id-rule defonce)
+  (only-in :clan/list c3-compute-precedence-list flatten-pair-tree))
 
 ;; TODO: formalize (Object A S D) and the type conditions under which an object is instantiatable?
 (defstruct object ;; = (Object A)
