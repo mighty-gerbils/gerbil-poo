@@ -14,7 +14,7 @@
               (only-in :std/iter for/collect)
               (only-in :std/misc/list push!)
               (only-in :std/misc/list-builder with-list-builder))
-  (only-in :std/error Exception)
+  (only-in :std/error deferror-class Exception)
   (only-in :std/misc/hash hash->list/sort hash-ref/default hash-ensure-ref hash-ensure-modify!)
   (only-in :std/iter for for/collect)
   (only-in :std/misc/list-builder with-list-builder)

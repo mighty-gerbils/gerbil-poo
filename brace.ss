@@ -5,7 +5,6 @@
 
 (import
   (prefix-in (only-in <MOP> @method) @)
-  :clan/base
   (only-in ./object .o .o/ctx))
 
 ;; {args ...} -> (@method args ...) -> (.o args ...)

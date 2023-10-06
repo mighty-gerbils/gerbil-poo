@@ -1,6 +1,7 @@
 (export #t)
 
 (import
+  (only-in :gerbil/gambit object->serial-number object->string)
   :gerbil/gambit
   :std/assert
   :std/format

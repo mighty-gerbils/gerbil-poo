@@ -7,17 +7,30 @@
 
 (import
   (for-syntax
-   :std/srfi/1
-   :clan/syntax
-   :std/stxutil)
+   (only-in :std/srfi/1 list-index split-at)
+   (only-in :std/stxutil symbolify))
   (only-in :std/error deferror-class defraise/context)
-  :gerbil/gambit
-  :std/assert :std/error :std/format :std/generic :std/iter :std/lazy
-  :std/misc/list :std/misc/repr :std/misc/walist
-  :std/srfi/1
-  :std/stxutil :std/sugar :std/values
-  :clan/base :clan/error :clan/hash :clan/io :clan/json :clan/list :clan/syntax
-  ./object ./brace)
+  (only-in :std/generic defgeneric)
+  (only-in :std/misc/list-builder with-list-builder)
+  (only-in :std/misc/list pop!)
+  (only-in :std/misc/repr repr pr)
+  (only-in :std/misc/walist walist)
+  (only-in :std/srfi/1 every append-map)
+  (only-in :std/stxutil keywordify symbolify)
+  (only-in :std/sugar defrule try catch)
+  (only-in :std/values list->values)
+  (only-in :clan/base λ compose nest invalid)
+  (only-in :clan/io u8vector<-<-marshal <-u8vector<-unmarshal
+           marshal<-u8vector<- unmarshal<-<-u8vector
+           marshal-sized16-u8vector unmarshal-sized16-u8vector)
+  (only-in :clan/json string<-json json<-string)
+  (only-in :clan/syntax call<-formals)
+  (only-in ./object object .def .def/ctx .cc .mix .ref .@ .get .has? .call
+           .all-slots with-slots .slot? .putslot! .putdefault! .for-each!
+           NoApplicableMethod?
+           .alist object<-alist
+           $constant-slot-spec $computed-slot-spec)
+  (only-in ./brace @method @@method))
 
 ;; * Options
 ;; default: default value when no method is defined, also bottom value for fixed-point

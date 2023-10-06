@@ -4,15 +4,30 @@
 (export #t)
 
 (import
-  :gerbil/gambit
-  :std/assert :std/format :std/iter :std/lazy
-  :std/misc/bytes :std/misc/hash :std/misc/list :std/misc/number
-  :std/srfi/1 :std/srfi/43
-  :std/stxutil :std/sugar
-  :std/text/hex :std/text/json
-  :clan/assert :clan/base :clan/hash :clan/io :clan/json :clan/list :clan/maybe
-  :clan/syntax
-  ./object ./mop ./number ./brace ./io)
+  (only-in :std/assert assert!)
+  (only-in :std/iter for/collect for in-range in-iota)
+  (only-in :std/misc/bytes n-bits->n-u8 nat->u8vector u8vector->nat)
+  (only-in :std/misc/hash hash-key-value-map hash-ensure-ref)
+  (only-in :std/misc/list pop! acons)
+  (only-in :std/srfi/1 append-map any every)
+  (only-in :std/srfi/43 vector-index vector-map vector-unfold)
+  (only-in :std/stxutil symbolify)
+  (only-in :std/sugar defrule hash)
+  (only-in :std/text/hex hex-decode hex-encode)
+  (only-in :clan/assert assert-equal!)
+  (only-in :clan/base λ compose invalid ignore-errors)
+  (only-in :clan/io u8vector<-<-marshal <-u8vector<-unmarshal
+           write-nat-u8vector read-nat-u8vector unmarshal-n-u8)
+  (only-in :clan/json json-normalize string<-json json<-string)
+  (only-in :clan/list index-of alist<-plist)
+  (only-in ./object .def .@ .ref object<-alist .slot?)
+  (only-in ./mop define-type Type Type. Class. Any
+           raise-type-error validate element? :sexp sexp<- json<- <-json)
+  (only-in ./number UInt Real Integer Nat)
+  (only-in ./brace @method)
+  (only-in ./io methods.bytes<-marshal methods.marshal<-bytes
+           methods.marshal<-fixed-length-bytes methods.string<-json
+           marshal unmarshal string<- <-string))
 
 ;; vector-map-in-order : [Index A B ... -> C] [Vectorof A] [Vectorof B] ... -> [Vectorof C]
 ;; The applictions of `f` are in order, unlike `vector-map`, but like `vector-for-each`

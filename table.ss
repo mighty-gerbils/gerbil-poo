@@ -3,9 +3,15 @@
 (export #t)
 
 (import
-  :std/iter :std/misc/alist
-  :clan/base :clan/list :clan/option
-  ./brace ./io ./mop ./number ./object ./type)
+  (only-in :std/iter for/fold :iter iterator-next iterator-next-set!)
+  (only-in :std/misc/alist acons)
+  (only-in :clan/base compose !> fun)
+  (only-in :clan/option some some? option-ref option-get/default map/option some-value)
+  (only-in ./brace @method)
+  (only-in ./io marshal)
+  (only-in ./mop define-type Type. Any validate)
+  (only-in ./object .@ .call)
+  (only-in ./type List Pair))
 
 ;; TODO: have APIs look more like LIL, less like OCaml?
 ;; Especially since we may (1) use similar metaprogramming for OO style (?), and

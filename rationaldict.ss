@@ -3,10 +3,19 @@
 (export #t)
 
 (import
-  :std/iter :std/misc/list :std/values
-  :clan/base :clan/list :clan/option
-  :clan/pure/dict/rationaldict
-  ./object ./brace ./io ./mop ./number ./type ./table)
+  (only-in :std/values first-value)
+  (only-in :clan/base λ compose)
+  (only-in :clan/pure/dict/rationaldict
+           rationaldict-keys rationaldict-min-key rationaldict-max-key
+           rationaldict-empty? empty-rationaldict
+           rationaldict-put rationaldict-ref rationaldict-has-key? rationaldict-remove
+           list->rationaldict rationaldict->list
+           rationaldict? rationaldict=?)
+  (only-in ./type Rational Unit)
+  (only-in ./object .@)
+  (only-in ./brace @method)
+  (only-in ./mop define-type Any raise-type-error)
+  (only-in ./table Set<-Table. methods.table))
 
 (define-type (RationalDict. @ [methods.table] Value)
    Key: Rational

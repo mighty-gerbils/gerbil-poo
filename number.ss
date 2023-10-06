@@ -6,14 +6,19 @@
 (export #t)
 
 (import
-  :gerbil/gambit
-  :std/srfi/141
-  :std/assert :std/iter
-  :std/misc/bytes :std/misc/hash :std/misc/number
-  :std/srfi/1
-  :std/sugar
-  :clan/base :clan/io
-  ./object ./mop ./brace ./io)
+  (only-in :std/srfi/141 floor-quotient)
+  (only-in :std/error check-argument)
+  (only-in :std/misc/bytes big n-bits->n-u8
+           u8vector-double-ref u8vector-double-set!
+           integer->u8vector u8vector->integer nat->u8vector u8vector->nat)
+  (only-in :std/misc/hash hash-ensure-ref)
+  (only-in :std/misc/number nat? nat-below? normalize-integer normalize-nat)
+  (only-in :clan/base λ compose number-comparer)
+  (only-in :clan/io write-varnat read-varnat write-varint read-varint)
+  (only-in ./object .def)
+  (only-in ./mop define-type Type.)
+  (only-in ./brace @method)
+  (only-in ./io methods.marshal<-fixed-length-bytes))
 
 ;; TODO: basic interface for arithmetics, with proper type signatures.
 (define-type (Number @ Type. .validate)
@@ -88,8 +93,10 @@
      ((vector #f _) (λ (x) (and (exact-integer? x) (<= x .most-positive))))
      ((vector _ _) (λ (x) (and (exact-integer? x) (<= .most-negative x .most-positive))))))
 (def (IntegerRange min: (.most-negative #f) max: (.most-positive #f))
-  (assert! (or (not .most-negative) (exact-integer? .most-negative)))
-  (assert! (or (not .most-positive) (exact-integer? .most-positive)))
+  (check-argument (or (not .most-negative) (exact-integer? .most-negative))
+                  "integer or false" .most-negative)
+  (check-argument (or (not .most-positive) (exact-integer? .most-positive))
+                  "integer or false" .most-positive)
   {(:: @ IntegerRange.) (.most-negative) (.most-positive)})
 
 (def (unary-pre-op-check op check info x)

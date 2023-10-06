@@ -1,10 +1,17 @@
 (export #t)
 
 (import
-  :gerbil/gambit
-  :std/generic :std/getopt :std/sugar
-  :clan/cli :clan/hash :clan/list :clan/multicall :clan/path-config
-  ./object ./brace)
+  (only-in :std/generic defmethod <t>)
+  (only-in :std/getopt getopt getopt-parse getopt-display-help flag option)
+  (only-in :std/sugar awhen)
+  (only-in :clan/cli getopt-spec getopt-spec/backtrace process-opts/backtrace)
+  (only-in :clan/hash hash-removed)
+  (only-in :clan/list flatten-pair-tree pair-tree-for-each!)
+  (only-in :clan/multicall call-with-getopt-parse getopt-spec
+           call-with-processed-command-line current-program-string)
+  (only-in :clan/path-config set-path-config-root!)
+  (only-in ./object .has? .@ object)
+  (only-in ./brace @method))
 
 (defmethod (getopt-spec (x object))
   (flatten-pair-tree
