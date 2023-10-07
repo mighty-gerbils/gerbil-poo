@@ -20,7 +20,6 @@
   (only-in :std/misc/list-builder with-list-builder)
   (only-in :std/misc/list aset)
   (only-in :std/sort sort)
-  (only-in :std/stxutil symbolify)
   (only-in :std/sugar awhen defrule with-id with-id/expr)
   (only-in :clan/base modify! looking-for λ symbol<? constantly rcurry let-id-rule defonce)
   (only-in :clan/list c3-compute-precedence-list flatten-pair-tree))
@@ -474,7 +473,7 @@
         (match l
           ([] (void))
           ([(? symbol? s) v . r] (add-slot! s v) (loop r))
-          ([(? keyword? k) v . r] (add-slot! (symbolify k) v) (loop r))
+          ([(? keyword? k) v . r] (add-slot! (make-symbol k) v) (loop r))
           (else (error "invalid object overrides" overrides))))))
   (def slots
     (with-list-builder (c)

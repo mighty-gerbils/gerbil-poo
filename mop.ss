@@ -7,8 +7,7 @@
 
 (import
   (for-syntax
-   (only-in :std/srfi/1 list-index split-at)
-   (only-in :std/stxutil symbolify))
+   (only-in :std/srfi/1 list-index split-at))
   (only-in :std/error deferror-class defraise/context)
   (only-in :std/generic defgeneric)
   (only-in :std/misc/list-builder with-list-builder)
@@ -16,7 +15,6 @@
   (only-in :std/misc/repr repr pr)
   (only-in :std/misc/walist walist)
   (only-in :std/srfi/1 every append-map)
-  (only-in :std/stxutil keywordify symbolify)
   (only-in :std/sugar defrule try catch)
   (only-in :std/values list->values)
   (only-in :clan/base λ compose nest invalid)
@@ -74,7 +72,7 @@
     ((.defgeneric (gf self . formals) options ...)
      (begin
        (define-values (slot-name compute-default from) (parse-options (syntax->list #'(options ...))))
-       (with-syntax* ((slot-name (or slot-name (symbolify "." #'gf)))
+       (with-syntax* ((slot-name (or slot-name (make-symbol "." (syntax->datum #'gf))))
                       (methods (case from
                                  ((instance) #'self)
                                  ((type) #'(.get self .type))
@@ -201,9 +199,9 @@
 (.def (MonomorphicObject. @ Type. type) ;; all the values are of given type
   sexp: `(MonomorphicObject ,(.@ type sexp))
   .element?: (cut monomorphic-object? type <>)
-  .sexp<-: (lambda (x) `(.o ,@(append-map (match <> ([s . v] [(keywordify s) (sexp<- type v)])) (.alist x))))
+  .sexp<-: (lambda (x) `(.o ,@(append-map (match <> ([s . v] [(make-keyword s) (sexp<- type v)])) (.alist x))))
   .json<-: (lambda (x) (list->hash-table (map (match <> ([s . v] (cons s (json<- type v)))) (.alist x))))
-  .<-json: (lambda (j) (object<-alist (map (match <> ([s . v] (cons (symbolify s) (<-json type v)))) (hash->list j)))))
+  .<-json: (lambda (j) (object<-alist (map (match <> ([s . v] (cons (make-symbol s) (<-json type v)))) (hash->list j)))))
 
 (def (MonomorphicObject type) {(:: @ MonomorphicObject.) type})
 (def ObjectObject (MonomorphicObject Object))
@@ -298,7 +296,7 @@
      p)
   .sexp<-: (lambda (v) `(instance ,sexp
                      ,@(with-list-builder (c)
-                         (def (add s v) (c (keywordify s)) (c v))
+                         (def (add s v) (c (make-keyword s)) (c v))
                          (.for-each! effective-slots
                                      (lambda (name slot) (.call.method slot .slot.sexp<- name v add))))))
   .string<-: (compose string<-json .json<-)

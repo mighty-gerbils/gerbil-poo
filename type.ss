@@ -11,7 +11,6 @@
   (only-in :std/misc/list pop! acons)
   (only-in :std/srfi/1 append-map any every)
   (only-in :std/srfi/43 vector-index vector-map vector-unfold vector-for-each)
-  (only-in :std/stxutil symbolify)
   (only-in :std/sugar defrule hash with-id)
   (only-in :std/text/hex hex-decode hex-encode)
   (only-in :clan/assert assert-equal!)
@@ -332,7 +331,7 @@
 (def (RecordSlot type . options)
   (object<-alist
    (acons 'type type
-          (map (match <> ([k . v] (cons (symbolify k) v))) (alist<-plist options)))))
+          (map (match <> ([k . v] (cons (make-symbol k) v))) (alist<-plist options)))))
 
 ;; TODO: Generate a proto field that supports initialization-time defaults.
 ;; TODO: Support single inheritance.
@@ -342,14 +341,14 @@
   {(:: @ (cons supers Class.))
    slots: =>.+ (object<-alist
                 (map (match <> ([kw type . options]
-                                (cons (symbolify kw) (apply RecordSlot type options))))
+                                (cons (make-symbol kw) (apply RecordSlot type options))))
                      (alist<-plist args)))})
 
 ;; Sum : {Kw Type} ... -> Type
 ;; Sum types aka tagged unions, each kw is a tag
 (def (Sum . plist)
   ;; a : [Assocof Symbol Type]
-  (def a (map (match <> ([kw . type] (cons (symbolify kw) type))) (alist<-plist plist)))
+  (def a (map (match <> ([kw . type] (cons (make-symbol kw) type))) (alist<-plist plist)))
   (def tag-marsh-t (UInt (integer-length (max 0 (1- (length a))))))
   {(:: @ [methods.bytes<-marshal Type.])
       sexp: ['Sum (append-map (match <> ([k . t] [k (.@ t sexp)])) a)...]

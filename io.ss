@@ -16,7 +16,9 @@
   :clan/hash
   :clan/io
   :clan/json
-  ./object ./mop ./brace)
+  ./object
+  ./mop
+  ./brace)
 
 ;;; Byte I/O
 
