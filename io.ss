@@ -244,30 +244,30 @@
     (def (s x) (unless mark? (##wr-str writeenv x)))
     (def (w x) (##wr writeenv x))
     (with ((TV type value) self)
-      (cond
-       ((.has? type write-object)
+      (if (.has? type write-object)
+        ;; write-object specializes :wr
+        (let (f (cut (.@ type write-object) value writeenv))
+          (case style
+            ((mark) (w type) (f))
+            ((display) (f))
+            ((write write-shared pretty-print)
+             (s ",(TV ") (w type) (s " ") (f) (s ")"))))
         (case style
-          ((mark write write-shared pretty-print) (s "(TV ") (w type)))
-        (.call type write-object writeenv value)
-        (case style
-          ((write write-shared pretty-print) (s ")"))))
-       ((.has? type .sexp<-)
-        (case style
-          ((mark) (w type))
+          ((mark) (w type) (w value))
+          ((display)
+           (w type) (s ":")
+           (cond
+            ((.has? type .json<-) (s (json-string<- type value)))
+            ((.has? type .string<-) (w (string<- type value)))
+            ((.has? type .sexp<-) (s (object->string (sexp<- type value))))
+            (else (s (object->string (sexp<- type value))))))
           ((write write-shared pretty-print)
-           (s "(TV ") (w type) (s " ,"))) ;; do something in case the sexp start with @ ?
-        (w (.call type .sexp<- value))
-        (case style
-          ((write write-shared pretty-print) (s ")"))))
-       ((.has? type .json<-)
-        (case style
-          ((mark) (w type))
-          ((display) (w type) (s ":") (s (json-string<- type value)))
-          ((write write-shared pretty-print)
-           (s "(TV<-json ") (w type) (s " ") ;; do something in case the sexp start with @ ?
-           (w (json-string<- type value)) (s ")"))))
-       (else
-        (s "#<TV ") (w type) (s " ") (w value) (s ">"))))))
+           (cond
+            ((.has? type .string<-) (s ",(TS ") (w type) (s " ") (w (string<- type value)) (s ")"))
+            ((.has? type .sexp<-) (s ",(TV ") (w type) (s " ") (w (sexp<- type value)) (s ")"))
+            ((.has? type .json<-) (s ",(TJ ") (w type) (s " ") (w (json-string<- type value)) (s ")"))
+            (else (s "#") (w (object->serial-number self))
+                  (s " #;(TV ") (w type) (s " ") (w value) (s ")")))))))))
 
-(def (TV<-json type json-string)
-  (TV type (<-json-string type json-string)))
+(def (TS type json-string) (TS type (<-string type string)))
+(def (TJ type json-string) (TV type (<-json-string type json-string)))
