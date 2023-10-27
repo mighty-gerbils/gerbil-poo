@@ -48,6 +48,7 @@
        .validate ;; : @ <- Any
        .wrap ;; : (Wrap t) <- t
        .unwrap) ;; : t <- (Wrap t)
+
   Wrapper: Identity
 
   ;; The type of values stored in a Trie.
@@ -945,6 +946,9 @@
   {(:: @ [Trie. IdWrap]) (Key) (Value)
    sexp: `(SimpleTrie ,(.@ Key sexp) ,(.@ Value sexp))})
 
-(def (SimpleTrieSet Elt) {(:: @ [TrieSet.]) (Elt) Value: Unit})
+(def (SimpleTrieSet Elt)
+  {(:: @ [TrieSet.]) (Elt)
+   sexp: `(SimpleTrieSet ,(.@ Elt sexp))
+   Value: Unit})
 
 (def NatTrieSet (SimpleTrieSet Nat))

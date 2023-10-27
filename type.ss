@@ -19,7 +19,7 @@
            write-nat-u8vector read-nat-u8vector unmarshal-n-u8)
   (only-in :clan/json json-normalize string<-json json<-string)
   (only-in :clan/list index-of alist<-plist)
-  (only-in ./object .def .@ .ref object<-alist .slot? .call .o)
+  (only-in ./object .@ .ref object<-alist .slot? .call .o)
   (only-in ./mop define-type Type Type. Class. Any
            raise-type-error validate element? :sexp sexp<- json<- <-json)
   (only-in ./number UInt Real Integer Nat)
@@ -39,8 +39,7 @@
      (apply f i (vector-ref v i) (map (cut vector-ref <> i) rst)))
    n))
 
-(.def (Tuple. @ [methods.bytes<-marshal Type.] types)
-  sexp: `(Tuple ,@(map (cut .@ <> sexp) type-list))
+(define-type (Tuple. @ [methods.bytes<-marshal Type.] types)
   type-list: (vector->list types)
   .element?:
     (λ (x)
@@ -59,10 +58,9 @@
   .unmarshal: (lambda (port) (vector-map-in-order (lambda (_ type) (unmarshal type port)) types)))
 (def (Tuple . type-list) ;; type of tuples, heterogeneous arrays of given length and type
   (def types (list->vector (map (cut validate Type <>) type-list)))
-  {(:: @ Tuple.) (types)})
+  {(:: @ Tuple.) (types) sexp: `(Tuple ,@(map (cut .@ <> sexp) type-list))})
 
-(.def (List. @ [methods.bytes<-marshal methods.string<-json Type.] type)
-  sexp: `(List ,(.@ type sexp))
+(define-type (List. @ [methods.bytes<-marshal methods.string<-json Type.] type)
   .Length: Nat
   .element?: (λ (x) (and (list? x) (every (cut element? type <>) x)))
   .sexp<-: (lambda (v) ['@list (map (.@ type .sexp<-) v) ...])
@@ -75,7 +73,7 @@
                 (lambda (port) (def l (ul port)) (for/collect (_ (in-range l)) (ut port)))))
 (def (List type)
   (validate Type type)
-  {(:: @ List.) (type)})
+  {(:: @ List.) (type) sexp: `(List ,(.@ type sexp))})
 
 (define-type (methods.bytes @ [])
   .sexp<-: (lambda (x) ['hex-decode (hex-encode x)])
@@ -92,8 +90,7 @@
   .zero: #u8()
   .marshal: (lambda (x port) (marshal .Length (u8vector-length x) port) (write-u8vector x port))
   .unmarshal: (lambda (port) (def n (unmarshal .Length port)) (unmarshal-n-u8 n port)))
-(.def (BytesN. @ [methods.bytes Type.] n)
-  sexp: `(BytesN ,n)
+(define-type (BytesN. @ [methods.bytes Type.] n)
   .element?: (λ (x) (and (u8vector? x) (= (u8vector-length x) n)))
   .validate: (λ (x)
                (unless (u8vector? x) (raise-type-error @ x))
@@ -108,9 +105,10 @@
   .marshal: write-u8vector
   .unmarshal: (cut unmarshal-n-u8 n <>))
 (def BytesN<-n (make-hash-table))
-(def (BytesN n) (hash-ensure-ref BytesN<-n n (lambda () {(:: @ BytesN.) n})))
-(def Bytes32 (BytesN 32))
-(def Bytes64 (BytesN 64))
+(def (BytesN n (sexp `(BytesN ,n)))
+  (hash-ensure-ref BytesN<-n n (lambda () {(:: @ BytesN.) n sexp})))
+(def Bytes32 (BytesN 32 'Bytes32))
+(def Bytes64 (BytesN 64 'Bytes64))
 
 (define-type (String @ [methods.marshal<-bytes Type.])
   .element?: string?
@@ -153,8 +151,7 @@
   .string<-: (compose string<-json .json<-)
   .<-string: (compose .<-json json<-string))
 
-(.def (Or. @ [methods.bytes<-marshal Type.] types)
-  sexp: `(Or ,@(map (cut .@ <> sexp) types))
+(define-type (Or. @ [methods.bytes<-marshal Type.] types)
   types@: (list->vector types)
   .element?: (λ (x) (any (cut element? <> x) types))
   ;; WE ASSUME THE JSON'S ARE DISJOINT, AS ARE THE VALUES (BUT WE DISCRIMINATE WHEN MARSHALLING)
@@ -174,7 +171,7 @@
   .unmarshal: (lambda (port)
                 (def disc (read-nat-u8vector .discriminant-length-in-bytes port))
                 (unmarshal (vector-ref types@ disc) port)))
-(def (Or . types) {(:: @ Or.) (types)})
+(def (Or . types) {(:: @ Or.) (types) sexp: `(Or ,@(map (cut .@ <> sexp) types))})
 
 ;; Bottom tells you everything about nothing
 (define-type (Bottom @ Type.)
@@ -194,8 +191,7 @@
   .json<-: invalid .<-json: invalid)
 (defalias ⊤ Top)
 
-(.def (Exactly. @ Type. value)
-  sexp: `(Exactly ,(:sexp value)) ;; TODO: have a better generic sexp function?
+(define-type (Exactly. @ Type. value)
   .element?: (λ (x) (equal? x value))
   .Log: Bottom
   kvalue: (lambda _ value)
@@ -207,15 +203,15 @@
   .<-bytes: kvalue
   .marshal: void
   .unmarshal: kvalue)
-(def (Exactly value) {(:: @ Exactly.) (value)})
+;; TODO: have a better generic sexp function?
+(def (Exactly value) {(:: @ Exactly.) (value) sexp: `(Exactly ,(:sexp value))})
 
 (define-type Null (Exactly '()))
 (define-type False (Exactly #f))
 (define-type True (Exactly #t))
 (define-type Unit (Exactly (void)))
 
-(.def (Enum. @ [methods.marshal<-fixed-length-bytes Type.] vals)
-  sexp: `(Enum ,@(map :sexp vals))
+(define-type (Enum. @ [methods.marshal<-fixed-length-bytes Type.] vals)
   .element?: (cut member <> vals)
   .vals@: (list->vector vals)
   .json@: (list->vector (map json-normalize vals))
@@ -232,11 +228,11 @@
                              ((< 0 .length-in-bytes) super)
                              ((void? vals) (lambda _ (error "no value to unmarshal of type" sexp)))
                              (else (let (val (car vals)) (lambda _ val)) super))))
-(defrule (Enum values ...) {(:: @ Enum.) vals: '(values ...)})
+(defrule (Enum values ...) {(:: @ Enum.) vals: '(values ...)
+                            sexp: `(Enum ,@(map :sexp vals))})
 
 ;; Untagged union. Can be used for JSON, but no automatic marshaling.
-(.def (Union. @ [methods.string&bytes&marshal<-json Type.] types)
-  sexp: `(Union ,@(map (cut .@ <> sexp) types))
+(define-type (Union. @ [methods.string&bytes&marshal<-json Type.] types)
   .element?: (λ (x) (any (cut element? <> x) types))
   .json<-: (lambda (v) (let/cc return
                     (for-each (λ (t) (when (element? t v) (return (json<- t v))))
@@ -247,10 +243,9 @@
                               types)
                     (error "invalid json for type" j sexp))))
 (def (Union . types) ;; type of tuples, heterogeneous arrays of given length and type
-  {(:: @ Union.) (types)})
+  {(:: @ Union.) (types) sexp: `(Union ,@(map (cut .@ <> sexp) types))})
 
-(.def (Pair. @ [methods.bytes<-marshal Type.] left right)
-  sexp: `(Pair ,(.@ left sexp) ,(.@ right sexp))
+(define-type (Pair. @ [methods.bytes<-marshal Type.] left right)
   .element?: (lambda (v) (and (pair? v) (element? left (car v)) (element? right (cdr v))))
   .sexp<-: (lambda (v) `(cons ,(sexp<- left (car v)) ,(sexp<- right (cdr v))))
   .json<-: (lambda (v) [(json<- left (car v)) (json<- right (cdr v))])
@@ -261,7 +256,8 @@
   .unmarshal: (lambda (port) (let* ((a (unmarshal left port))
                                (d (unmarshal right port)))
                           (cons a d))))
-(def (Pair left right) {(:: @ Pair.) (left) (right)})
+(def (Pair left right)
+  {(:: @ Pair.) left right sexp: `(Pair ,(.@ left sexp) ,(.@ right sexp))})
 
 (define-type (TypeValuePair @ Type.)
   .element?: (match <> ([t . v] (and (element? Type t) (element? t v))) (_ #f))
@@ -273,7 +269,6 @@
   .<-json: invalid ;; maybe we should somehow register types that are valid for I/O into a table?
   .marshal: invalid
   .unmarshal: invalid)
-
 
 
 ;; This was not put in number.ss because it depended on Pair
@@ -291,8 +286,7 @@
   .json<-: (compose (.@ .Pair .json<-) .<-pair)
   .<-json: (compose .<-pair (.@ .Pair .<-json)))
 
-(.def (Maybe. @ [methods.bytes<-marshal Type.] type)
-  sexp: `(Maybe ,(.@ type sexp))
+(define-type (Maybe. @ [methods.bytes<-marshal Type.] type)
   .element?: (lambda (x) (or (void? x) (element? type x)))
   .sexp<-: (lambda (v) (if (void? v) '(void) (sexp<- type v)))
   .json<-: (lambda (v) (if (void? v) v ((.@ type .json<-) v)))
@@ -300,10 +294,9 @@
   .marshal: (λ (x port) (cond ((void? x) (write-u8 0 port))
                               (else (write-u8 1 port) (marshal type x port))))
   .unmarshal: (λ (port) (if (zero? (read-u8 port)) (void) (unmarshal type port))))
-(def (Maybe type) {(:: @ Maybe.) (type)})
+(def (Maybe type) {(:: @ Maybe.) (type) sexp: `(Maybe ,(.@ type sexp))})
 
-(.def (OrFalse. @ [methods.bytes<-marshal Type.] type)
-  sexp: `(OrFalse ,(.@ type sexp))
+(define-type (OrFalse. @ [methods.bytes<-marshal Type.] type)
   .element?: (lambda (x) (or (not x) (element? type x)))
   .sexp<-: (lambda (v) (and v (sexp<- type v)))
   .json<-: (lambda (v) (and v ((.@ type .json<-) v)))
@@ -311,10 +304,9 @@
   .marshal: (λ (x port) (cond (x (write-u8 1 port) (marshal type x port))
                               (else (write-u8 0 port))))
   .unmarshal: (λ (port) (and (not (zero? (read-u8 port))) (unmarshal type port))))
-(def (OrFalse type) {(:: @ OrFalse.) (type)})
+(def (OrFalse type) {(:: @ OrFalse.) (type) sexp: `(OrFalse ,(.@ type sexp))})
 
-(.def (Map. @ [methods.string&bytes&marshal<-json Type.] Key Value)
-  sexp: `(Map ,(.@ Value sexp) <- ,(.@ Key sexp))
+(define-type (Map. @ [methods.string&bytes&marshal<-json Type.] Key Value)
   .element?: (lambda (x) (and (hash-table? x)
                          (let/cc return
                            (hash-for-each
@@ -325,8 +317,9 @@
   .json<-: (lambda (m) (hash-key-value-map (lambda (k v) (cons (string<- Key k) (json<- Value v))) m))
   .<-json: (lambda (j) (hash-key-value-map (lambda (k v) (cons (<-string Key k) (<-json Value v))) j)))
 (defrules Map (<- ->)
-  ((_ Value <- Key) {(:: @ Map.) Key: Key Value: Value})
-  ((_ Key -> Value) {(:: @ Map.) Key: Key Value: Value}))
+  ((_ Value <- Key) {(:: @ Map.) Key: Key Value: Value
+                     sexp: `(Map ,(.@ Value sexp) <- ,(.@ Key sexp))})
+  ((_ Key -> Value) (Map Value <- Key)))
 
 (def (RecordSlot type . options)
   (object<-alist

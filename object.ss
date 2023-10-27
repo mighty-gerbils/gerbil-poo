@@ -18,11 +18,11 @@
   (only-in :std/misc/hash hash->list/sort hash-ref/default hash-ensure-ref hash-ensure-modify!)
   (only-in :std/iter for for/collect)
   (only-in :std/misc/list-builder with-list-builder)
-  (only-in :std/misc/list aset)
+  (only-in :std/misc/list aset flatten)
   (only-in :std/sort sort)
   (only-in :std/sugar awhen defrule with-id with-id/expr)
   (only-in :clan/base modify! looking-for λ symbol<? constantly rcurry let-id-rule defonce)
-  (only-in :clan/list c3-compute-precedence-list flatten-pair-tree))
+  (only-in :clan/list c3-compute-precedence-list))
 
 ;; TODO: formalize (Object A S D) and the type conditions under which an object is instantiatable?
 (defstruct object ;; = (Object A)
@@ -39,7 +39,7 @@
       supers: (supers '()) ;; : (Listof Objects) ;; Actually, can be a pair-tree of Object's and nulls.
       slots: (slots '()) ;; : (Listof (Pair Symbol (SlotSpec ? ?)))
       defaults: (defaults '())) ;; : (Listof (Pair Symbol ?))
-    (set! (object-supers self) (flatten-pair-tree supers))
+    (set! (object-supers self) (flatten supers))
     (set! (object-slots self) slots)
     (set! (object-defaults self) defaults)
     (set! (object-%instance self) #f)

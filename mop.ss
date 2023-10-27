@@ -23,7 +23,7 @@
            marshal-sized16-u8vector unmarshal-sized16-u8vector)
   (only-in :clan/json string<-json json<-string)
   (only-in :clan/syntax call<-formals)
-  (only-in ./object object .def .def/ctx .cc .mix .ref .@ .get .has? .call
+  (only-in ./object object .def/ctx .cc .mix .ref .@ .get .has? .call
            .all-slots with-slots .slot? .putslot! .putdefault! .for-each!
            NoApplicableMethod?
            .alist object<-alist
@@ -196,14 +196,14 @@
 (def (monomorphic-object? type x)
   (and (object? x) (every (cut element? type <>) (object-values x))))
 
-(.def (MonomorphicObject. @ Type. type) ;; all the values are of given type
-  sexp: `(MonomorphicObject ,(.@ type sexp))
+(define-type (MonomorphicObject. @ Type. type) ;; all the values are of given type
   .element?: (cut monomorphic-object? type <>)
   .sexp<-: (lambda (x) `(.o ,@(append-map (match <> ([s . v] [(make-keyword s) (sexp<- type v)])) (.alist x))))
   .json<-: (lambda (x) (list->hash-table (map (match <> ([s . v] (cons s (json<- type v)))) (.alist x))))
   .<-json: (lambda (j) (object<-alist (map (match <> ([s . v] (cons (make-symbol s) (<-json type v)))) (hash->list j)))))
 
-(def (MonomorphicObject type) {(:: @ MonomorphicObject.) type})
+(def (MonomorphicObject type) {(:: @ MonomorphicObject.) type
+                               sexp: `(MonomorphicObject ,(.@ type sexp))})
 (def ObjectObject (MonomorphicObject Object))
 (def (map-object-values f object)
   (object<-alist (map (lambda (slot) (cons slot (f (.ref object slot)))) (.all-slots object))))
@@ -214,8 +214,7 @@
 ;; accumulates and de-duplicates types to check, maybe in a weak-values hash-table.
 ;; TODO: support validation in incremental amortized O(1) rather than O(n) for recursive data-structures,
 ;; possibly with a weak-values hash-table for less trivial invariants.
-(.def (Function. @ Type. outputs inputs)
-  sexp: `(Function (@list ,@(map (cut .@ <> sexp) outputs)) (@list ,@(map (cut .@ <> sexp) inputs)))
+(define-type (Function. @ Type. outputs inputs)
   .element?: procedure? ;; we can't dynamically test that a function has the correct signature :-(
   .validate: (lambda (f)
                (unless (procedure? f) (raise-type-error Type @ Any f))
@@ -234,7 +233,8 @@
 (def (Function outputs inputs)
   (for-each (cut validate Type <>) outputs)
   (for-each (cut validate Type <>) inputs)
-  {(:: @ Function.) (outputs) (inputs)})
+  {(:: @ Function.) (outputs) (inputs)
+   sexp: `(Function (@list ,@(map (cut .@ <> sexp) outputs)) (@list ,@(map (cut .@ <> sexp) inputs)))})
 
 ;; The expander complains "Syntax Error: Ambiguous pattern".
 ;; TODO: Use syntax-case, detect when there are opposite arrows, curry when there are multiple ones?

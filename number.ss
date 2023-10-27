@@ -15,7 +15,6 @@
   (only-in :std/misc/number nat? nat-below? normalize-integer normalize-nat)
   (only-in :clan/base λ compose number-comparer)
   (only-in :clan/io write-varnat read-varnat write-varint read-varint)
-  (only-in ./object .def)
   (only-in ./mop define-type Type.)
   (only-in ./brace @method)
   (only-in ./io methods.marshal<-fixed-length-bytes))
@@ -83,9 +82,7 @@
   .non-negative?: true)
 
 ;; IntegerRange between .most-negative and .most-positive included
-(.def (IntegerRange. @ Integer .most-negative .most-positive)
-  sexp: `(IntegerRange ,@(if .most-negative `(min: ,.most-negative) '())
-                       ,@(if .most-positive `(max: ,.most-positive) '()))
+(define-type (IntegerRange. @ Integer .most-negative .most-positive)
   .element?:
    (match (vector .most-negative .most-positive)
      ((vector #f #f) exact-integer?)
@@ -97,7 +94,9 @@
                   "integer or false" .most-negative)
   (check-argument (or (not .most-positive) (exact-integer? .most-positive))
                   "integer or false" .most-positive)
-  {(:: @ IntegerRange.) (.most-negative) (.most-positive)})
+  {(:: @ IntegerRange.) (.most-negative) (.most-positive)
+   sexp: `(IntegerRange ,@(if .most-negative `(min: ,.most-negative) '())
+                        ,@(if .most-positive `(max: ,.most-positive) '()))})
 
 (def (unary-pre-op-check op check info x)
   (if (check x) (op x)
@@ -122,8 +121,7 @@
         (car info) (cdr info) x y)))
 
 ;; Interface for Z/nZ
-(.def (Z/. @ [methods.marshal<-fixed-length-bytes Nat] n .validate)
-  sexp: `(Z/ ,n)
+(define-type (Z/. @ [methods.marshal<-fixed-length-bytes Nat] n .validate)
   .element?: (cut nat-below? <> n)
   .length-in-bits: (integer-length .most-positive)
   .length-in-bytes: (n-bits->n-u8 .length-in-bits)
@@ -151,10 +149,9 @@
   ;; add-valid? sum? mul-valid? product?
   .max: max
   .min: min)
-(def (Z/ n) {(:: @ Z/.) (n)})
+(def (Z/ n) {(:: @ Z/.) (n) sexp: `(Z/ ,n)})
 
-(.def (UInt. @ Z/. .length-in-bits .length-in-bytes .most-positive)
-  sexp: `(UInt ,.length-in-bits)
+(define-type (UInt. @ Z/. .length-in-bits .length-in-bytes .most-positive)
   n: (arithmetic-shift 1 .length-in-bits)
   .element?: (lambda (x) (and (nat? x) (<= (integer-length x) .length-in-bits)))
   .bytes<-: (cut nat->u8vector <> .length-in-bytes)
@@ -162,11 +159,11 @@
   .normalize: (cut normalize-nat <> .length-in-bits)) ;; maybe faster? (λ (x) (bitwise-and x .most-positive))
 (def UInt<-length-in-bits (make-hash-table))
 (def (UInt .length-in-bits)
-  (hash-ensure-ref UInt<-length-in-bits .length-in-bits (lambda () {(:: @ UInt.) (.length-in-bits)})))
+  (hash-ensure-ref UInt<-length-in-bits .length-in-bits
+                   (lambda () {(:: @ UInt.) (.length-in-bits) sexp: `(UInt ,.length-in-bits)})))
 (define-type (UInt256 @ (UInt 256)))
 
-(.def (Int. @ Z/. .length-in-bits .length-in-bytes)
-  sexp: `(Int ,.length-in-bits)
+(define-type (Int. @ Z/. .length-in-bits .length-in-bytes)
   n: (arithmetic-shift 1 .length-in-bits)
   .most-positive: (1- (arithmetic-shift 1 (1- .length-in-bits)))
   .most-negative: (- (arithmetic-shift 1 (1- .length-in-bits)))
@@ -187,7 +184,8 @@
 
 (def Int<-length-in-bits (make-hash-table))
 (def (Int .length-in-bits)
-  (hash-ensure-ref Int<-length-in-bits .length-in-bits (lambda () {(:: @ Int.) (.length-in-bits)})))
+  (hash-ensure-ref Int<-length-in-bits .length-in-bits
+                   (lambda () {(:: @ Int.) (.length-in-bits) sexp: `(Int ,.length-in-bits)})))
 (define-type (JsInt @ (Int 54))) ; From -2**53 to 2**53-1 included.
 
 (def (bytes<-double d)
