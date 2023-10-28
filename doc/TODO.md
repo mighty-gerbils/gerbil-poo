@@ -15,7 +15,7 @@ As reference implementation code, see for instance
 [Closette](https://github.com/binghe/closette/blob/master/closette.lisp)
 
 Start from something minimal, in the spirit of
-[POP.nix](https://github.com/muknio/nixpkgs/blob/devel/lib/pop.md),
+[POP](https://github.com/divnix/POP/blob/main/POP.md),
 and/or of these two functions:
 ```
 (def (instantiate p b) (def f (p (λ a (apply f a)) b)) f)
@@ -334,6 +334,7 @@ On top of Gerbil-POO, build an
 
 Use type descriptors as the basis for a property-based testing library,
 in the style of
+[Hypothesis](https://github.com/HypothesisWorks/hypothesis/tree/master/hypothesis-python),
 [QuickCheck (Haskell)](https://www.cs.tufts.edu/~nr/cs257/archive/john-hughes/quick.pdf),
 [QuickCheck (Racket)](https://docs.racket-lang.org/quickcheck/index.html),
 [rackcheck (Racket)](https://docs.racket-lang.org/rackcheck/index.html),
