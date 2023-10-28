@@ -4,6 +4,9 @@ By François-René Rideau. 2020-11-07.
 https://www.meetup.com/LispNYC/events/vqhmbpybcpbnb/
 https://youtu.be/ckXkIlhUWss
 
+See also the [Scheme Workshop 2021 video](https://youtu.be/2szKoUQoNm8)
+and the [associated paper](https://github.com/metareflection/poof).
+
 ## Abstract
 
 What is the essence of object-oriented programming?
@@ -90,7 +93,7 @@ Object Lisp (1985),
 Sheeple (2008), CLON, Common-Lisp-Prototype-Object-System (2015),
 and probably others.
 
-And there are plenty of other "blub" languages with prototypes, too, notably:
+And there are plenty of other “blub” languages with prototypes, too, notably:
 BETA (1983) (you can squint and see its patterns as prototypes),
 Cecil (1992),
 Obliq (1993),
@@ -102,22 +105,28 @@ OpenLaszlo (2001),
 Io (2002),
 Red (2011).
 
-There have been many academic articles about prototype object systems in Computer Science literature, too:
+There have been many academic articles about prototype object systems
+in Computer Science literature, too:
 many articles in the 1980s, some in the 1990s, a few since.
-They even have their chapter in the book by Abadi & Cardelli (1996).
+They even have their chapter in the book by Abadi & Cardelli (1996)
+though with disappointing treatment.
 A good article is Norman Adams and Jonathan Rees'
 [Object-Oriented Programming in Scheme](http://citeseerx.ist.psu.edu/viewdoc/summary?doi=10.1.1.46.954)
 (1989): it describes a portable Scheme reimplementation of T's prototype object system,
 which is essentially isomorphic to the system I'll be presenting.
-This is the basis for YASOS and TinyTalk (I didn't check Prometheus or Protobj, but they seem similar).
+This is the basis for YASOS and TinyTalk
+(I didn't check Prometheus or Protobj, but they seem similar).
 
 Yet I'm here to tell you about the *pure* thing.
-The very essence of prototype object systems, and thus of object-oriented programming itself,
+The very essence of prototype object systems,
+and thus of object-oriented programming itself,
 as reduced to its simplest and purest form, in the fewest lines of code.
 The first modern variant of it stripped of most non-sense is probably
 [Jsonnet](https://jsonnet.org/) (2014), in which the object system was builtin.
 And the purest form of it, maybe the most widely used under the hood, is in
-[Nix](https://nixos.org/nix) [fixed-points](https://github.com/NixOS/nixpkgs/blob/master/lib/fixed-points.nix) (2015), in which the entire object system is implemented in a dozen lines of code.
+[Nix](https://nixos.org/nix)
+[fixed-points](https://github.com/NixOS/nixpkgs/blob/master/lib/fixed-points.nix) (2015),
+in which the entire object system is implemented in a dozen lines of code.
 
 ## Prototypes: the Jsonnet model
 
@@ -212,8 +221,6 @@ let config x = {
 }
 ```
 
-
-
 ## Prototypes: the trivial Nix reimplementation
 
 TODO: Get examples from Nix
@@ -250,13 +257,11 @@ instance as hash-table cache of already-computed values
 prototype as hash-table of methods
 methods as function from self plus super method to value
 
-
 ## Classes on top of prototypes
 
 (Type)Class Dictionary
 
 Type Descriptors
-
 
 ## Better design patterns with Mixins
 
@@ -269,16 +274,12 @@ in wrappers in Java.
 
 See Marshalling, Sum types, etc.
 
-
 ## Tries and Persistent Tries
-
-
 
 ## Static Types?
 
 * Monomorphic prototypes
 * Type system https://github.com/fare/projects/issues/3
-
 
 ## Beyond mere prototypes
 
