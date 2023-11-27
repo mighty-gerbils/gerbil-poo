@@ -341,3 +341,6 @@ in the style of
 [guile-quickcheck (Guile)](https://ngyro.com/software/guile-quickcheck.html),
 [test-generative (Chicken)](https://wiki.call-cc.org/eggref/5/test-generative),
 [check-it (Common Lisp)](https://github.com/DalekBaldwin/check-it)...
+
+Other type descriptors
+[GNU Poke](http://www.jemarch.net/poke)

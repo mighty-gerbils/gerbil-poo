@@ -6,23 +6,24 @@
 (import
   (only-in :std/assert assert!)
   (only-in :std/iter for/collect for in-range in-iota)
-  (only-in :std/misc/bytes n-bits->n-u8 nat->u8vector u8vector->nat)
+  (only-in :std/misc/bytes big uint->u8vector u8vector->uint)
   (only-in :std/misc/hash hash-key-value-map hash-ensure-ref)
   (only-in :std/misc/list pop! acons)
+  (only-in :std/misc/number n-bits->n-u8)
   (only-in :std/srfi/1 append-map any every)
   (only-in :std/srfi/43 vector-index vector-map vector-unfold vector-for-each)
-  (only-in :std/sugar defrule hash with-id)
+  (only-in :std/sugar defrule hash with-id ignore-errors)
   (only-in :std/text/hex hex-decode hex-encode)
   (only-in :clan/assert assert-equal!)
-  (only-in :clan/base λ compose invalid ignore-errors)
+  (only-in :clan/base λ compose invalid)
   (only-in :clan/io u8vector<-<-marshal <-u8vector<-unmarshal
-           write-nat-u8vector read-nat-u8vector unmarshal-n-u8)
+           write-uint-u8vector read-uint-u8vector unmarshal-n-u8)
   (only-in :clan/json json-normalize string<-json json<-string)
   (only-in :clan/list index-of alist<-plist)
   (only-in ./object .@ .ref object<-alist .slot? .call .o)
   (only-in ./mop define-type Type Type. Class. Any
            raise-type-error validate element? :sexp sexp<- json<- <-json)
-  (only-in ./number UInt Real Integer Nat)
+  (only-in ./number UInt UIntN Real Integer)
   (only-in ./brace @method)
   (only-in ./io methods.bytes<-marshal methods.marshal<-bytes
            methods.marshal<-fixed-length-bytes methods.string<-json
@@ -61,7 +62,7 @@
   {(:: @ Tuple.) (types) sexp: `(Tuple ,@(map (cut .@ <> sexp) type-list))})
 
 (define-type (List. @ [methods.bytes<-marshal methods.string<-json Type.] type)
-  .Length: Nat
+  .Length: UInt
   .element?: (λ (x) (and (list? x) (every (cut element? type <>) x)))
   .sexp<-: (lambda (v) ['@list (map (.@ type .sexp<-) v) ...])
   .json<-: (let (m (.@ type .json<-)) (cut map m <>))
@@ -86,7 +87,7 @@
 (define-type (Bytes @ [methods.bytes Type.])
   .sexp<-: (lambda (x) `(hex-decode ,(hex-encode x)))
   .element?: u8vector?
-  .Length: Nat
+  .Length: UInt
   .zero: #u8()
   .marshal: (lambda (x port) (marshal .Length (u8vector-length x) port) (write-u8vector x port))
   .unmarshal: (lambda (port) (def n (unmarshal .Length port)) (unmarshal-n-u8 n port)))
@@ -166,10 +167,10 @@
   (lambda (v) (let/cc return (for-each (lambda (t) (return (<-json t v))) types) #f))
   .marshal: (lambda (v port)
               (def disc (.discriminant<- v))
-              (write-nat-u8vector disc .discriminant-length-in-bytes port)
+              (write-uint-u8vector disc .discriminant-length-in-bytes port)
               (marshal (vector-ref types@ disc) v port))
   .unmarshal: (lambda (port)
-                (def disc (read-nat-u8vector .discriminant-length-in-bytes port))
+                (def disc (read-uint-u8vector .discriminant-length-in-bytes port))
                 (unmarshal (vector-ref types@ disc) port)))
 (def (Or . types) {(:: @ Or.) (types) sexp: `(Or ,@(map (cut .@ <> sexp) types))})
 
@@ -217,12 +218,12 @@
   .json@: (list->vector (map json-normalize vals))
   .length-in-bits: (integer-length (1- (vector-length .vals@)))
   .length-in-bytes: (n-bits->n-u8 .length-in-bits)
-  .<-nat: (cut vector-ref .vals@ <>)
-  .nat<-: (lambda (v) (vector-index (cut equal? <> v) .vals@))
-  .json<-: (lambda (v) (vector-ref .json@ (.nat<- v)))
+  .<-uint: (cut vector-ref .vals@ <>)
+  .uint<-: (lambda (v) (vector-index (cut equal? <> v) .vals@))
+  .json<-: (lambda (v) (vector-ref .json@ (.uint<- v)))
   .<-json: (lambda (j) (vector-index (cut equal? <> j) .json@))
-  .bytes<-: (compose (cut nat->u8vector <> .length-in-bytes) .nat<-)
-  .<-bytes: (compose .<-nat u8vector->nat)
+  .bytes<-: (compose (cut uint->u8vector <> big .length-in-bytes) .uint<-)
+  .<-bytes: (compose .<-uint u8vector->uint)
   .marshal: => (lambda (super) (if (zero? .length-in-bytes) void super))
   .unmarshal: => (lambda (super) (cond
                              ((< 0 .length-in-bytes) super)
@@ -276,7 +277,7 @@
   .element?: rational?
   ;; NB: a Scheme "rational" includes floating point numbers.
   ;; For actual ratios between integers, we should have a separate type "Ratnum" or some such.
-  .Pair: (Pair Integer Nat) ;; Pair isn't defined until a later file. Commenting out for now.
+  .Pair: (Pair Integer UInt) ;; Pair isn't defined until a later file. Commenting out for now.
   .pair<-: (lambda (x) (cons (numerator x) (denominator x)))
   .<-pair: (lambda (numerator denominator) (/ numerator denominator))
   .marshal: (lambda (x port) (marshal .Pair (.pair<- x) port))
@@ -342,7 +343,7 @@
 (def (Sum . plist)
   ;; a : [Assocof Symbol Type]
   (def a (map (match <> ([kw . type] (cons (make-symbol kw) type))) (alist<-plist plist)))
-  (def tag-marsh-t (UInt (integer-length (max 0 (1- (length a))))))
+  (def tag-marsh-t (UIntN (integer-length (max 0 (1- (length a))))))
   {(:: @ [methods.bytes<-marshal Type.])
       sexp: ['Sum (append-map (match <> ([k . t] [k (.@ t sexp)])) a)...]
       variants: (object<-alist a)

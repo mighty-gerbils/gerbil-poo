@@ -9,7 +9,7 @@
   :std/iter
   :std/misc/repr
   :std/misc/walist
-  :std/sugar
+  (only-in :std/sugar defrule ignore-errors hash try catch)
   :std/stxutil
   :std/text/json
   :clan/base
@@ -35,7 +35,7 @@
 (.defgeneric (object-write-byte byte out))
 
 ;; gf to effectfully read bytes from a stream or stream-like object into a u8vector
-;; Unit <- In Bytes ?offset: Nat ?length: Nat
+;; Unit <- In Bytes ?offset: UInt ?length: UInt
 (.defgeneric (read-bytes-into bs in offset: (offset 0) length: (length (- (u8vector-length bs) offset)))
   default:
   (λ (in l)
@@ -44,7 +44,7 @@
         (u8vector-set! bs (+ i offset) b)))))
 
 ;; gf to effectfully read bytes from a stream or stream-like object into a new u8vector
-;; Bytes <- In Nat
+;; Bytes <- In UInt
 (.defgeneric (object-read-bytes length in)
   default:
   (λ (in length)
@@ -55,7 +55,7 @@
     bs))
 
 ;; gf to effectfully write bytes to a stream or stream-like object from a u8vector
-;; Unit <- Bytes Out ?offset: Nat ?length: Nat
+;; Unit <- Bytes Out ?offset: UInt ?length: UInt
 (.defgeneric (object-write-bytes bs out offset: (offset 0) length: (length (- (u8vector-length bs) offset)))
   default:
   (λ (out bs offset: (offset 0) length: (length (- (u8vector-length bs) offset)))

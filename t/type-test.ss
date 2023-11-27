@@ -47,7 +47,7 @@
       (check-rep (.@ Bytes2 .<-json) (.@ Bytes2 .json<-) "080d" #u8(8 13))
       (check-rep (.@ Bytes2 .<-bytes) (.@ Bytes2 .bytes<-) #u8(34 55) #u8(34 55)))
     (test-case "tuple test"
-      (def UInt8 (UInt 8))
+      (def UInt8 (UIntN 8))
       (def t (Tuple UInt8 UInt8 UInt8))
       (check-rep (.@ t .<-json) (.@ t .json<-) [5 8 13] #(5 8 13))
       (check-rep (.@ t .<-bytes) (.@ t .bytes<-) #u8(#x15 #x22 #x37) #(21 34 55)))
@@ -59,7 +59,7 @@
       (check-exception ((validate (Fun Any <- Any Any) f) 2 3) true)
       (check-exception ((validate (Fun String Number Number <- Any Any) f) 2 3) true))
     (test-case "Record test"
-      (def Foo (Record x: [(UInt 8)] y: [Bytes32]))
+      (def Foo (Record x: [(UIntN 8)] y: [Bytes32]))
       ;; TODO: test Record ...
       (void))
     ))

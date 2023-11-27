@@ -51,7 +51,7 @@
       (check-equal? (F .acons 2 "veni, vidi" t0) t2)
       (check-equal? (F .update 2 (lambda _ "veni, vidi") t0) t2))))
 
-(def T (SimpleTrie Nat String))
+(def T (SimpleTrie UInt String))
 
 ;;; The G functions make the eval work, which ensures the traces have usable function names.
 (def (G x) (hash-get (object-instance T) x))

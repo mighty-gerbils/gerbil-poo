@@ -8,13 +8,13 @@
 (import
   (only-in :std/srfi/141 floor-quotient)
   (only-in :std/error check-argument)
-  (only-in :std/misc/bytes big n-bits->n-u8
-           u8vector-double-ref u8vector-double-set!
-           integer->u8vector u8vector->integer nat->u8vector u8vector->nat)
+  (only-in :std/misc/bytes big u8vector-double-ref u8vector-double-set!
+           sint->u8vector u8vector->sint uint->u8vector u8vector->uint)
   (only-in :std/misc/hash hash-ensure-ref)
-  (only-in :std/misc/number nat? nat-below? normalize-integer normalize-nat)
+  (only-in :std/misc/number uint? uint-below? n-bits->n-u8
+           uint-of-length? sint-of-length? normalize-sint normalize-uint)
   (only-in :clan/base λ compose number-comparer)
-  (only-in :clan/io write-varnat read-varnat write-varint read-varint)
+  (only-in :clan/io write-varuint read-varuint write-varint read-varint)
   (only-in ./mop define-type Type.)
   (only-in ./brace @method)
   (only-in ./io methods.marshal<-fixed-length-bytes))
@@ -58,8 +58,8 @@
   .<-json: (lambda (x) (if (exact-integer? x) x (.<-string x)))
   .marshal: write-varint
   .unmarshal: read-varint
-  .bytes<-: integer->u8vector ;; note: encoding shorter (and thus different) from the marshalling
-  .<-bytes: u8vector->integer
+  .bytes<-: sint->u8vector ;; note: encoding shorter (and thus different) from the marshalling
+  .<-bytes: u8vector->sint
   .div: floor-quotient
   .mod: modulo
   .logand: bitwise-and
@@ -72,11 +72,11 @@
   .succ: 1+
   .pred: 1-)
 
-(define-type (Nat @ Integer)
-  .marshal: write-varnat
-  .unmarshal: read-varnat
-  .bytes<-: nat->u8vector ;; note: encoding shorter (and thus different) from the marshalling
-  .<-bytes: u8vector->nat
+(define-type (UInt @ Integer)
+  .marshal: write-varuint
+  .unmarshal: read-varuint
+  .bytes<-: uint->u8vector ;; note: encoding shorter (and thus different) from the marshalling
+  .<-bytes: u8vector->uint
   .sub: (lambda (x y) (if (>= x y) (- x y) (error "Overflow" - x y)))
   .pred: (lambda (x) (if (zero? x) (error "Overflow" .pred x) (1- x)))
   .non-negative?: true)
@@ -121,12 +121,12 @@
         (car info) (cdr info) x y)))
 
 ;; Interface for Z/nZ
-(define-type (Z/. @ [methods.marshal<-fixed-length-bytes Nat] n .validate)
-  .element?: (cut nat-below? <> n)
+(define-type (Z/. @ [methods.marshal<-fixed-length-bytes UInt] n .validate)
+  .element?: (cut uint-below? <> n)
   .length-in-bits: (integer-length .most-positive)
   .length-in-bytes: (n-bits->n-u8 .length-in-bits)
-  .bytes<-: (cut nat->u8vector <> .length-in-bytes)
-  .<-bytes: (compose .validate u8vector->nat)
+  .bytes<-: (cut uint->u8vector <> big .length-in-bytes)
+  .<-bytes: (compose .validate u8vector->uint)
   .normalize: (λ (x) (modulo x n))
   .most-positive: (- n 1)
   .most-negative: 0
@@ -151,26 +151,26 @@
   .min: min)
 (def (Z/ n) {(:: @ Z/.) (n) sexp: `(Z/ ,n)})
 
-(define-type (UInt. @ Z/. .length-in-bits .length-in-bytes .most-positive)
+(define-type (UIntN. @ Z/. .length-in-bits .length-in-bytes .most-positive .validate)
   n: (arithmetic-shift 1 .length-in-bits)
-  .element?: (lambda (x) (and (nat? x) (<= (integer-length x) .length-in-bits)))
-  .bytes<-: (cut nat->u8vector <> .length-in-bytes)
-  .<-bytes: u8vector->nat
-  .normalize: (cut normalize-nat <> .length-in-bits)) ;; maybe faster? (λ (x) (bitwise-and x .most-positive))
-(def UInt<-length-in-bits (make-hash-table))
-(def (UInt .length-in-bits)
-  (hash-ensure-ref UInt<-length-in-bits .length-in-bits
-                   (lambda () {(:: @ UInt.) (.length-in-bits) sexp: `(UInt ,.length-in-bits)})))
-(define-type (UInt256 @ (UInt 256)))
+  .element?: (cut uint-of-length? <> .length-in-bits)
+  .bytes<-: (cut uint->u8vector <> big .length-in-bytes)
+  .<-bytes: (compose .validate u8vector->uint)
+  .normalize: (cut normalize-uint <> .length-in-bits)) ;; maybe faster? (λ (x) (bitwise-and x .most-positive))
+(def UIntN<-length-in-bits (make-hash-table))
+(def (UIntN .length-in-bits)
+  (hash-ensure-ref UIntN<-length-in-bits .length-in-bits
+                   (lambda () {(:: @ UIntN.) (.length-in-bits) sexp: `(UIntN ,.length-in-bits)})))
+(define-type (UInt256 @ (UIntN 256)))
 
-(define-type (Int. @ Z/. .length-in-bits .length-in-bytes)
+(define-type (IntN. @ Z/. .length-in-bits .length-in-bytes)
   n: (arithmetic-shift 1 .length-in-bits)
   .most-positive: (1- (arithmetic-shift 1 (1- .length-in-bits)))
   .most-negative: (- (arithmetic-shift 1 (1- .length-in-bits)))
-  .element?: (lambda (x) (and (exact-integer? x) (< (integer-length x) .length-in-bits)))
-  .bytes<-: (cut integer->u8vector <> .length-in-bytes)
-  .<-bytes: (cut u8vector->integer <> .length-in-bytes)
-  .normalize: (cut normalize-integer <> .length-in-bits)
+  .element?: (cut sint-of-length? <> .length-in-bits)
+  .bytes<-: (cut sint->u8vector <> big .length-in-bytes)
+  .<-bytes: (cut u8vector->sint <> big .length-in-bytes)
+  .normalize: (cut normalize-sint <> .length-in-bits)
   ;; Addition overflow occurs iff we add two operands of same sign and get result of opposite sign
   .add-overflow?: (λ (x y) (let (n (+ x y)) (not (= n (.normalize n))))) ;; TODO: simplify
   ;; Subtraction overflow occurs iff we subtract two operands of opposite sign and
@@ -182,11 +182,11 @@
   .succ: (λ (x) (if (= x .most-positive) .most-negative (1+ x)))
   .pred: (λ (x) (if (= x .most-negative) .most-positive (1- x))))
 
-(def Int<-length-in-bits (make-hash-table))
-(def (Int .length-in-bits)
-  (hash-ensure-ref Int<-length-in-bits .length-in-bits
-                   (lambda () {(:: @ Int.) (.length-in-bits) sexp: `(Int ,.length-in-bits)})))
-(define-type (JsInt @ (Int 54))) ; From -2**53 to 2**53-1 included.
+(def IntN<-length-in-bits (make-hash-table))
+(def (IntN .length-in-bits)
+  (hash-ensure-ref IntN<-length-in-bits .length-in-bits
+                   (lambda () {(:: @ IntN.) (.length-in-bits) sexp: `(IntN ,.length-in-bits)})))
+(define-type (JsInt @ (IntN 54))) ; From -2**53 to 2**53-1 included.
 
 (def (bytes<-double d)
   (def bytes (make-u8vector 8))

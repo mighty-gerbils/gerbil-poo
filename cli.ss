@@ -2,23 +2,23 @@
 
 (import
   (only-in :std/generic defmethod <t>)
-  (only-in :std/getopt getopt getopt-parse getopt-display-help flag option)
+  (only-in :std/cli/getopt getopt getopt-parse getopt-display-help flag option
+           ->getopt-spec call-with-processed-command-line call-with-getopt-parse)
+  (only-in :std/cli/multicall current-program-string)
+  (only-in :std/misc/list flatten)
   (only-in :std/sugar awhen)
-  (only-in :clan/cli getopt-spec getopt-spec/backtrace process-opts/backtrace)
+  (only-in :clan/cli getopt-spec/backtrace process-opts/backtrace)
   (only-in :clan/hash hash-removed)
-  (only-in :clan/list flatten-pair-tree pair-tree-for-each!)
-  (only-in :clan/multicall call-with-getopt-parse getopt-spec
-           call-with-processed-command-line current-program-string)
+  (only-in :clan/list pair-tree-for-each!)
   (only-in :clan/path-config set-path-config-root!)
   (only-in ./object .has? .@ object)
   (only-in ./brace @method))
 
-(defmethod (getopt-spec (x object))
-  (flatten-pair-tree
-   (cond
-    ((.has? x .type .getopt-spec) ((.@ x .type .getopt-spec) x))
-    ((.has? x getopt-spec) (.@ x getopt-spec))
-    (else (error "No getopt-spec" x)))))
+(defmethod (->getopt-spec (x object))
+  (cond
+   ((.has? x .type .getopt-spec) (->getopt-spec ((.@ x .type .getopt-spec) x)))
+   ((.has? x getopt-spec) (->getopt-spec (.@ x getopt-spec)))
+   (else (error "No getopt-spec" x))))
 
 (defmethod (call-with-processed-command-line (x object) (command-line <t>) (function <t>))
   (def process-opts
@@ -26,7 +26,7 @@
      ((.has? x .type .process-opts) ((.@ x .type .process-opts) x))
      ((.has? x process-opts) (.@ x process-opts))
      (else (error "No getopt-spec" x))))
-  (def gopt (apply getopt (getopt-spec x)))
+  (def gopt (apply getopt (->getopt-spec x)))
   (def h (getopt-parse gopt command-line))
   (pair-tree-for-each! process-opts (cut <> h))
   (call-with-getopt-parse gopt h function))
@@ -51,7 +51,7 @@
    getopt-spec: => (cut cons <> (flag 'help "-h" "--help" help: "Show help")) ;; or should it be -? or both?
    process-opts: => (cut cons <>
                          (lambda (opt) (when (hash-get opt 'help)
-                                    (let (gopt (apply getopt (flatten-pair-tree getopt-spec)))
+                                    (let (gopt (apply getopt (flatten getopt-spec)))
                                       (getopt-display-help gopt (current-program-string))
                                       (force-output)
                                       (exit 0)))))})

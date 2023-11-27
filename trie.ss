@@ -56,19 +56,19 @@
   ;; we then write @[a/Value] to denote a Trie where Value has been overriden with a (type variable)
   Value: Any ;; : Type
 
-  ;; The type of keys used to index the trie. It should be a subtype of Nat.
+  ;; The type of keys used to index the trie. It should be a subtype of UInt.
   ;; The Trie construction could be conceivably extended to handle signed Integer's,
   ;; with a specially handled sign bit, but this adds complication, and may better be done as
-  ;; as separate layer on top: two of these Nat Tries, one for non-negative keys,
+  ;; as separate layer on top: two of these UInt Tries, one for non-negative keys,
   ;; the other of negative keys.
-  Key: Nat ;; or e.g. UInt256 for Ethereum
+  Key: UInt ;; or e.g. UInt256 for Ethereum
 
   ;; The Height of a node is the bit-set? index of its top key bit,
   ;; which is 1- the integer-length of the key.
   ;; This allows the height of a skip node to always fit in a UInt8, when Key is UInt256.
   ;; Leaves thus have height -1, which is not stored.
   ;; Empty has height #f, also not stored -- or should we instead use -inf.0 ?
-  Height: Nat ;; : Type = (Log Key 2) =/default Nat, i.e. Height=UInt8 for Key=UInt256
+  Height: UInt ;; : Type = (Log Key 2) =/default UInt, i.e. Height=UInt8 for Key=UInt256
 
   ;; The underlying, unwrapped, Trie type.
   ;; A wrapper layer can add cached digests, lazy-loading, maybe cached count, etc.
@@ -507,7 +507,7 @@
           (let-values (((newchild samechild) (r (.skip-key height bits-height bits k) child)))
             (if samechild (values t #t) (values (.make-skip height bits-height bits newchild) #f))))))))
 
-  ;; : (Fun Nat <- @)
+  ;; : (Fun UInt <- @)
   .count: (lambda (trie)
             (match (.unwrap trie)
               ((Empty) 0)
@@ -951,4 +951,4 @@
    sexp: `(SimpleTrieSet ,(.@ Elt sexp))
    Value: Unit})
 
-(def NatTrieSet (SimpleTrieSet Nat))
+(def UIntTrieSet (SimpleTrieSet UInt))
