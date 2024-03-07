@@ -7,9 +7,14 @@
 ;; Note that may you need to first:
 ;;   gxpkg install github.com/fare/gerbil-utils
 
-(import :clan/building)
+(import :std/make :clan/base :clan/building)
+
+(def (spec)
+  (!> (all-gerbil-modules)
+      (cut apply add-build-options <> "io" (include-gambit-sharp))
+      (cut cons "t/table-testing" <>)))
 
 (init-build-environment!
  name: "Gerbil-poo"
  deps: '("clan")
- spec: (lambda () `(,@(all-gerbil-modules) "t/table-testing")))
+ spec: spec)
