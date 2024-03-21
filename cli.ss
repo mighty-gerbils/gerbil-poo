@@ -1,7 +1,7 @@
 (export #t)
 
 (import
-  (only-in :std/generic defmethod <t>)
+  (only-in :std/generic defmethod)
   (only-in :std/cli/getopt getopt getopt-parse getopt-display-help flag option
            ->getopt-spec call-with-processed-command-line call-with-getopt-parse)
   (only-in :std/cli/multicall current-program-string)
@@ -20,7 +20,7 @@
    ((.has? x getopt-spec) (->getopt-spec (.@ x getopt-spec)))
    (else (error "No getopt-spec" x))))
 
-(defmethod (call-with-processed-command-line (x object) (command-line <t>) (function <t>))
+(defmethod (call-with-processed-command-line (x object) (command-line :t) (function :t))
   (def process-opts
     (cond
      ((.has? x .type .process-opts) ((.@ x .type .process-opts) x))

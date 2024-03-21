@@ -3,6 +3,7 @@
 (import
   (only-in :gerbil/gambit object->serial-number object->string)
   :gerbil/gambit
+  (only-in :gerbil/runtime/mop write-style)
   :std/assert
   :std/format
   :std/generic

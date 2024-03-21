@@ -9,7 +9,7 @@
 (export #t @object? @make-object)
 
 (import
-  (prefix-in (only-in <host-runtime> object? make-object) @) ;; Rename them before we shadow them
+  (prefix-in (only-in Runtime object? make-object) @) ;; Rename them before we shadow them
   (for-syntax (only-in :clan/base !>)
               (only-in :std/iter for/collect)
               (only-in :std/misc/list push!)
