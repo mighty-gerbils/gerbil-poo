@@ -264,8 +264,8 @@
     (match (.unwrap t)
       ((Empty) #f)
       ((Leaf _) -1)
-      ((Branch height _ _) height)
-      ((Skip height _ _ _) height)))
+      ((Branch height _1 _2) height)
+      ((Skip height _1 _2 _3) height)))
 
   ;; : T <- (Maybe Height) T
   .ensure-height:
@@ -513,7 +513,7 @@
               ((Empty) 0)
               ((Leaf _) 1)
               ((Branch _ left right) (+ (.count left) (.count right)))
-              ((Skip _ _ _ child) (.count child))))
+              ((Skip _1 _2 _3 child) (.count child))))
 
   ;; Binary search given a monotonic predicate f that is #f then #t.
   ;; This would be more efficient on non-random sparse tries if the wrapper kept a count,
@@ -870,8 +870,8 @@
        leaf: (lambda (_ va vb) (def r (cmp va vb)) (or (zero? r) (return r)))
        branch: void
        skip: void
-       onlya: (lambda (_ _) (return 1))
-       onlyb: (lambda (_ _) (return -1)))
+       onlya: (lambda (_1 _2) (return 1))
+       onlyb: (lambda (_1 _2) (return -1)))
       0))
 
   ;; Are two trees equal?
@@ -887,8 +887,8 @@
        leaf: (lambda (_ va vb) (or (.call Value .=? va vb) (return #f)))
        branch: true
        skip: true
-       onlya: (lambda (_ _) (return #f))
-       onlyb: (lambda (_ _) (return #f)))))
+       onlya: (lambda (_1 _2) (return #f))
+       onlyb: (lambda (_1 _2) (return #f)))))
 
   ;; Split a tree in two strictly smaller trees, if possible, in a somewhat balanced way, if possible.
   ;; NB: We assume that #f, if a valid wrapped trie, is the empty trie.
@@ -923,7 +923,7 @@
                ((Skip h l b c) (loop [[(.skip-key h l b k) . c] . kts])))))))
       (set! (iterator-e it) ne)
       r)
-    (when (positive? from) (let-values (((_ _ r) (.split (1- from) t))) (set! t r)))
+    (when (positive? from) (let-values (((_1 _2 r) (.split (1- from) t))) (set! t r)))
     (make-iterator [[0 . t]] next)))
 
 (define-type (TrieSet. @ Set<-Table.)
@@ -939,7 +939,7 @@
              leaf: true
              branch: true
              skip: true
-             onlya: (lambda (_ _) (return #f))
+             onlya: (lambda (_1 _2) (return #f))
              onlyb: true))))
 
 (def (SimpleTrie Key Value)

@@ -68,7 +68,7 @@
         (cut .foldl (lambda (k vb m) (if (.key? ta k) m (.acons/opt k (f k #f (some vb)) m))) <> tb)))
 
   ;; : Nat <- @
-  .count: (lambda (t) (.foldl (lambda (_ _ a) (1+ a)) 0 t))
+  .count: (lambda (t) (.foldl (lambda (_1 _2 a) (1+ a)) 0 t))
 
   ;; : Bool <- (Fun Bool <- Key Value) @
   .every: (lambda (pred t) (let/cc return (.for-each (lambda (k v) (unless (pred k v) (return #f))) t) #t))
@@ -243,9 +243,9 @@
   .unmarshal: (compose .<-list (.@ .List .unmarshal))
   ;; TODO: for union, inter, diff, compare, equal, subset,
   ;; optimize for full subtables, by caching count in wrapper?
-  .union: (lambda (a b) (.call Table .merge (lambda (_ _ _) (some (void))) a b)) ;; : @ <- @ @
+  .union: (lambda (a b) (.call Table .merge (lambda (_1 _2 _3) (some (void))) a b)) ;; : @ <- @ @
   .inter: (lambda (a b) (.call Table .merge (lambda (_ a b) (and a b (some (void)))) a b)) ;; : @ <- @ @
   .diff: (lambda (a b) (.call Table .merge (lambda (_ a b) (and (not b) a)))) ;; : @ <- @ @
-  .compare: (lambda (a b) (.call Table .compare (lambda (_ _) 0) a b)) ;; : : Integer <- @ @
+  .compare: (lambda (a b) (.call Table .compare (lambda (_1 _2) 0) a b)) ;; : : Integer <- @ @
   .=?: (lambda (a b) (.call Table .=? a b)) ;; : Bool <- @ @
   .lens: (lambda (e) {get: (lambda (t) (.elt? t e)) set: (lambda (t v) (if v (.cons e t) (.remove t e)))})) ;; : (Lens Bool <- @) <- Elt

@@ -64,7 +64,7 @@
             (set! compute-default val))
            (default:
             (when compute-default (error "default set twice" stx))
-            (set! compute-default (with-syntax ((expr val)) #'(lambda (_ _) expr))))
+            (set! compute-default (with-syntax ((expr val)) #'(lambda (_1 _2) expr))))
            (x (error "invalid option" x stx)))
          (loop rest))
         (_ (error "invalid options" options (syntax->datum options))))))

@@ -18,8 +18,7 @@
   :clan/io
   :clan/json
   ./object
-  ./mop
-  ./brace)
+  ./mop)
 
 ;;; Byte I/O
 
@@ -66,7 +65,7 @@
 
 ;;; Printing objects as per std/misc/repr
 
-(defmethod (@@method :pr object)
+(defmethod (@method :pr object)
   (λ (self (port (current-output-port)) (options (current-representation-options)))
     (def (d . l) (for-each (cut display <> port) l))
     (cond
@@ -107,17 +106,16 @@
 
 (.defgeneric (printable-slots x) from: type default: .all-slots slot: .printable-slots)
 
-
 ;;; JSON I/O
 
-(defmethod (@@method :write-json object)
+(defmethod (@method :write-json object)
   (lambda (self port)
     (cond
      ((.has? self .type .write-json) ((.@ self .type .write-json) self port))
      ((.has? self .type .json<-) (write-json ((.@ self .type .json<-) self) port))
      ((.has? self sexp) (write-json (object->string (.@ self sexp)) port))
      (else (write-json (walist (.alist self)) port)))))
-(defmethod (@@method :json object)
+(defmethod (@method :json object)
   (lambda (self)
     (cond
      ;;((.has? self .type .write-json) self) ;; TODO: Uncomment after vyzo/gerbil#595 goes through
@@ -133,7 +131,6 @@
 (define-type (methods.string<-json @ [] .json<- .<-json)
   .string<-: (compose string<-json .json<-)
   .<-string: (compose .<-json json<-string))
-
 
 ;;; (Un)Marshaling data to/from bytes
 ;; The output has to be self-delimited, so marshaling output can be concatenated given the types.
@@ -189,7 +186,7 @@
 
 ;;; Gambit printer hook for object. See https://github.com/vyzo/gerbil/issues/589
 ;;; See also ##inverse-eval.
-(defmethod (@@method :wr object)
+(defmethod (@method :wr object)
   (lambda (self we)
     (ignore-errors (instantiate-object! self))
     (def inconsistent? (not (object-%slot-funs self)))
@@ -238,7 +235,7 @@
 
 (defstruct TV (type value) ;; Typed Value
   transparent: #t)
-(defmethod (@@method :wr TV)
+(defmethod (@method :wr TV)
   (lambda (self writeenv)
     (def style (write-style writeenv))
     (def mark? (eq? style 'mark))
