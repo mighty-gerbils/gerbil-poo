@@ -237,7 +237,7 @@
   transparent: #t)
 (defmethod (@method :wr TV)
   (lambda (self writeenv)
-    (def style (write-style writeenv))
+    (def style (values (write-style writeenv))) ;; prevent inlining, until v0.18.2
     (def mark? (eq? style 'mark))
     (def (s x) (unless mark? (##wr-str writeenv x)))
     (def (w x) (##wr writeenv x))
