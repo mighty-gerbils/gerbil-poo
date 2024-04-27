@@ -50,7 +50,7 @@
   (λ (in length)
     (def bs (make-u8vector length))
     (if (input-port? in)
-      (let ((n (read-u8vector bs in))) (assert! (= n length)))
+      (let ((n (read-u8vector* bs in))) (assert! (= n length)))
       (read-bytes-into bs in length: length))
     bs))
 
@@ -172,7 +172,7 @@
   .unmarshal: (lambda (port) (.<-bytes (unmarshal .Bytes port))))
 
 (define-type (methods.marshal<-fixed-length-bytes @ [] .<-bytes .bytes<- .length-in-bytes)
-  .marshal: (lambda (x port) (write-u8vector (.bytes<- x) port))
+  .marshal: (lambda (x port) (write-u8vector* (.bytes<- x) port))
   .unmarshal: (lambda (port) (.<-bytes (unmarshal-n-u8 .length-in-bytes port))))
 
 ;;; Converting to/from string

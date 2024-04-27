@@ -16,7 +16,7 @@
   (only-in :std/text/hex hex-decode hex-encode)
   (only-in :clan/assert assert-equal!)
   (only-in :clan/base λ compose invalid)
-  (only-in :clan/io u8vector<-<-marshal <-u8vector<-unmarshal
+  (only-in :clan/io u8vector<-<-marshal <-u8vector<-unmarshal write-u8vector*
            write-uint-u8vector read-uint-u8vector unmarshal-n-u8)
   (only-in :clan/json json-normalize string<-json json<-string)
   (only-in :clan/list index-of alist<-plist)
@@ -89,7 +89,7 @@
   .element?: u8vector?
   .Length: UInt
   .zero: #u8()
-  .marshal: (lambda (x port) (marshal .Length (u8vector-length x) port) (write-u8vector x port))
+  .marshal: (lambda (x port) (marshal .Length (u8vector-length x) port) (write-u8vector* x port))
   .unmarshal: (lambda (port) (def n (unmarshal .Length port)) (unmarshal-n-u8 n port)))
 (define-type (BytesN. @ [methods.bytes Type.] n)
   .element?: (λ (x) (and (u8vector? x) (= (u8vector-length x) n)))
@@ -103,7 +103,7 @@
   .zero: (make-u8vector n)
   .<-string: (λ (x) (validate @ (hex-decode x)))
   .<-bytes: (cut validate @ <>)
-  .marshal: write-u8vector
+  .marshal: write-u8vector*
   .unmarshal: (cut unmarshal-n-u8 n <>))
 (def BytesN<-n (make-hash-table))
 (def (BytesN n (sexp `(BytesN ,n)))
