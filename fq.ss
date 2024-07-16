@@ -14,10 +14,9 @@
   :std/error
   :std/iter
   :std/misc/number
-  (only-in :std/srfi/43 vector-map!)
   :clan/base
+  (only-in :std/srfi/133 vector-map)
   ./object ./mop ./brace ./number ./type ./zn)
-(import :std/debug/DBG)
 
 ;; TODO: move to std/misc/vector
 (def vector-andmap
@@ -48,11 +47,9 @@
   (cond
    ((positive? n)
     (let loop ((i 0) (a a) (x x))
-      #;(DBG mem0: i a x)
       (let* ((bit? (bit-set? i e))
              (j (1+ i))
              (aa (if bit? (mul a x) a))) ;; for constant-time, try (mul a (if bits? x 1))
-        #;(DBG mem: i a x e n bit? j aa 'x2 (mul x x))
         (if (> n j)
           (loop j aa (mul x x))
           aa))))
@@ -103,7 +100,6 @@
   .=?: (lambda (a b)
          (vector-andmap = a b))
   .mul: (lambda (m a)
-          #;(DBG Fq_mul_0: m a)
           (let ((result (.new))
                 (a (vector-copy a))
                 (add (.@ .Z/pZ .add))
@@ -113,9 +109,6 @@
             ;; for i across indexes
             (for (i (iota .n))
               ;; add in the ith multiplier time the ith coefficient
-              #;(DBG mulq: 'm (.n<- m)
-                   'a (.n<- a) i 'j (1+ i) 'result (.n<- result)
-                   'c? (positive? (vector-ref m i)))
               (let (c (vector-ref m i))
                 (for (j (iota .n))
                   (vector-set! result j
@@ -125,8 +118,7 @@
               (let (c (vector-ref a n-1))
                 (for (j (iota .n n-1 -1))
                   (vector-set! a j (add (if (zero? j) 0 (vector-ref a (1- j)))
-                                        (mul c (vector-ref .xn j))))))
-              #;(DBG mulq2: 'r (.n<- result)))
+                                        (mul c (vector-ref .xn j)))))))
             result))
   .inv: (lambda (a)
           (check-argument (not (.=? .zero a)) "Zero has no inverse" a)
@@ -181,7 +173,6 @@
         (let* ((c? (bit-set? i m))
                (r (if c? (bitwise-xor result a) result)) ;; TODO: make it constant-time?
                (j (1+ i)))
-          #;(DBG mul2: m a i j result c? r)
           (if (< j .n)
             (loop r j (.mulx a))
             r)))))
