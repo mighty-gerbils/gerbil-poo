@@ -45,10 +45,9 @@
                (vector-map (cut .call .Z/pZ .intscale m <>) a))
   .scale: (lambda (m a) ;; multiply by a scalar, being an element of Z/pZ
             (vector-map (cut .call .Z/pZ .mul m <>) a))
-  .add: (lambda (a b)
-          (vector-map (.@ .Z/pZ .add) a b))
-  .sub: (lambda (a b)
-          (vector-map (.@ .Z/pZ .sub) a b))
+  .add: (lambda (a b) (vector-map (.@ .Z/pZ .add) a b))
+  .sub: (lambda (a b) (vector-map (.@ .Z/pZ .sub) a b))
+  .neg: (lambda (a) (vector-map (.@ .Z/pZ .neg) a))
   .=?: (lambda (a b)
          (vector-every = a b))
   .mul: (lambda (m a)
@@ -105,10 +104,11 @@
   .new: (lambda () 0)
   .zero: 0
   .one: 1
-  .scale: (lambda (m a) ;; multiply by a scalar, being an element of Z/2Z
-            (if (even? m) 0 a))
+  .intscale: (lambda (m a) (if (even? m) 0 a)) ;; multiply by a scalar, being an integer
+  .scale: .intscale ;; multiply by a scalar, being an element of Z/2Z
   .add: bitwise-xor
   .sub: bitwise-xor
+  .neg: identity
   .=?: =
   .mulx: (lambda (a)
            (if (bit-set? (1- .n) a)

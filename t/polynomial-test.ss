@@ -42,6 +42,9 @@
       (check (.call Polynomial. .sub #(1 2 3) #(4 5 6)) => #(-3 -3 -3))
       (check (.call Polynomial. .sub #(1 -2 1) #(1 2 1)) => #(0 -4))
       (check (.call Polynomial. .sub #(1 2 3) #(1 2 3)) => #()))
+    (test-case "test .neg"
+      (check (.call Polynomial. .neg #(1 2 3 4)) => #(-1 -2 -3 -4))
+      (check (.call Polynomial. .neg #()) => #()))
     (test-case "test .=?"
       (check (.call Polynomial. .=? #(1 2 3 4) #(5 6 7 8)) => #f)
       (check (.call Polynomial. .=? #(1 2 3 4) #(1 2 3 4)) => #t)
@@ -68,4 +71,17 @@
              [#(1 -2 1) #(5 3)]))
     (test-case "test .apply"
       (check (.call Polynomial. .apply #(1 -2 1) 1) => 0)
-      (check (.call Polynomial. .apply #(1 -2 1) 3) => 4))))
+      (check (.call Polynomial. .apply #(1 -2 1) 3) => 4))
+    (test-case "test lagrange interpolation"
+      (def P (list->vector (map char->integer (string->list "hello"))))
+      (def xs '(1 2 3 4 5))
+      (def ys (map (lambda (x) (.call Polynomial. .apply P x)) xs))
+      (check ys => [532 3378 13286 37564 86184])
+      (check ((lagrange-interpolation Polynomial. xs) ys) => P))
+    (test-case "test lagrange interpolation over F_2^8"
+      (def Poly {(:: @ [Polynomial.]) .Ring: F_2^8})
+      (def P (list->vector (map char->integer (string->list "hello"))))
+      (def xs '(1 2 3 4 5))
+      (def ys (map (lambda (x) (.call Poly .apply P x)) xs))
+      (check ys => [98 238 151 109 86])
+      (check ((lagrange-interpolation Poly xs) ys) => P))))

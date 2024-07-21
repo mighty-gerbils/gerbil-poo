@@ -25,8 +25,10 @@
   .sexp<-: identity
   .add: +
   .sub: -
+  .neg: -
   .mul: *
   .div: /
+  .inv: /
   .zero: 0
   .one: 1
   .<-string: (lambda (x) (.validate (string->number x)))
@@ -62,6 +64,7 @@
   .bytes<-: sint->u8vector ;; note: encoding shorter (and thus different) from the marshalling
   .<-bytes: u8vector->sint
   .div: floor-quotient
+  .inv: (lambda (x) (case x ((1 -1) x) (else (error "Cannot invert integer" x))))
   .mod: modulo
   .logand: bitwise-and
   .logor: bitwise-ior
@@ -78,8 +81,9 @@
   .unmarshal: read-varuint
   .bytes<-: uint->u8vector ;; note: encoding shorter (and thus different) from the marshalling
   .<-bytes: u8vector->uint
-  .sub: (lambda (x y) (if (>= x y) (- x y) (error "Overflow" - x y)))
-  .pred: (lambda (x) (if (zero? x) (error "Overflow" .pred x) (1- x)))
+  .sub: (lambda (x y) (if (>= x y) (- x y) (error "Overflow" '.sub x y)))
+  .neg: (lambda (x) (if (zero? x) 0 (error "Overflow" '.neg x)))
+  .pred: (lambda (x) (if (zero? x) (error "Overflow" '.pred x) (1- x)))
   .non-negative?: true)
 
 ;; IntegerRange between .most-negative and .most-positive included
@@ -137,8 +141,10 @@
   .sub-negative-overflow?: (λ (x y) (< x y))
   .add: (λ (x y) (def z (+ x y)) (if (<= z .most-positive) z (- z n)))
   .sub: (λ (x y) (def z (- x y)) (if (negative? z) (+ z n) z))
+  .neg: (λ (x) (if (zero? x) 0 (- n x)))
   .mul: (λ (x y) (.normalize (* x y)))
   .div: (lambda (x y) (.normalize (div-mod x y n)))
+  .inv: (lambda (x) (.div 1 x))
   .intscale: .mul
   .succ: (λ (x) (if (= x .most-positive) 0 (1+ x)))
   .pred: (λ (x) (if (zero? x) .most-positive (1- x)))
@@ -181,9 +187,6 @@
   ;; Subtraction overflow occurs iff we subtract two operands of opposite sign and
   ;; get result of sign opposite the first operand, same as second operand.
   .sub-overflow?: (λ (x y) (let (n (- x y)) (not (= n (.normalize n))))) ;; TODO: simplify
-  .add: (λ (x y) (.normalize (+ x y)))
-  .sub: (λ (x y) (.normalize (- x y)))
-  .mul: (λ (x y) (.normalize (* x y)))
   .succ: (λ (x) (if (= x .most-positive) .most-negative (1+ x)))
   .pred: (λ (x) (if (= x .most-negative) .most-positive (1- x))))
 

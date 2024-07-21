@@ -7,10 +7,11 @@
   :std/iter
   :std/misc/number
   :std/sugar
+  :std/values
   :clan/base
+  :std/debug/DBG
   (only-in :std/srfi/133 vector-map vector-index-right)
   ./object ./mop ./brace ./number ./type ./zn)
-
 
 (defrule (let0 (x init) body ...) (let ((x init)) body ... x))
 
@@ -25,9 +26,9 @@
   .one:
   (vector (.@ .Ring .one))
   .intscale: ;; multiply by a integer scalar
-  (lambda (k p) (vector-map (cut .call .Ring .intscale k <>) p))
+  (lambda (k P) (let (intscale (.@ .Ring .intscale)) (vector-map (cut intscale k <>) P)))
   .scale: ;; multiply by a scalar, being an element of the Ring
-  (lambda (k p) (vector-map (cut .call .Ring .mul k <>) p))
+  (lambda (k P) (let (mul (.@ .Ring .mul)) (vector-map (cut mul k <>) P)))
   .normalize:
   (lambda (P) ;; strip leading terms that are zeros
     (let* ((= (.@ .Ring .=?))
@@ -42,23 +43,27 @@
     (let retry ((P P) (Q Q))
       (if (< (vector-length P) (vector-length Q))
         (retry Q P)
-        (let (S (vector-copy P))
+        (let ((S (vector-copy P))
+              (add (.@ .Ring .add)))
           (for (i (iota (vector-length Q)))
-            (vector-set! S i (.call .Ring .add (vector-ref P i) (vector-ref Q i))))
+            (vector-set! S i (add (vector-ref P i) (vector-ref Q i))))
           (.normalize S)))))
   .sub:
   (lambda (P Q)
-    (if (>= (vector-length P) (vector-length Q))
-      (let (D (vector-copy P))
-        (for (i (iota (vector-length Q)))
-          (vector-set! D i (.call .Ring .sub (vector-ref P i) (vector-ref Q i))))
-        (.normalize D))
-      (let (D (make-vector (vector-length Q)))
-        (for (i (iota (vector-length P)))
-          (vector-set! D i (.call .Ring .sub (vector-ref P i) (vector-ref Q i))))
-        (for (i (iota (- (vector-length Q) (vector-length P)) (vector-length P)))
-          (vector-set! D i (.call .Ring .sub (.@ .Ring .zero) (vector-ref Q i))))
-        (.normalize D))))
+    (let (sub (.@ .Ring .sub))
+      (if (>= (vector-length P) (vector-length Q))
+        (let (D (vector-copy P))
+          (for (i (iota (vector-length Q)))
+            (vector-set! D i (sub (vector-ref P i) (vector-ref Q i))))
+          (.normalize D))
+        (let (D (make-vector (vector-length Q)))
+          (for (i (iota (vector-length P)))
+            (vector-set! D i (sub (vector-ref P i) (vector-ref Q i))))
+          (for (i (iota (- (vector-length Q) (vector-length P)) (vector-length P)))
+            (vector-set! D i (sub (.@ .Ring .zero) (vector-ref Q i))))
+          (.normalize D)))))
+  .neg:
+  (lambda (P) (vector-map (.@ .Ring .neg) P))
   .=?:
   (lambda (a b)
     (and (= (vector-length a) (vector-length b))
@@ -98,34 +103,59 @@
           (if (< degP degQ)
             (values #() P)
             (let ((q (make-vector (- degP degQ -1) (.@ .Ring .zero)))
-                  (r (vector-copy P)))
+                  (r (vector-copy P))
+                  (div (.@ .Ring .div))
+                  (sub (.@ .Ring .sub))
+                  (mul (.@ .Ring .mul))
+                  (=? (.@ .Ring .=?))
+                  (O (.@ .Ring .zero)))
               ;; Recursively compute coefficients of the quotient and rest
               (let loop ((i (- degP degQ)))
-                (let ((c (.call .Ring .div
-                                (vector-ref r (+ i degQ))
-                                (vector-ref Q degQ))))
+                (let ((c (div (vector-ref r (+ i degQ)) (vector-ref Q degQ))))
                   (vector-set! q i c)
                   (for (j (iota degQ)) ;; could be (1+ degQ), but we leave the top term unzeroed
                     (let (k (+ j i))
-                      (vector-set! r k (.call .Ring .sub (vector-ref r k)
-                                              (.call .Ring .mul c (vector-ref Q j)))))))
+                      (vector-set! r k (sub (vector-ref r k) (mul c (vector-ref Q j)))))))
                 (if (positive? i)
                   (loop (1- i))
                   ;; Compute the degree of the rest and strip the tail of the vector
-                  (let ((=? (.@ .Ring .=?))
-                        (O (.@ .Ring .zero)))
-                    (let lp2 ((dr (1- degQ)))
-                      (cond
-                       ((negative? dr) (values q #()))
-                       ((=? O (vector-ref r dr)) (lp2 (1- dr)))
-                       (else (values q (subvector r 0 (1+ dr))))))))))))))
+                  (let lp2 ((dr (1- degQ)))
+                    (cond
+                     ((negative? dr) (values q #()))
+                     ((=? O (vector-ref r dr)) (lp2 (1- dr)))
+                     (else (values q (subvector r 0 (1+ dr)))))))))))))
   .apply:
   (lambda (P x)
     (def l (vector-length P))
     (match l
       (0 (.@ .Ring .zero))
       (1 (vector-ref P 0))
-      (else (let loop ((r (vector-ref P 0)) (i 1) (xi x))
-              (let ((s (.call .Ring .add r (.call .Ring .mul (vector-ref P i) xi)))
-                    (j (1+ i)))
-                (if (= j l) s (loop s j (.call .Ring .mul x xi)))))))))
+      (else (let ((add (.@ .Ring .add))
+                  (mul (.@ .Ring .mul)))
+              (let loop ((r (vector-ref P 0)) (i 1) (xi x))
+                (let ((s (add r (mul (vector-ref P i) xi)))
+                      (j (1+ i)))
+                (if (= j l) s (loop s j (mul x xi)))))))))
+
+
+;; Given a list of points xs of length N, return a function that given a list ys computes
+;; the unique polynomial of degree N-1 or less that goes through the points at specified coordinates
+(def (lagrange-interpolation Poly xs)
+  (if (null? xs)
+    (lambda (ys) (check-argument (null? ys) "more ys than xs" [xs ys]) #())
+    (let* ((Rone (.@ Poly .Ring .one))
+           (Rneg (.@ Poly .Ring .neg))
+           (Rinv (.@ Poly .Ring .inv))
+           (add (.@ Poly .add))
+           (mul (.@ Poly .mul))
+           (scale (.@ Poly .scale))
+           (division (.@ Poly .division))
+           (apply (.@ Poly .apply))
+           (X-xs (map (lambda (x) (vector (Rneg x) Rone)) xs))
+           (PP (foldl mul (car X-xs) (cdr X-xs))) ;; product of all terms X-x
+           (LL (map (lambda (x X-x)
+                      (let* ((P (first-value (division PP X-x)))
+                             (y (apply P x)))
+                        (scale (Rinv y) P)))
+                    xs X-xs)))
+      (lambda (ys) (foldl add #() (map scale ys LL))))))
