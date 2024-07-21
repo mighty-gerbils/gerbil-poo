@@ -1,4 +1,4 @@
-(export zn-test)
+(export number-test)
 
 (import
   :gerbil/gambit
@@ -11,10 +11,10 @@
   :clan/assert :clan/base :clan/debug
   ../object ../mop ../number ../type ../brace ../zn)
 
-(def zn-test
-  (test-suite "test suite for clan/poo/zn"
-    (test-case "simple tests"
-      (def Z/3Z (Z/nZ 3))
+(def number-test
+  (test-suite "test suite for clan/poo/number"
+    (test-case "simple tests for Z/nZ"
+      (def Z/3Z (Z/ 3))
       (check
        (for/collect (i (iota 3))
          (for/collect (j (iota 3))

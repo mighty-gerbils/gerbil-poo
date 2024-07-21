@@ -16,60 +16,10 @@
   :std/misc/number
   :clan/base
   (only-in :std/srfi/133 vector-map)
-  ./object ./mop ./brace ./number ./type ./zn)
-
-;; TODO: move to std/misc/vector
-(def vector-andmap
-  (case-lambda
-    ((f) #t)
-    ((f v)
-     (let/cc return
-       (for (x v) (unless (f x) (return #f)))
-       #t))
-    ((f v w)
-     (and (= (vector-length v) (vector-length w))
-          (let/cc return
-            (for ((x v) (y w)) (unless (f x y) (return #f)))
-            #t)))
-    ((f . r)
-     (let/cc return
-       (when (null? r) (return #t))
-       (let (l (vector-length (car r)))
-         (and (andmap (lambda (v) (= l (vector-length v))) (cdr r))
-              (for (i (iota l)) (unless (apply f (map (cut vector-ref <> i) r)) (return #f)))
-              #t))))))
-
-;; Compute a*x^e where multiplication is given by mul and e is a natural number,
-;; by dichotomizing the exponent e.
-;; Note: not safe vs side-channel leak for cryptographic use unless mul is, and n is specified,
-;; and the suggested modification is made (and even then, be sure to use a constant-time if)
-(def (mul-expt<-mul mul a x e (n (integer-length e)))
-  (cond
-   ((positive? n)
-    (let loop ((i 0) (a a) (x x))
-      (let* ((bit? (bit-set? i e))
-             (j (1+ i))
-             (aa (if bit? (mul a x) a))) ;; for constant-time, try (mul a (if bits? x 1))
-        (if (> n j)
-          (loop j aa (mul x x))
-          aa))))
-   ((zero? n)
-    a)
-   (else
-    (error "exponent n must be a non-negative integer"))))
-
-;; Compute a*x^e where multiplication is given by mul, inversion by inv, and e is a relative integer,
-;; by dichotomizing the exponent e.
-(def (mul-expt<-mul-inv mul inv a x e)
-  (if (negative? e)
-    (mul-expt<-mul mul a (inv x) (- e))
-    (mul-expt<-mul mul a x e)))
-
-(define-type (expt<-mul-inv. @ [Type.] .one .inv .mul)
-  .mul-expt: (lambda (a x e) (mul-expt<-mul-inv .mul .inv a x e))
-  .expt: (lambda (x e) (.mul-expt .one x e)))
+  ./object ./mop ./brace ./number ./type)
 
 
+;; TODO: refactor into two things, one for generic Galois extension, another specialized for GL(q).
 ;; Operations assume numbers are in canonical normalized forms
 (define-type (F_q. @ [expt<-mul-inv.] .expt .mul-expt)
   .q: (expt .p .n)
@@ -78,19 +28,21 @@
   .xn: undefined ;; value of x^n; can also be also a polynomial such that F_q is Z/pZ[x]/(x^n-xn)
   ;; chosen to have few non-zero coefficients, preferably small ones (1 or -1),
   ;; and to be the minimal polynomial of a primitive element
-  .Z/pZ: (Z/nZ .p)
+  ;; typically, x^n-xn is the Conway polynomial for that field and dimension.
+  .Z/pZ: (Z/ .p)
   ;; Primitive element, generator of the multiplicative group, zero of poly above,
-  .x: (let (X (make-vector .n 0)) ;; only defined for n>1
-        (vector-set! X 1 1)
-        X)
+  .x: (.<-n .p) ;; NB: only defined for n>1
+  ;; (let (X (.new)) (vector-set! X 1 1) X)
   .element?: (lambda (x) (and (vector? x)
                          (= (vector-length x) .n)
-                         (vector-andmap (.@ .Z/pZ .element?) x)))
+                         (vector-every (.@ .Z/pZ .element?) x)))
   .new: (lambda () (make-vector .n 0))
   .zero: (.new)
   .one: (let (I (.new))
           (vector-set! I 0 1)
           I)
+  .intscale: (lambda (m a) ;; multiply by an integer scalar
+               (vector-map (cut .call .Z/pZ .intscale m <>) a))
   .scale: (lambda (m a) ;; multiply by a scalar, being an element of Z/pZ
             (vector-map (cut .call .Z/pZ .mul m <>) a))
   .add: (lambda (a b)
@@ -98,7 +50,7 @@
   .sub: (lambda (a b)
           (vector-map (.@ .Z/pZ .sub) a b))
   .=?: (lambda (a b)
-         (vector-andmap = a b))
+         (vector-every = a b))
   .mul: (lambda (m a)
           (let ((result (.new))
                 (a (vector-copy a))
@@ -147,7 +99,6 @@
 ;; For p=2, n>=1, represent elements with integers rather than vectors of bits
 (define-type (F_2^n. @ [F_q.] .n .xn .expt .mul-expt)
   .p: 2
-  .x: 2
   .element?: (lambda (x) (and (exact-integer? x)
                          (not (negative? x))
                          (< (integer-length x) .n)))
