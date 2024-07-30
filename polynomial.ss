@@ -135,7 +135,7 @@
               (let loop ((r (vector-ref P 0)) (i 1) (xi x))
                 (let ((s (add r (mul (vector-ref P i) xi)))
                       (j (1+ i)))
-                (if (= j l) s (loop s j (mul x xi)))))))))
+                (if (= j l) s (loop s j (mul x xi))))))))))
 
 
 ;; Given a list of points xs of length N, return a function that given a list ys computes
