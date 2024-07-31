@@ -36,16 +36,6 @@
 
 (def fq-test
   (test-suite "test suite for clan/poo/fq"
-    (test-case "test vector-andmap utility"
-      (check (vector-andmap false) => #t)
-      (check (vector-andmap odd? #(1 3 5 9 13)) => #t)
-      (check (vector-andmap odd? #(1 3 8)) => #f)
-      (check (vector-andmap = #(1 3 8) #(1 3 8)) => #t)
-      (check (vector-andmap = #(1 3 8) #(1 5 8)) => #f))
-    (test-case "test mul-expt<-mul"
-      (check (mul-expt<-mul + 5 10 7) => 75)
-      (check (mul-expt<-mul * 42 42 22) => (expt 42 23))
-      (check (mul-expt<-mul * 42 42 22 8) => (expt 42 23)))
     (test-case "simple tests for F_2^8"
       (f2check (F_2^8 <-n n<- + * inv expt)
         (check (+ #x57 0) => #x57)

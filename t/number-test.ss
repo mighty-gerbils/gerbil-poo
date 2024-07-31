@@ -29,4 +29,8 @@
        (for/collect (i (iota 3))
          (for/collect (j (iota 2 1))
            (.call Z/3Z .div i j)))
-       => [[0 0][1 2][2 1]]))))
+       => [[0 0][1 2][2 1]]))
+    (test-case "test mul-expt<-mul"
+      (check (mul-expt<-mul + 5 10 7) => 75)
+      (check (mul-expt<-mul * 42 42 22) => (expt 42 23))
+      (check (mul-expt<-mul * 42 42 22 8) => (expt 42 23)))))
