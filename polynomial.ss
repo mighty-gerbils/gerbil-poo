@@ -11,7 +11,7 @@
   :clan/base
   :std/debug/DBG
   (only-in :std/srfi/133 vector-map vector-index-right)
-  ./object ./mop ./brace ./number ./type ./zn)
+  ./object ./mop ./brace ./number ./type)
 
 (defrule (let0 (x init) body ...) (let ((x init)) body ... x))
 

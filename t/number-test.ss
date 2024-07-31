@@ -9,7 +9,7 @@
   :std/srfi/13
   :std/sugar :std/test
   :clan/assert :clan/base :clan/debug
-  ../object ../mop ../number ../type ../brace ../zn)
+  ../object ../mop ../number ../type ../brace)
 
 (def number-test
   (test-suite "test suite for clan/poo/number"
