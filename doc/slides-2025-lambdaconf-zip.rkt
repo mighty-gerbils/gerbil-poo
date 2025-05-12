@@ -80,10 +80,10 @@ This document is available under the bugroff license.
         @L{Merkle Proofs: Certifying partial data structures})
      ($slide "Merkle Proofs Illustrated"
         @L{How to exhibit a substructure from a committed hash?}
-        @L{< Insert Diagram >}) ;; Binary Tree example. from GNUtella
+        @C{< Insert Diagram >}) ;; Binary Tree example. from GNUtella
      ($slide "Zippers to the Rescue!"
         @L{How to represent focusing on a subtree?}
-        @L{< Insert Diagram >})
+        @C{< Insert Diagram >})
      ($slide "From Cool Hack to Systematic Technique"
         @L{Huet 1997: Cool Hack}
         @L{McBride 2001: Systematizing it}
@@ -101,20 +101,21 @@ This document is available under the bugroff license.
         @L{Variables: quantify over any category of objects}
         @L{Infinite types: unlike numbers} ;; what are morphism? not going to elaborate on that
         @L{Exponential: b ⟶ a = a ⟵ b = aᵇ}) ;; total function types
-     ($slide "Inductive Data Types"
-        @L{Simplest Pure Recursive Data Types}
+     ($slide "Simplest Infinite Data Types"
+        @L{(Pure) Inductive Data Types}
         @L{Least Fixed Point µ(P)}
         @L{P(µ(P)) = µ(P)}
-        @L{µ(P) = min{f | P(f) = f}} @; | }}
-        )
+        @L{µ(P) = min{f | P(f) = f}}) @; | }})
      ($slide "Example: Lists"
-        @L{P(a) = x ↦ 1+a×x}
-        @L{List(a) = µ(P(a)) = 1+a×List(a)}
-        @L{< insert diagram >})
+        @L{List(a) = 1 + a×List(a)}
+        @L{P(a) = x ↦ 1 + a×x}
+        @L{List(a) = µ(P(a))}
+        @C{< Insert Diagram >})
      ($slide "Example: Binary Trees"
+        @L{BinaryTree(a,b) = a + b×BinaryTree(a,b)×BinaryTree(a,b)}
         @L{Q(a,b) = x ↦ a+b×x×x}
         @L{BinaryTree(a,b) = µ(Q(a,b))} ;; Infinite types!
-        @L{< insert diagram >})
+        @C{< Insert Diagram >})
      ($slide "Algebra: Thinking in Structures"
         @L{Two levels: sets, elements}
         @L{Elements are interchangeable, sets are not} ;; "up to isomorphism". In a ring, not all elements interchangeable
@@ -126,27 +127,27 @@ This document is available under the bugroff license.
         @L{P(X) = sum of product, choice between records}
         @L{∂Y/∂X = type of holes of type X in Y}
         @L{Zipper Context, (Zipper) Path}
-        @L{< insert diagram >})
+        @C{< Insert Diagram >})
      ($slide "Usual Differentiation for Polynomials!"
         @L{P(X) = ∑ aₙXⁿ}
         @L{P'(X) = ∑ n aₙ Xⁿ⁻¹}
-        @L{< insert diagram >})
+        @C{< Insert Diagram >})
      ($slide "What of Inductive Data Types?"
-        @L{< insert diagram >})
+        @C{< Insert Diagram >})
      ($slide "Inductive Types Constructively"
         @L{µ(P) = min{f | P(f) = f}} @; | }}
         @L{M(P)(T) = lim Pⁿ(T)}
         @L{µ(P) = M(P)(0)}
         @L{M(P)'(T) = ∂M(P)(X)/∂X (T) = List(P'(T))}
-        @L{< insert diagrams >})
+        @C{< Insert Diagrams >})
      ($slide "Zippers"
         @L{T=µ(P)=M(P)(0)}
         @L{zipPath(T) = M(P)'(T) = List(P'(T))}
         @L{zipper(T) = T × zipPath(T) = T × List(P'(T))}
-        @L{< insert diagrams >})
+        @C{< Insert Diagrams >})
      ($slide "Reified Optics"
         @L{zipPath = negative-focus lens as data}
-        @L{< insert diagram >}))
+        @C{< Insert Diagram >}))
     ($section "Benefits of Zippers"
      $plan-slide
      ($slide "Faster"
