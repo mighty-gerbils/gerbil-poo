@@ -72,11 +72,11 @@ This document is available under the bugroff license.
         @L{Use zippers for speed, simplicity or merkleization}
         @L{Every data structure could/should come with autozippers}
         @L{Today advanced maths, tomorrow table stakes}
-        @L{FP, Algebra, Calculus, Metaprogramming, OO reinforce each other})
+        @L{Synergy: FP, Algebra, Calculus, Metaprogramming, OO…})
      ($slide "Merkleization"
         @L{Assume 1-way hash function}
         @L{Use hashes as pointers into immutable nodes of a DAG}
-        @L{git. Content-Addressed Storage. Deduplication. P2P networks. Timestamping. Blockchains.}
+        @L{git. Content-Addressed Storage. Deduplication. @br P2P networks. Timestamping. Blockchains.}
         @L{Merkle Proofs: Certifying partial data structures})
      ($slide "Merkle Proofs Illustrated"
         @L{How to exhibit a substructure from a committed hash?}
@@ -131,6 +131,8 @@ This document is available under the bugroff license.
         @L{P(X) = ∑ aₙXⁿ}
         @L{P'(X) = ∑ n aₙ Xⁿ⁻¹}
         @L{< insert diagram >})
+     ($slide "What of Inductive Data Types?"
+        @L{< insert diagram >})
      ($slide "Inductive Types Constructively"
         @L{µ(P) = min{f | P(f) = f}} @; | }}
         @L{M(P)(T) = lim Pⁿ(T)}
@@ -154,14 +156,17 @@ This document is available under the bugroff license.
         @L{@em{Dynamically} discover locality})
      ($slide "Simpler"
         @L{10x less code than Ethereum's Tries in Go}
-        @L{More features: merkleization, sequential access, binary methods...}
+        @L{2x features: incremental access, sequential access, @br
+                        binary methods, merkleization…}
         @L{Don't write the code twice}
         @L{Adopt Zippers vs nodes as primary data structure?})
      ($slide "Merkleization in 2 lines of code"
-        @L{@code{getMerkleProof k t = zipperOf t >>= refocus k >>= @brii
-                   zipPath -. fmap digest -. return
-                 }}
-        @L{… composable for nested data structure})
+        @L{T=µ(P)}
+        @L{ZipPath=List(P'(T))}
+        @L{Proof=List(P'(H))}
+        @L{@code{getMerkleProof k t = zipperOf t >>= refocus k @brii
+                    >>= zipPath -. fmap digest -. return
+                 }})
      ($slide "Composable, Reified"
         @L{Part of Optics}
         @L{Reified as Data, not just Opaque Functions}
@@ -173,32 +178,36 @@ This document is available under the bugroff license.
         @L{But: Differentiation is a global property of data type}
         @L{Can be plugged by hand at the end in a parameter}
         @L{OO: incrementally refine your data type}
-        @C{“I object to doing things that computers can do” — Olin Shivers})
-     ($slide "Auto Zippers"
+        @C{“I object to doing things that computers can do” @br — Olin Shivers})
+     ($slide "Automatic Differentiation of Types"
         @L{Type-directed Metaprogramming}
         @L{Scheme: function on first-class type descriptors}
         @L{Haskell: possible, not easy}
-        @L{Automatic Differentiation: ad hoc support vs metaprogramming}))
+        @L{Ad hoc vs general purpose metaprogramming}))
     ($section "Conclusion: The Essence of LambdaConf"
      $plan-slide
      ($slide "Thesis (Recap)"
         @L{Use zippers for speed, simplicity or merkleization}
         @L{Every data structure could/should come with autozippers}
         @L{Today advanced maths, tomorrow table stakes}
-        @L{FP, Algebra, Calculus, Metaprogramming, OO reinforce each other})
+        @L{Synergy: FP, Algebra, Calculus, Metaprogramming, OO…})
      ($slide "My Most LambdaConf Talk"
         @L{2016: Orthogonal Persistence & Reflection}
-        @L{2017: Better Stories Better Languages. Software Evolutionism}
-        @L{2018: Blockchain & Game Semantics. First-Class Implementations}
+        @L{2017: Better Stories. Software Evolutionism}
+        @L{2018: DApps & Game Semantics. 1ˢᵗ-Class Implementations}
         @L{2019: Blockchain DApps in FP}
         @L{2024: Prototype OO Functionally}
         @L{2025: Orthogonal Persistence. Math for Programming})
+     ($slide "The Essence of LambdaConf"
+        @C{“The hacker: someone who figured things out @br
+                and made something cool happen.” @br
+                — Alan Schmitt})
      ($slide @list{Math is Practical}
-        @L{The Essence of LambdaConf}
-        @L{The Heart of @Url{https://SkyProtocol.org}}
+        @L{The Heart of @a[href: "https://SkyProtocol.org"]{SkyProtocol.org}}
         @L{@a[href: "https://github.com/mighty-gerbils/gerbil-poo/blob/master/doc/triezip.md"
                     ]{github.com/mighty-gerbils/gerbil-poo doc/triezip.md}}
-        @L{X: @Url{https://x.com/ngnghm} @Li{Blog: @Url{https://ngnghm.github.io}}}
+        @L{X: @Url{https://x.com/ngnghm}}
+        @L{Blog: @Url{https://ngnghm.github.io}}
         @C{@code{<fare@"@"mukn.com>}}))))
 
 (reveal-doc doc)
