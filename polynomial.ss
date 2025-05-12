@@ -159,3 +159,5 @@
                         (scale (Rinv y) P)))
                     xs X-xs)))
       (lambda (ys) (foldl add #() (map scale ys LL))))))
+
+

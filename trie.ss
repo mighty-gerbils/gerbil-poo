@@ -43,13 +43,14 @@
 (defstruct $Costep (height key) transparent: #t) ; height: (Or Height '(-1 #f)) key: Key
 (defstruct $Unstep (left right skip) transparent: #t) ;; left: (Fun trunk <- Key Height trunk branch) right: (Fun trunk <- Key Height branch trunk) skip: (Fun trunk <- Key Height Height Key trunk) ;; the first argument, key, only contains the high bits and must be shifted by 1+ the second argument Height, to get the full key for the first element of the trie node resulting from unstepping. ;; trunk is conceptually branch plus optional path-dependent information
 (defstruct $Path (costep steps) transparent: #t) ; costep: Costep steps: (List (Step t))
+(def ($Path-key path) ($Costep-key ($Path-costep path))) ;; key used in a path
 
 (define-type (Trie. @ [Wrap. methods.table] ;; @ <: (Wrap T)
        .validate ;; : @ <- Any
        .wrap ;; : (Wrap t) <- t
        .unwrap) ;; : t <- (Wrap t)
 
-  Wrapper: Identity
+  Wrapper: Identity ;; : Functor
 
   ;; The type of values stored in a Trie.
   ;; ... except that some binary methods deal with two different value types;
@@ -282,6 +283,7 @@
   (lambda (ta tb) (values (.ensure-height (.trie-height tb) ta)
                      (.ensure-height (.trie-height ta) tb)))
 
+
   ;; : Bool <- Any
   .validate:
   (lambda (t)
@@ -362,7 +364,7 @@
                    ((.empty? left) (.make-skip height 0 1 right))
                    (else (.branch height left right))))
 
-  ;; : (Fun @ <- Height Height Key @)
+  ;; : (Fun @ <- Height Height Key @) ;; height of the tree -1, height of the bits skipped - 1.
   .make-skip:
   (lambda (height bits-height bits child)
     (if (> 0 bits-height) child
@@ -703,7 +705,7 @@
                   ;; In practice we use 256-bit keys for Ethereum, which is borderline.
                   (bitwise-xor (arithmetic-shift k (1+ (or h -1)))
                                (arithmetic-shift k2 (1+ h2)))))))
-     ;; here, h >= common >= h2, so we must descend toward the sought focus
+     ;; here, common >= h >= h2 and we must descend toward the sought focus from a higher prefix node
      (nest
       (def (descend t h s))
       (if (.empty? t) (cons .empty ($Path costep (.make-skip-step (- h h2 1) s)))) ;; easiest case: done
@@ -723,12 +725,12 @@
              (node-bits (extract-bit-field comparable-length (- floor-height child-height) bits))
              (diff-length (integer-length (bitwise-xor key-bits node-bits)))))
       (if (zero? diff-length) ;; Not so hard: if it was the same key all the way that matters.
-        (d (.make-skip h (- bits-height comparable-length)
+        (d (.make-skip floor-height (- bits-height comparable-length)
                        (extract-bit-field (- length comparable-length) 0 bits) child)
            floor-height
            (.make-skip-step (1- comparable-length) s)))
       (let* ((same-length (- comparable-length diff-length))
-             (branch-node-height (- h same-length)) ;; height of the branch node if different
+             (branch-node-height (- h same-length)) ;; height right below which the keys differ
              (branch-height (1- branch-node-height)) ;; height of the two new branches
              (old-branch-length (- branch-height child-height))
              (old-branch (if (positive? old-branch-length)

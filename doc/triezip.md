@@ -1,4 +1,4 @@
-# Don't Zip it All Up!
+# Don't Zip It All The Way Up!
 
 Or, why and how to partially zip up and down a trie for fun and profit.
 We use Huet's familiar
@@ -33,7 +33,7 @@ sometimes because there is no widely accepted terminology, other times because
 what terms may be widely used can be ambiguous or confusing,
 such as the word “context” itself which in context
 can be either very clear or very vague
-(and so for instance we call `Path` was Huet calls `Context`).
+(and so for instance we call `Path` what Huet calls `Context`).
 
 ## Tries
 
@@ -45,7 +45,7 @@ as a full binary tree of a given height,
 where some nodes are marked as omitted (or `Empty`),
 signifying no mapping for the omitted keys.
 A good article about them is
-[Fast Mergable Integer Maps](http://www.eecs.usma.edu/webs/people/okasaki/ml98maps.ps)
+[Fast Mergable Integer Maps](https://ku-fpg.github.io/papers/Okasaki-98-IntMap/)
 by Chris Okasaki & Andrew Gill, 1998.
 
 Tries have many advantages:
@@ -139,7 +139,8 @@ to define another alternative kind of node,
 replacing any series of consecutive `Branch`es where one arm is `Empty`.
 Then, `Empty` is forbidden anywhere but at the top, and
 the number of nodes in the tree remains proportional to the number of leaves,
-when, without this optimization, it would increase with the height of the tree,
+when, without an optimization such as this one,
+it would increase with the height of the tree,
 which grows logarithmically with the greatest index in the tree.
 This optimization is largely orthogonal to the rest of this discussion,
 so I will simplify it away in most of this write-up.
