@@ -49,19 +49,23 @@
 (define-type (Wrapper. @ []
        .ap ;; : (Wrap t) <- t
        .unap) ;; : t <- (Wrap t)
-  .bind: (lambda (x f) (f (.unap x))) ;; : u <- (Wrap t) (u <- t)
-  .map: (lambda (f x) (.ap (f (.unap x))))) ;; : (Wrap u) <- (u <- t) (Wrap t)
+  .bind: (lambda (x f) (f (.unap x))) ;; : (Wrap t) <- (Wrap u) ((Wrap t) <- u)
+  .map: (lambda (f x) (.ap (f (.unap x))))) ;; : (Wrap t) <- (t <- u) (Wrap u)
 
-(define-type (Wrap. @ [methods.io<-wrap]
-       T ;; : Type.
-       Wrapper) ;; : Functor.
+(define-type (Wrap. @ [methods.io<-wrap Type.] ;; type of wrapped item
+       T ;; : Type. ;; unwrapped
+       Wrapper ;; : Functor. ;; @ = (Wrapper T)
+       .wrap?) ;; : Bool <- Any
+  .element?: (lambda (x) (and (.wrap? x) (.call T .element? (.unwrap x))))
   .wrap: (.@ Wrapper .ap)
   .unwrap: (.@ Wrapper .unap)
   .bind/wrap: (.@ Wrapper .bind)
   .map/wrap: (.@ Wrapper .map))
 
-(define-type (IdWrap @ Wrap.)
-  Wrapper: Identity)
+;; TODO: pass-through methods for marshalling, etc.
+(define-type (IdWrap @ Wrap. T)
+  Wrapper: Identity
+  )
 
 ;; Dependent variant of Functor, taking explicit type parameters at runtime
 (define-type (Functor^. @ []

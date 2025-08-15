@@ -133,7 +133,7 @@
   .type: Type
   ;; NB: either `validate` or `element?` can be primary, with the other method deduced from it.
   ;; But if you fail to override either, it's bottomless mutual recursion calling them.
-  .element?: ;; : Bool <- Any ;; is this an element of this type?
+  .element?: ;; : GeneralizedBool <- Any ;; is this an element of this type? -- #f or maybe useful data
   (lambda (x) (try (.validate x) #t (catch (_) #f)))
   .validate: ;; : @ <- Any ?(List Any) ;; identity for an @, throws a type-error if input isn't a @
   (lambda (x) (if (.element? x) x (raise-type-error (TV Type @) x))))

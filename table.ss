@@ -249,3 +249,19 @@
   .compare: (lambda (a b) (.call Table .compare (lambda (_1 _2) 0) a b)) ;; : : Integer <- @ @
   .=?: (lambda (a b) (.call Table .=? a b)) ;; : Bool <- @ @
   .lens: (lambda (e) {get: (lambda (t) (.elt? t e)) set: (lambda (t v) (if v (.cons e t) (.remove t e)))})) ;; : (Lens Bool <- @) <- Elt
+
+
+(define-type (PreZipping. @ [Type.]
+  ;; StepF :: Type <- Type
+  ;; PathF :: Type <- Type
+  .path-step ;; (OrFalse (Pair (StepF a) (PathF a))) <- (PathF a)
+  .step-down)) ;; (PathF a) <- (StepF a) (PathF a)
+
+(define-type (Zipping. @ [PreZipping.]
+  ;; Zipper = (Pair Node (PathF Node))
+  .zipper<- ;; Zipper <- T
+  .<-top-zipper ;; T <- Zipper
+  .stepUp)) ;; node <- (StepF Node) Node
+
+(define-type (FocusableZipping. @ [Zipping.]
+  .refocus)) ;; Zipper <- FocusKey Zipper
