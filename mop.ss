@@ -28,7 +28,8 @@
            NoApplicableMethod?
            .alist object<-alist
            $constant-slot-spec $computed-slot-spec)
-  (only-in ./brace @method @@method))
+  (prefix-in (only-in :gerbil/core @method) @)
+  (only-in ./brace @method))
 
 ;; * Options
 ;; default: default value when no method is defined, also bottom value for fixed-point

@@ -4,7 +4,7 @@
 (export @method @@method)
 
 (import
-  (prefix-in (only-in :gerbil/core/mop @method) @)
+  (prefix-in (only-in :gerbil/core @method) @)
   (only-in ./object .o .o/ctx))
 
 ;; {args ...} -> (@method args ...) -> (.o args ...)
