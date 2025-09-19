@@ -769,7 +769,7 @@
   ;; Given (the data of) a skip node, and a height at which to cut it (at least 0,
   ;; and no more than the skip node's bits-height), return the two notionally
   ;; equivalent branches (one of them empty) of the lower part of the cut.
-  ;; : @ <- Key (Fun (Option Value) <- (Option Value)) @
+  ;; : @ @ <- Height Height Key @ Height
   .skip-choice:
   (lambda (height bits-height bits child cut-height)
     (let* ((h (- height (- bits-height cut-height) 1))
@@ -785,7 +785,7 @@
   ;;      leaf: o <- Key a b ;; Result from recursing over two leaf nodes at given key with given contents
   ;;      branch: o <- Key Height o o ;; recursing down two branches from given node at specified height,
   ;;                                  ;; given results for left and right tries (NOT a and b).
-  ;;      skip: o <- Key o Height Height Key ;; result from simultaneously skipping some key fragment
+  ;;      skip: o <- Key Height Height Key o ;; result from simultaneously skipping some key fragment
   ;;                                         ;; on both tries
   ;;      onlya: o <- Key @[a/Value] ;; Result given that a node is only explicitly present in the a trie.
   ;;      onlyb: o <- Key @[b/Value]) ;; Result given that a node is only explicitly present in the b trie.
@@ -814,7 +814,7 @@
                 (ca1 (.make-skip (1- h) bh1 bits ca)))
            (if (bit-set? bits-height bits)
              (left-to-right branch k h (onlyb k lb) (recurse r rk ca1 rb))
-             (left-to-right branch k h (recurse r k lb ca1) (onlyb rk rb)))))
+             (left-to-right branch k h (recurse r k ca1 lb) (onlyb rk rb)))))
         ((cons (Skip h abits-height abits achild) (Skip _ bbits-height bbits bchild))
          (let* ((bits-height (min abits-height bbits-height))
                 (length (1+ bits-height))
